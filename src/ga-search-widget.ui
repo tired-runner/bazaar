@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="GaSearchWidget" parent="AdwBin">
+    <property name="child">
+      <object class="GtkBox">
+        <style>
+          <class name="view"/>
+        </style>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkBox">
+            <property name="css-name">search</property>
+            <property name="orientation">horizontal</property>
+            <child>
+              <object class="GtkImage">
+                <property name="icon-name">edit-find-symbolic</property>
+                <property name="pixel-size">24</property>
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkText" id="search_bar">
+                <property name="hexpand">TRUE</property>
+                <property name="placeholder-text" translatable="yes">Type to filter</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="search_text"/>
+            </child>
+            <child>
+              <object class="AdwSpinner" id="sheet_spinner">
+                <property name="visible">FALSE</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton">
+                <property name="icon-name">window-close-symbolic</property>
+                <property name="tooltip-text">Close Miniwindow</property>
+                <property name="valign">center</property>
+                <property name="action-name">sheet.close</property>
+                <style>
+                  <class name="close"/>
+                  <class name="circular"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="width-request">400</property>
+            <property name="height-request">500</property>
+            <property name="overflow">hidden</property>
+            <property name="vexpand">TRUE</property>
+            <property name="hscrollbar-policy">never</property>
+            <property name="child">
+              <object class="GtkListView" id="list_view">
+                <style>
+                  <class name="navigation-sidebar"/>
+                </style>
+                <property name="factory">
+                  <object class="GtkBuilderListItemFactory">
+                    <property name="bytes"><![CDATA[
+                    <?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="child">
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="margin-top">3</property>
+        <property name="margin-bottom">3</property>
+        <property name="margin-start">9</property>
+        <property name="margin-end">6</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="hexpand">true</property>
+            <property name="xalign">0</property>
+            <property name="ellipsize">end</property>
+            <property name="single-line-mode">true</property>
+            <binding name="label">
+              <lookup name="name" type="FlatpakRef">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
+          </object>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwBanner" id="search_banner"/>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>

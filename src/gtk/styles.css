@@ -1,0 +1,33 @@
+.global-search search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.global-search search > image {
+    padding: 2px;
+    min-width: 24px;
+    min-height: 24px;
+    margin-right: 6px;
+}
+.global-search search > label {
+    font-size: 1.33333em;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+.global-search search > text {
+    font-size: 1.33333em;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+.global-search search > text placeholder {
+    opacity: 0.55;
+}
+.global-search search > button.close {
+    padding: 2px;
+    min-width: 24px;
+    min-height: 24px;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+.global-search .preview-bin {
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 25%, transparent);
+}

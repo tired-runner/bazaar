@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="GaWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">Gnome Apps Next</property>
+    <property name="default-width">1000</property>
+    <property name="default-height">800</property>
+    <property name="width-request">400</property>
+    <property name="height-request">600</property>
+    <property name="content">
+      <object class="AdwBottomSheet" id="sheet">
+        <property name="bottom-bar">
+          <object class="GtkBox">
+            <property name="height-request">50</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">5</property>
+            <property name="margin-top">5</property>
+            <property name="margin-bottom">5</property>
+            <child>
+              <object class="GtkCenterBox">
+                <property name="orientation">horizontal</property>
+                <property name="vexpand">TRUE</property>
+                <property name="center-widget">
+                  <object class="GtkLabel" id="progress_label">
+                    <style>
+                      <class name="monospace"/>
+                      <class name="dim-label"/>
+                    </style>
+                    <property name="vexpand">TRUE</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCenterBox">
+                <property name="orientation">horizontal</property>
+                <property name="vexpand">TRUE</property>
+                <property name="center-widget">
+                  <object class="GtkBox">
+                    <property name="orientation">vertical</property>
+                    <child>
+                      <object class="GtkProgressBar" id="progress_bar">
+                        <property name="visible">FALSE</property>
+                        <property name="vexpand">TRUE</property>
+                        <property name="width-request">250</property>
+                        <property name="pulse-step">0.01</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwSpinner" id="progress_spinner">
+                        <property name="visible">FALSE</property>
+                        <property name="vexpand">TRUE</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </property>
+        <property name="sheet">
+          <object class="GtkLabel">
+            <style>
+              <class name="title-1"/>
+            </style>
+            <property name="margin-top">70</property>
+            <property name="margin-bottom">70</property>
+            <property name="hexpand">TRUE</property>
+            <property name="vexpand">TRUE</property>
+            <property name="label">Downloads Will Appear Here</property>
+          </object>
+        </property>
+        <property name="content">
+          <object class="GtkOverlay">
+            <property name="child">
+              <object class="GaBackground" id="background">
+              </object>
+            </property>
+            <child type="overlay">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <child type="start">
+                      <object class="GtkButton" id="refresh">
+                        <property name="icon-name">view-refresh-symbolic</property>
+                      </object>
+                    </child>
+                    <child type="start">
+                      <object class="GtkButton" id="search">
+                        <property name="icon-name">system-search-symbolic</property>
+                      </object>
+                    </child>
+                    <child type="end">
+                      <object class="GtkMenuButton">
+                        <property name="primary">True</property>
+                        <property name="icon-name">open-menu-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Main Menu</property>
+                        <property name="menu-model">primary_menu</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="AdwToastOverlay" id="toasts">
+                    <property name="margin-bottom"
+                              bind-source="sheet"
+                              bind-property="bottom-bar-height"
+                              bind-flags="sync-create"/>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <child>
+                          <object class="AdwSpinner" id="spinner">
+                            <property name="hexpand">TRUE</property>
+                            <property name="vexpand">TRUE</property>
+                            <property name="visible">FALSE</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="label">
+                            <style>
+                              <class name="title-1"/>
+                            </style>
+                            <property name="hexpand">TRUE</property>
+                            <property name="vexpand">TRUE</property>
+                            <property name="visible">TRUE</property>
+                            <property name="label">Placeholder</property>
+                            <property name="wrap">TRUE</property>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+  <menu id="primary_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Preferences</attribute>
+        <attribute name="action">app.preferences</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
+        <attribute name="action">win.show-help-overlay</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_About Gnome-apps-next</attribute>
+        <attribute name="action">app.about</attribute>
+      </item>
+    </section>
+  </menu>
+</interface>
