@@ -39,6 +39,12 @@ ga_entry_get_title (GaEntry *self);
 const char *
 ga_entry_get_description (GaEntry *self);
 
+guint64
+ga_entry_get_size (GaEntry *self);
+
+GdkPaintable *
+ga_entry_get_icon_paintable (GaEntry *self);
+
 GPtrArray *
 ga_entry_get_search_tokens (GaEntry *self);
 

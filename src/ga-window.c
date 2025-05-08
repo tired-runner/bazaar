@@ -20,9 +20,6 @@
 
 #include "config.h"
 
-/* TODO: get rid of this */
-#include <flatpak.h>
-
 #include "ga-background.h"
 #include "ga-flatpak-instance.h"
 #include "ga-search-widget.h"
@@ -67,9 +64,6 @@ refresh_then (DexFuture *future,
 static DexFuture *
 fetch_refs_then (DexFuture *future,
                  GaWindow  *self);
-static DexFuture *
-list_refs_then (DexFuture *future,
-                GaWindow  *self);
 static DexFuture *
 refresh_catch (DexFuture *future,
                GaWindow  *self);
@@ -196,16 +190,10 @@ refresh_then (DexFuture *future,
 {
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
-  DexFuture    *installed_future = NULL;
   DexFuture    *remote_future    = NULL;
 
   value         = dex_future_get_value (future, &local_error);
   self->flatpak = g_value_dup_object (value);
-
-  installed_future = ga_flatpak_instance_ref_installed_apps (self->flatpak);
-  installed_future = dex_future_then (
-      installed_future, (DexFutureCallback) list_refs_then,
-      g_object_ref (self), g_object_unref);
 
   remote_future = ga_flatpak_instance_ref_remote_apps (
       self->flatpak,
@@ -215,64 +203,46 @@ refresh_then (DexFuture *future,
       remote_future, (DexFutureCallback) fetch_refs_then,
       g_object_ref (self), g_object_unref);
 
-  return dex_future_all (installed_future, remote_future, NULL);
-}
-
-static DexFuture *
-list_refs_then (DexFuture *future,
-                GaWindow  *self)
-{
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  guint         n_refs           = 0;
-  g_autoptr (GListStore) icons   = NULL;
-  GtkIconTheme *theme            = NULL;
-  g_autoptr (GHashTable) set     = NULL;
-
-  value           = dex_future_get_value (future, &local_error);
-  self->installed = g_value_dup_object (value);
-
-  n_refs = g_list_model_get_n_items (G_LIST_MODEL (self->installed));
-
-  icons = g_list_store_new (G_TYPE_ICON);
-  theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
-  set   = g_hash_table_new (g_direct_hash, g_direct_equal);
-
-  for (guint found = 0; found < MIN (25, n_refs); found++)
-    {
-      guint i                    = 0;
-      g_autoptr (FlatpakRef) ref = NULL;
-      g_autoptr (GIcon) icon     = NULL;
-
-      i = g_random_int_range (0, n_refs);
-      if (g_hash_table_contains (set, GUINT_TO_POINTER (i)))
-        continue;
-
-      ref  = g_list_model_get_item (G_LIST_MODEL (self->installed), i);
-      icon = g_icon_new_for_string (flatpak_ref_get_name (ref), NULL);
-
-      if (icon != NULL && gtk_icon_theme_has_gicon (theme, icon))
-        {
-          g_list_store_append (icons, icon);
-          g_hash_table_add (set, GUINT_TO_POINTER (i));
-        }
-    }
-  ga_background_set_icons (self->background, G_LIST_MODEL (icons));
-
-  return dex_future_new_true ();
+  return remote_future;
 }
 
 static DexFuture *
 fetch_refs_then (DexFuture *future,
                  GaWindow  *self)
 {
-  guint n_refs = 0;
+  guint n_entries                   = 0;
+  g_autoptr (GListStore) bg_entries = NULL;
+  g_autoptr (GHashTable) set        = NULL;
 
-  n_refs = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
+  n_entries  = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
+  bg_entries = g_list_store_new (GA_TYPE_ENTRY);
+  set        = g_hash_table_new (g_direct_hash, g_direct_equal);
+
+  for (guint safe = 0, found = 0;
+       safe < 1000 && found < MIN (50, n_entries);
+       safe++)
+    {
+      guint i                   = 0;
+      g_autoptr (GaEntry) entry = NULL;
+
+      i = g_random_int_range (0, n_entries);
+      if (g_hash_table_contains (set, GUINT_TO_POINTER (i)))
+        continue;
+
+      entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
+      if (ga_entry_get_icon_paintable (entry) == NULL)
+        continue;
+
+      g_list_store_append (bg_entries, entry);
+      g_hash_table_add (set, GUINT_TO_POINTER (i));
+      found++;
+    }
+
+  ga_background_set_entries (self->background, G_LIST_MODEL (bg_entries));
 
   adw_toast_overlay_add_toast (
       self->toasts,
-      adw_toast_new_format ("Discovered %d Apps", n_refs));
+      adw_toast_new_format ("Discovered %d Apps", n_entries));
 
   return dex_future_new_true ();
 }

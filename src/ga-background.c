@@ -23,6 +23,7 @@
 #include <adwaita.h>
 
 #include "ga-background.h"
+#include "ga-entry.h"
 #include "ga-util.h"
 
 struct _GaBackground
@@ -31,7 +32,7 @@ struct _GaBackground
 
   guint       timeout;
   GTimer     *timer;
-  GListModel *icons;
+  GListModel *entries;
   GPtrArray  *instances;
   GArray     *sorted_instances;
 
@@ -48,7 +49,7 @@ enum
 {
   PROP_0,
 
-  PROP_ICONS,
+  PROP_ENTRIES,
   PROP_MOTION_CONTROLLER,
 
   LAST_PROP
@@ -93,11 +94,11 @@ ga_background_snapshot (GtkWidget   *widget,
                         GtkSnapshot *snapshot);
 
 static void
-icons_changed (GListModel   *icons,
-               guint         position,
-               guint         removed,
-               guint         added,
-               GaBackground *self);
+entries_changed (GListModel   *entries,
+                 guint         position,
+                 guint         removed,
+                 guint         added,
+                 GaBackground *self);
 
 static gboolean
 tick_timeout (GaBackground *self);
@@ -134,9 +135,9 @@ ga_background_dispose (GObject *object)
 {
   GaBackground *self = GA_BACKGROUND (object);
 
-  if (self->icons != NULL)
+  if (self->entries != NULL)
     g_signal_handlers_disconnect_by_func (
-        self->icons, icons_changed, self);
+        self->entries, entries_changed, self);
 
   if (self->motion_controller != NULL)
     {
@@ -150,7 +151,7 @@ ga_background_dispose (GObject *object)
 
   g_clear_handle_id (&self->timeout, g_source_remove);
   g_clear_pointer (&self->timer, g_timer_destroy);
-  g_clear_object (&self->icons);
+  g_clear_object (&self->entries);
   g_clear_pointer (&self->instances, g_ptr_array_unref);
   g_clear_object (&self->motion_controller);
 
@@ -167,11 +168,11 @@ ga_background_get_property (GObject    *object,
 
   switch (prop_id)
     {
-    case PROP_ICONS:
-      g_value_set_object (value, ga_background_get_icons (self));
+    case PROP_ENTRIES:
+      g_value_set_object (value, ga_background_get_entries (self));
       break;
     case PROP_MOTION_CONTROLLER:
-      g_value_set_object (value, ga_background_get_icons (self));
+      g_value_set_object (value, ga_background_get_entries (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -188,8 +189,8 @@ ga_background_set_property (GObject      *object,
 
   switch (prop_id)
     {
-    case PROP_ICONS:
-      ga_background_set_icons (self, g_value_get_object (value));
+    case PROP_ENTRIES:
+      ga_background_set_entries (self, g_value_get_object (value));
       break;
     case PROP_MOTION_CONTROLLER:
       ga_background_set_motion_controller (self, g_value_get_object (value));
@@ -209,9 +210,9 @@ ga_background_class_init (GaBackgroundClass *klass)
   object_class->get_property = ga_background_get_property;
   object_class->set_property = ga_background_set_property;
 
-  props[PROP_ICONS] =
+  props[PROP_ENTRIES] =
       g_param_spec_object (
-          "icons",
+          "entries",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
@@ -342,29 +343,30 @@ ga_background_new (void)
 }
 
 void
-ga_background_set_icons (GaBackground *self,
-                         GListModel   *icons)
+ga_background_set_entries (GaBackground *self,
+                           GListModel   *entries)
 {
   g_return_if_fail (GA_IS_BACKGROUND (self));
-  g_return_if_fail (G_IS_LIST_MODEL (icons));
+  g_return_if_fail (G_IS_LIST_MODEL (entries));
+  g_return_if_fail (g_list_model_get_item_type (entries) == GA_TYPE_ENTRY);
 
-  if (self->icons != NULL)
+  if (self->entries != NULL)
     g_signal_handlers_disconnect_by_func (
-        self->icons, icons_changed, self);
-  g_clear_object (&self->icons);
-  self->icons = icons != NULL ? g_object_ref (icons) : NULL;
-  if (self->icons != NULL)
-    g_signal_connect (self->icons, "items-changed",
-                      G_CALLBACK (icons_changed), self);
+        self->entries, entries_changed, self);
+  g_clear_object (&self->entries);
+  self->entries = entries != NULL ? g_object_ref (entries) : NULL;
+  if (self->entries != NULL)
+    g_signal_connect (self->entries, "items-changed",
+                      G_CALLBACK (entries_changed), self);
 
   g_clear_pointer (&self->instances, g_ptr_array_unref);
-  if (self->icons != NULL)
+  if (self->entries != NULL)
     {
       self->instances = g_ptr_array_new_with_free_func (
           instance_data_unref);
-      icons_changed (
-          self->icons, 0, 0,
-          g_list_model_get_n_items (self->icons),
+      entries_changed (
+          self->entries, 0, 0,
+          g_list_model_get_n_items (self->entries),
           self);
     }
 
@@ -372,11 +374,11 @@ ga_background_set_icons (GaBackground *self,
 }
 
 GListModel *
-ga_background_get_icons (GaBackground *self)
+ga_background_get_entries (GaBackground *self)
 {
   g_return_val_if_fail (GA_IS_BACKGROUND (self), NULL);
 
-  return self->icons;
+  return self->entries;
 }
 
 void
@@ -417,40 +419,44 @@ ga_background_get_motion_controller (GaBackground *self)
 }
 
 static void
-icons_changed (GListModel   *icons,
-               guint         position,
-               guint         removed,
-               guint         added,
-               GaBackground *self)
+entries_changed (GListModel   *entries,
+                 guint         position,
+                 guint         removed,
+                 guint         added,
+                 GaBackground *self)
 {
   if (removed > 0)
     g_ptr_array_remove_range (self->instances, position, removed);
 
   if (added > 0)
     {
-      GtkIconTheme *theme   = NULL;
-      double        elapsed = 0.0;
+      double elapsed = 0.0;
 
-      theme   = gtk_icon_theme_get_for_display (gdk_display_get_default ());
       elapsed = g_timer_elapsed (self->timer, NULL);
 
       g_ptr_array_set_size (self->instances, self->instances->len + added);
       for (guint i = 0; i < added; i++)
         {
-          g_autoptr (GIcon) icon                 = NULL;
-          g_autoptr (GtkIconPaintable) paintable = NULL;
-          g_autoptr (GtkSnapshot) snapshot       = NULL;
-          g_autoptr (InstanceData) instance      = NULL;
+          g_autoptr (GaEntry) entry         = NULL;
+          GdkPaintable *paintable           = NULL;
+          int           width               = 0;
+          int           height              = 0;
+          g_autoptr (GtkSnapshot) snapshot  = NULL;
+          g_autoptr (InstanceData) instance = NULL;
 
-          icon      = g_list_model_get_item (icons, position + i);
-          paintable = gtk_icon_theme_lookup_by_gicon (
-              theme, icon, 256, 1, GTK_TEXT_DIR_NONE,
-              GTK_ICON_LOOKUP_FORCE_REGULAR);
+          entry     = g_list_model_get_item (entries, position + i);
+          paintable = ga_entry_get_icon_paintable (entry);
+          width     = gdk_paintable_get_intrinsic_width (paintable);
+          height    = gdk_paintable_get_intrinsic_height (paintable);
 
           snapshot = gtk_snapshot_new ();
           gtk_snapshot_save (snapshot);
-          gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT ((-256.0 / 2.0), -256.0 / 2.0));
-          gdk_paintable_snapshot (GDK_PAINTABLE (paintable), snapshot, 256, 256);
+          gtk_snapshot_translate (
+              snapshot,
+              &GRAPHENE_POINT_INIT (
+                  (-(double) width / 2.0),
+                  -(double) height / 2.0));
+          gdk_paintable_snapshot (GDK_PAINTABLE (paintable), snapshot, width, height);
           gtk_snapshot_restore (snapshot);
 
           instance          = instance_data_new ();

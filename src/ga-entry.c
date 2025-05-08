@@ -200,6 +200,28 @@ ga_entry_get_description (GaEntry *self)
   return priv->description;
 }
 
+guint64
+ga_entry_get_size (GaEntry *self)
+{
+  GaEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (GA_IS_ENTRY (self), 0);
+
+  priv = ga_entry_get_instance_private (self);
+  return priv->size;
+}
+
+GdkPaintable *
+ga_entry_get_icon_paintable (GaEntry *self)
+{
+  GaEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (GA_IS_ENTRY (self), 0);
+
+  priv = ga_entry_get_instance_private (self);
+  return priv->icon_paintable;
+}
+
 GPtrArray *
 ga_entry_get_search_tokens (GaEntry *self)
 {

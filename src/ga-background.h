@@ -31,11 +31,11 @@ GtkWidget *
 ga_background_new (void);
 
 void
-ga_background_set_icons (GaBackground *self,
-                         GListModel   *icons);
+ga_background_set_entries (GaBackground *self,
+                           GListModel   *entries);
 
 GListModel *
-ga_background_get_icons (GaBackground *self);
+ga_background_get_entries (GaBackground *self);
 
 void
 ga_background_set_motion_controller (GaBackground             *self,
