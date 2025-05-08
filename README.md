@@ -1,6 +1,6 @@
 # gnome-apps-next
 
-![Image](https://github.com/user-attachments/assets/9c1c91fd-fd6a-4ebd-8076-b1261c8f3c13)
+![Image](https://github.com/user-attachments/assets/75cb6702-05a0-41d0-9d99-d0ca772ab0d2)
 
 A new app store idea for GNOME. This is very much work-in-progress,
 and nothing about the current state of the project is final; I intend
