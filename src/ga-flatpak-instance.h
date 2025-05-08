@@ -20,8 +20,9 @@
 
 #pragma once
 
-#include <flatpak.h>
 #include <libdex.h>
+
+#include "ga-flatpak-entry.h"
 
 G_BEGIN_DECLS
 
@@ -34,8 +35,15 @@ ga_flatpak_instance_new (void);
 DexFuture *
 ga_flatpak_instance_ref_installed_apps (GaFlatpakInstance *self);
 
+typedef void (*GaFlatpakGatherEntriesFunc) (
+    GaEntry *entry,
+    gpointer user_data);
+
 DexFuture *
-ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance *self);
+ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
+                                     GaFlatpakGatherEntriesFunc progress_func,
+                                     gpointer                   user_data,
+                                     GDestroyNotify             destroy_user_data);
 
 typedef void (*GaFlatpakInstallProgressFunc) (
     const char *status,
@@ -47,7 +55,9 @@ typedef void (*GaFlatpakInstallProgressFunc) (
 
 DexFuture *
 ga_flatpak_instance_install (GaFlatpakInstance           *self,
-                             FlatpakRef                  *ref,
+                             GaFlatpakEntry              *entry,
                              GaFlatpakInstallProgressFunc progress_func,
                              gpointer                     user_data,
                              GDestroyNotify               destroy_user_data);
+
+G_END_DECLS

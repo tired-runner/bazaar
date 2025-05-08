@@ -5,6 +5,8 @@ ga_sources = [
   'ga-search-widget.c',
   'ga-background.c',
   'ga-flatpak-instance.c',
+  'ga-entry.c',
+  'ga-flatpak-entry.c',
 ]
 
 ga_deps = [
@@ -13,6 +15,8 @@ ga_deps = [
   dependency('libadwaita-1', version: '>= 1.4'),
   dependency('libdex-1', version: '>= 0.9'),
   dependency('flatpak', version: '>= 1.9'),
+  dependency('appstream', version : '>= 1.0'),
+  dependency('xmlb', version : '>= 0.3.4'),
 ]
 
 ga_sources += gnome.compile_resources('ga-resources',

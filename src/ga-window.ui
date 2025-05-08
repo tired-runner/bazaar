@@ -124,7 +124,7 @@
                             <property name="hexpand">TRUE</property>
                             <property name="vexpand">TRUE</property>
                             <property name="visible">TRUE</property>
-                            <property name="label">Placeholder</property>
+                            <property name="label">Welcome</property>
                             <property name="wrap">TRUE</property>
                           </object>
                         </child>

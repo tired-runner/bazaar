@@ -82,7 +82,7 @@
             <property name="ellipsize">end</property>
             <property name="single-line-mode">true</property>
             <binding name="label">
-              <lookup name="name" type="FlatpakRef">
+              <lookup name="title" type="GaEntry">
                 <lookup name="item">GtkListItem</lookup>
               </lookup>
             </binding>

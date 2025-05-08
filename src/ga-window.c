@@ -20,6 +20,9 @@
 
 #include "config.h"
 
+/* TODO: get rid of this */
+#include <flatpak.h>
+
 #include "ga-background.h"
 #include "ga-flatpak-instance.h"
 #include "ga-search-widget.h"
@@ -53,6 +56,10 @@ refresh_clicked (GtkButton *button,
 static void
 search_clicked (GtkButton *button,
                 GaWindow  *self);
+
+static void
+gather_entries_progress (GaEntry  *entry,
+                         GaWindow *self);
 
 static DexFuture *
 refresh_then (DexFuture *future,
@@ -90,14 +97,15 @@ static void
 refresh (GaWindow *self);
 
 static void
-install (GaWindow   *self,
-         FlatpakRef *ref);
+install (GaWindow *self,
+         GaEntry  *entry);
 
 static void
 ga_window_dispose (GObject *object)
 {
   GaWindow *self = GA_WINDOW (object);
 
+  g_clear_object (&self->installed);
   g_clear_object (&self->remote);
   g_clear_object (&self->flatpak);
 
@@ -130,6 +138,8 @@ static void
 ga_window_init (GaWindow *self)
 {
   GtkEventController *motion_controller = NULL;
+
+  self->remote = g_list_store_new (GA_TYPE_ENTRY);
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
@@ -170,6 +180,13 @@ search_clicked (GtkButton *button,
   adw_dialog_present (dialog, GTK_WIDGET (self));
 }
 
+static void
+gather_entries_progress (GaEntry  *entry,
+                         GaWindow *self)
+{
+  g_list_store_append (self->remote, entry);
+}
+
 static DexFuture *
 refresh_then (DexFuture *future,
               GaWindow  *self)
@@ -187,7 +204,10 @@ refresh_then (DexFuture *future,
       installed_future, (DexFutureCallback) list_refs_then,
       g_object_ref (self), g_object_unref);
 
-  remote_future = ga_flatpak_instance_ref_remote_apps (self->flatpak);
+  remote_future = ga_flatpak_instance_ref_remote_apps (
+      self->flatpak,
+      (GaFlatpakGatherEntriesFunc) gather_entries_progress,
+      g_object_ref (self), g_object_unref);
   remote_future = dex_future_then (
       remote_future, (DexFutureCallback) fetch_refs_then,
       g_object_ref (self), g_object_unref);
@@ -243,12 +263,7 @@ static DexFuture *
 fetch_refs_then (DexFuture *future,
                  GaWindow  *self)
 {
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  guint         n_refs           = 0;
-
-  value        = dex_future_get_value (future, &local_error);
-  self->remote = g_value_dup_object (value);
+  guint n_refs = 0;
 
   n_refs = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
 
@@ -339,12 +354,12 @@ search_selected_changed (GaSearchWidget *search,
                          GParamSpec     *pspec,
                          GaWindow       *self)
 {
-  FlatpakRef *ref    = NULL;
-  GtkWidget  *dialog = NULL;
+  GaEntry   *entry  = NULL;
+  GtkWidget *dialog = NULL;
 
-  ref = ga_search_widget_get_selected (search);
-  if (ref != NULL)
-    install (self, ref);
+  entry = ga_search_widget_get_selected (search);
+  if (entry != NULL)
+    install (self, entry);
 
   dialog = gtk_widget_get_ancestor (GTK_WIDGET (search), ADW_TYPE_DIALOG);
   if (dialog != NULL)
@@ -361,8 +376,9 @@ refresh (GaWindow *self)
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
 
+  g_clear_object (&self->installed);
+  g_list_store_remove_all (self->remote);
   g_clear_object (&self->flatpak);
-  g_clear_object (&self->remote);
 
   future = ga_flatpak_instance_new ();
   future = dex_future_then (
@@ -377,8 +393,8 @@ refresh (GaWindow *self)
 }
 
 static void
-install (GaWindow   *self,
-         FlatpakRef *ref)
+install (GaWindow *self,
+         GaEntry  *entry)
 {
   DexFuture *future = NULL;
 
@@ -391,7 +407,7 @@ install (GaWindow   *self,
 
   future = ga_flatpak_instance_install (
       self->flatpak,
-      ref,
+      GA_FLATPAK_ENTRY (entry),
       (GaFlatpakInstallProgressFunc) install_progress,
       g_object_ref (self),
       g_object_unref);

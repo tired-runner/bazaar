@@ -20,8 +20,7 @@
 
 #include "config.h"
 
-#include <flatpak.h>
-
+#include "ga-entry.h"
 #include "ga-search-widget.h"
 
 struct _GaSearchWidget
@@ -29,7 +28,7 @@ struct _GaSearchWidget
   AdwBin parent_instance;
 
   GListModel *model;
-  FlatpakRef *selected;
+  GaEntry    *selected;
 
   /* Template widgets */
   GtkText     *search_bar;
@@ -56,12 +55,12 @@ search_changed (GtkEditable    *editable,
                 GaSearchWidget *self);
 
 static gint
-cmp_item (FlatpakRef     *a,
-          FlatpakRef     *b,
+cmp_item (GaEntry        *a,
+          GaEntry        *b,
           GaSearchWidget *self);
 
 static int
-match (FlatpakRef     *item,
+match (GaEntry        *item,
        GaSearchWidget *self);
 
 static void
@@ -144,7 +143,7 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
       g_param_spec_object (
           "selected",
           NULL, NULL,
-          FLATPAK_TYPE_REF,
+          GA_TYPE_ENTRY,
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -159,11 +158,11 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
 static void
 ga_search_widget_init (GaSearchWidget *self)
 {
-  GtkCustomFilter    *custom_filter   = NULL;
-  GtkFilterListModel *filter_model    = NULL;
-  GtkCustomSorter    *custom_sorter   = NULL;
-  GtkSortListModel   *sort_model      = NULL;
-  GtkSelectionModel  *selection_model = NULL;
+  GtkCustomFilter    *custom_filter             = NULL;
+  GtkFilterListModel *filter_model              = NULL;
+  GtkCustomSorter    *custom_sorter             = NULL;
+  GtkSortListModel   *sort_model                = NULL;
+  g_autoptr (GtkSelectionModel) selection_model = NULL;
 
   gtk_widget_init_template (GTK_WIDGET (self));
   gtk_widget_add_css_class (GTK_WIDGET (self), "global-search");
@@ -238,8 +237,8 @@ search_changed (GtkEditable    *editable,
 }
 
 static gint
-cmp_item (FlatpakRef     *a,
-          FlatpakRef     *b,
+cmp_item (GaEntry        *a,
+          GaEntry        *b,
           GaSearchWidget *self)
 {
   /* Just setting this up for later */
@@ -247,22 +246,19 @@ cmp_item (FlatpakRef     *a,
 }
 
 static int
-match (FlatpakRef     *item,
+match (GaEntry        *item,
        GaSearchWidget *self)
 {
   const char *search_text = NULL;
-  const char *name        = NULL;
-  const char *commit      = NULL;
+  const char *title       = NULL;
 
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
   if (search_text == NULL)
     return 0;
 
-  name   = flatpak_ref_get_name (item);
-  commit = flatpak_ref_get_commit (item);
+  title = ga_entry_get_title (item);
 
-  return (g_str_match_string (search_text, name, TRUE) ||
-          g_str_match_string (search_text, commit, TRUE))
+  return (g_str_match_string (search_text, title, TRUE))
              ? 1
              : 0;
 }

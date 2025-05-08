@@ -22,7 +22,7 @@
 
 #include <flatpak.h>
 
-#include "ga-flatpak-instance.h"
+#include "ga-flatpak-private.h"
 #include "ga-util.h"
 
 struct _GaFlatpakInstance
@@ -54,24 +54,52 @@ ref_installed_apps_fiber (RefInstalledAppsData *data);
 GA_DEFINE_DATA (
     ref_remote_apps,
     RefRemoteApps,
-    { GaFlatpakInstance *fp; },
-    GA_RELEASE_DATA (fp, g_object_unref))
+    {
+      GaFlatpakInstance         *fp;
+      DexScheduler              *home_scheduler;
+      GaFlatpakGatherEntriesFunc progress_func;
+      gpointer                   user_data;
+      GDestroyNotify             destroy_user_data;
+    },
+    GA_RELEASE_DATA (fp, g_object_unref);
+    GA_RELEASE_DATA (home_scheduler, dex_unref);
+    GA_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
 ref_remote_apps_fiber (RefRemoteAppsData *data);
+
+GA_DEFINE_DATA (
+    ref_remote_apps_job,
+    RefRemoteAppsJob,
+    {
+      RefRemoteAppsData *parent;
+      FlatpakRemoteRef  *rref;
+    },
+    GA_RELEASE_DATA (parent, ref_remote_apps_data_unref);
+    GA_RELEASE_DATA (rref, g_object_unref));
+static DexFuture *
+ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
+
+typedef struct
+{
+  RefRemoteAppsJobData *parent;
+  GaEntry              *entry;
+} RefRemoteAppsJobUpdateData;
+static DexFuture *
+ref_remote_apps_job_update (RefRemoteAppsJobUpdateData *data);
 
 GA_DEFINE_DATA (
     install,
     Install,
     {
       GaFlatpakInstance           *fp;
-      FlatpakRef                  *ref;
+      GaFlatpakEntry              *entry;
       GaFlatpakInstallProgressFunc progress_func;
       gpointer                     user_data;
       GDestroyNotify               destroy_user_data;
       guint                        timeout_handle;
     },
     GA_RELEASE_DATA (fp, g_object_unref);
-    GA_RELEASE_DATA (ref, g_object_unref);
+    GA_RELEASE_DATA (entry, g_object_unref);
     GA_RELEASE_DATA (user_data, self->destroy_user_data);
     GA_RELEASE_UTAG (timeout_handle, g_source_remove))
 static DexFuture *
@@ -125,6 +153,14 @@ static void
 ga_flatpak_instance_init (GaFlatpakInstance *self)
 {
   self->scheduler = dex_thread_pool_scheduler_new ();
+}
+
+FlatpakInstallation *
+ga_flatpak_instance_get_installation (GaFlatpakInstance *self)
+{
+  g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
+
+  return self->installation;
 }
 
 DexFuture *
@@ -191,14 +227,22 @@ ref_installed_apps_fiber (RefInstalledAppsData *data)
 }
 
 DexFuture *
-ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance *self)
+ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
+                                     GaFlatpakGatherEntriesFunc progress_func,
+                                     gpointer                   user_data,
+                                     GDestroyNotify             destroy_user_data)
 {
   g_autoptr (RefRemoteAppsData) data = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
+  g_return_val_if_fail (progress_func != NULL, NULL);
 
-  data     = ref_remote_apps_data_new ();
-  data->fp = g_object_ref (self);
+  data                    = ref_remote_apps_data_new ();
+  data->fp                = g_object_ref (self);
+  data->home_scheduler    = dex_scheduler_ref_thread_default ();
+  data->progress_func     = progress_func;
+  data->user_data         = user_data;
+  data->destroy_user_data = destroy_user_data;
 
   return dex_scheduler_spawn (
       self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
@@ -211,22 +255,79 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
   GaFlatpakInstance *fp          = data->fp;
   g_autoptr (GError) local_error = NULL;
   g_autoptr (GPtrArray) refs     = NULL;
-  g_autoptr (GListStore) store   = NULL;
+  g_autofree DexFuture **jobs    = NULL;
+  DexFuture             *future  = NULL;
 
   refs = flatpak_installation_list_remote_refs_sync (
       fp->installation, "flathub", NULL, &local_error);
   if (refs == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  store = g_list_store_new (FLATPAK_TYPE_REF);
-  g_list_store_splice (store, 0, 0, refs->pdata, refs->len);
+  jobs = g_malloc0_n (refs->len, sizeof (*jobs));
+  for (guint i = 0; i < refs->len; i++)
+    {
+      FlatpakRemoteRef *rref                    = NULL;
+      g_autoptr (RefRemoteAppsJobData) job_data = NULL;
 
-  return dex_future_new_for_object (store);
+      rref = g_ptr_array_index (refs, i);
+
+      job_data         = ref_remote_apps_job_data_new ();
+      job_data->parent = ref_remote_apps_data_ref (data);
+      job_data->rref   = g_object_ref (rref);
+
+      jobs[i] = dex_scheduler_spawn (
+          fp->scheduler, 0,
+          (DexFiberFunc) ref_remote_apps_job_fiber,
+          ref_remote_apps_job_data_ref (job_data),
+          ref_remote_apps_job_data_unref);
+    }
+
+  future = dex_future_allv (jobs, refs->len);
+  for (guint i = 0; i < refs->len; i++)
+    dex_unref (jobs[i]);
+
+  return future;
+}
+
+static DexFuture *
+ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
+{
+  g_autoptr (GError) local_error         = NULL;
+  g_autoptr (GaFlatpakEntry) entry       = NULL;
+  RefRemoteAppsJobUpdateData update_data = { 0 };
+  DexFuture                 *update      = NULL;
+
+  entry = ga_flatpak_entry_new_for_remote_ref (
+      data->parent->fp, data->rref, &local_error);
+  if (entry == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  update_data.parent = data;
+  update_data.entry  = GA_ENTRY (entry);
+
+  update = dex_scheduler_spawn (
+      data->parent->home_scheduler, 0,
+      (DexFiberFunc) ref_remote_apps_job_update,
+      &update_data, NULL);
+  if (!dex_await (update, &local_error))
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  return dex_future_new_true ();
+}
+
+static DexFuture *
+ref_remote_apps_job_update (RefRemoteAppsJobUpdateData *data)
+{
+  data->parent->parent->progress_func (
+      data->entry,
+      data->parent->parent->user_data);
+
+  return dex_future_new_true ();
 }
 
 DexFuture *
 ga_flatpak_instance_install (GaFlatpakInstance           *self,
-                             FlatpakRef                  *ref,
+                             GaFlatpakEntry              *entry,
                              GaFlatpakInstallProgressFunc progress_func,
                              gpointer                     user_data,
                              GDestroyNotify               destroy_user_data)
@@ -234,11 +335,11 @@ ga_flatpak_instance_install (GaFlatpakInstance           *self,
   g_autoptr (InstallData) data = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
-  g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (ref), NULL);
+  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (entry), NULL);
 
   data                    = install_data_new ();
   data->fp                = g_object_ref (self);
-  data->ref               = g_object_ref (ref);
+  data->entry             = g_object_ref (entry);
   data->progress_func     = progress_func;
   data->user_data         = user_data;
   data->destroy_user_data = destroy_user_data;
@@ -252,9 +353,10 @@ static DexFuture *
 install_fiber (InstallData *data)
 {
   GaFlatpakInstance *fp                           = data->fp;
-  FlatpakRef        *ref                          = data->ref;
+  GaFlatpakEntry    *entry                        = data->entry;
   g_autoptr (GError) local_error                  = NULL;
   g_autoptr (FlatpakTransaction) transaction      = NULL;
+  FlatpakRef      *ref                            = NULL;
   g_autofree char *ref_fmt                        = NULL;
   gboolean         result                         = FALSE;
   g_autoptr (FlatpakTransactionProgress) progress = NULL;
@@ -264,6 +366,7 @@ install_fiber (InstallData *data)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
   g_signal_connect (transaction, "new-operation", G_CALLBACK (install_new_operation), data);
 
+  ref     = ga_flatpak_entry_get_ref (entry);
   ref_fmt = flatpak_ref_format_ref (ref);
   result  = flatpak_transaction_add_install (
       transaction,

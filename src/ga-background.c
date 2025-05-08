@@ -53,7 +53,6 @@ enum
 
   LAST_PROP
 };
-
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 GA_DEFINE_DATA (
@@ -543,7 +542,6 @@ static void
 leave_motion (GtkEventControllerMotion *controller,
               GaBackground             *self)
 {
-  self->motion_offset = self->current_motion_offset;
   update_motion (
       self,
       self->current_motion_offset.x,

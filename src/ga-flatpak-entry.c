@@ -1,0 +1,220 @@
+/* ga-flatpak-entry.c
+ *
+ * Copyright 2025 Adam Masciola
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+#include "config.h"
+
+#include "ga-flatpak-private.h"
+
+struct _GaFlatpakEntry
+{
+  GaEntry parent_instance;
+
+  GaFlatpakInstance *flatpak;
+  FlatpakRemoteRef  *rref;
+
+  char *name;
+  char *runtime;
+  char *command;
+};
+
+G_DEFINE_FINAL_TYPE (GaFlatpakEntry, ga_flatpak_entry, GA_TYPE_ENTRY)
+
+enum
+{
+  PROP_0,
+
+  PROP_INSTANCE,
+  PROP_NAME,
+  PROP_RUNTIME,
+  PROP_COMMAND,
+
+  LAST_PROP
+};
+static GParamSpec *props[LAST_PROP] = { 0 };
+
+static void
+ga_flatpak_entry_dispose (GObject *object)
+{
+  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+
+  g_clear_object (&self->flatpak);
+  g_clear_object (&self->rref);
+
+  g_clear_pointer (&self->name, g_free);
+  g_clear_pointer (&self->runtime, g_free);
+  g_clear_pointer (&self->command, g_free);
+
+  G_OBJECT_CLASS (ga_flatpak_entry_parent_class)->dispose (object);
+}
+
+static void
+ga_flatpak_entry_get_property (GObject    *object,
+                               guint       prop_id,
+                               GValue     *value,
+                               GParamSpec *pspec)
+{
+  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+
+  switch (prop_id)
+    {
+    case PROP_INSTANCE:
+      g_value_set_object (value, self->flatpak);
+      break;
+    case PROP_NAME:
+      g_value_set_string (value, self->name);
+      break;
+    case PROP_RUNTIME:
+      g_value_set_string (value, self->runtime);
+      break;
+    case PROP_COMMAND:
+      g_value_set_string (value, self->command);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+ga_flatpak_entry_set_property (GObject      *object,
+                               guint         prop_id,
+                               const GValue *value,
+                               GParamSpec   *pspec)
+{
+  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+
+  switch (prop_id)
+    {
+    case PROP_INSTANCE:
+    case PROP_NAME:
+    case PROP_RUNTIME:
+    case PROP_COMMAND:
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+ga_flatpak_entry_class_init (GaFlatpakEntryClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->set_property = ga_flatpak_entry_set_property;
+  object_class->get_property = ga_flatpak_entry_get_property;
+  object_class->dispose      = ga_flatpak_entry_dispose;
+
+  props[PROP_INSTANCE] =
+      g_param_spec_object (
+          "instance",
+          NULL, NULL,
+          GA_TYPE_FLATPAK_INSTANCE,
+          G_PARAM_READABLE);
+
+  props[PROP_NAME] =
+      g_param_spec_string (
+          "name",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_RUNTIME] =
+      g_param_spec_string (
+          "runtime",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_COMMAND] =
+      g_param_spec_string (
+          "command",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  g_object_class_install_properties (object_class, LAST_PROP, props);
+}
+
+static void
+ga_flatpak_entry_init (GaFlatpakEntry *self)
+{
+}
+
+GaFlatpakEntry *
+ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
+                                     FlatpakRemoteRef  *rref,
+                                     GError           **error)
+{
+  g_autoptr (GaFlatpakEntry) self = NULL;
+  GBytes *bytes                   = NULL;
+  g_autoptr (GError) local_error  = NULL;
+  g_autoptr (GKeyFile) key_file   = NULL;
+  gboolean result                 = FALSE;
+
+  g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (instance), NULL);
+  g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
+
+  self          = g_object_new (GA_TYPE_FLATPAK_ENTRY, NULL);
+  self->flatpak = g_object_ref (instance);
+  self->rref    = g_object_ref (rref);
+
+  key_file = g_key_file_new ();
+  bytes    = flatpak_remote_ref_get_metadata (rref);
+
+  result = g_key_file_load_from_bytes (
+      key_file, bytes, G_KEY_FILE_NONE, &local_error);
+  if (!result)
+    goto err;
+
+#define GET_STRING(member, group_name, key)       \
+  G_STMT_START                                    \
+  {                                               \
+    self->member = g_key_file_get_string (        \
+        key_file, group_name, key, &local_error); \
+    if (self->member == NULL)                     \
+      goto err;                                   \
+  }                                               \
+  G_STMT_END
+
+  GET_STRING (name, "Application", "name");
+  GET_STRING (runtime, "Application", "runtime");
+  GET_STRING (command, "Application", "command");
+
+#undef GET_STRING
+
+  /* TODO: permissions, runtimes */
+
+  g_object_set (
+      self,
+      "title", self->command,
+      /* Appstream stuff? */
+      "description", NULL,
+      "size", flatpak_remote_ref_get_installed_size (rref),
+      NULL);
+
+  return g_steal_pointer (&self);
+
+err:
+  g_propagate_error (error, g_steal_pointer (&local_error));
+  return NULL;
+}
+
+FlatpakRef *
+ga_flatpak_entry_get_ref (GaFlatpakEntry *self)
+{
+  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), NULL);
+
+  return FLATPAK_REF (self->rref);
+}
