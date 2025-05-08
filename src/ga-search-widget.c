@@ -249,18 +249,24 @@ static int
 match (GaEntry        *item,
        GaSearchWidget *self)
 {
-  const char *search_text = NULL;
-  const char *title       = NULL;
+  const char *search_text   = NULL;
+  GPtrArray  *search_tokens = NULL;
 
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
   if (search_text == NULL)
     return 0;
 
-  title = ga_entry_get_title (item);
+  search_tokens = ga_entry_get_search_tokens (item);
+  for (guint i = 0; i < search_tokens->len; i++)
+    {
+      const char *token = NULL;
 
-  return (g_str_match_string (search_text, title, TRUE))
-             ? 1
-             : 0;
+      token = g_ptr_array_index (search_tokens, i);
+      if (g_str_match_string (search_text, token, TRUE))
+        return 1;
+    }
+
+  return 0;
 }
 
 static void

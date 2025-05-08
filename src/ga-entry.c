@@ -24,9 +24,11 @@
 
 typedef struct
 {
-  char   *title;
-  char   *description;
-  guint64 size;
+  char         *title;
+  char         *description;
+  guint64       size;
+  GdkPaintable *icon_paintable;
+  GPtrArray    *search_tokens;
 } GaEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GaEntry, ga_entry, G_TYPE_OBJECT)
@@ -38,6 +40,8 @@ enum
   PROP_TITLE,
   PROP_DESCRIPTION,
   PROP_SIZE,
+  PROP_ICON_PAINTABLE,
+  PROP_SEARCH_TOKENS,
 
   LAST_PROP
 };
@@ -51,6 +55,9 @@ ga_entry_dispose (GObject *object)
 
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->description, g_free);
+
+  g_clear_object (&priv->icon_paintable);
+  g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
 
   G_OBJECT_CLASS (ga_entry_parent_class)->dispose (object);
 }
@@ -74,6 +81,12 @@ ga_entry_get_property (GObject    *object,
       break;
     case PROP_SIZE:
       g_value_set_uint64 (value, priv->size);
+      break;
+    case PROP_ICON_PAINTABLE:
+      g_value_set_object (value, priv->icon_paintable);
+      break;
+    case PROP_SEARCH_TOKENS:
+      g_value_set_boxed (value, priv->search_tokens);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -101,6 +114,14 @@ ga_entry_set_property (GObject      *object,
       break;
     case PROP_SIZE:
       priv->size = g_value_get_uint64 (value);
+      break;
+    case PROP_ICON_PAINTABLE:
+      g_clear_object (&priv->icon_paintable);
+      priv->icon_paintable = g_value_dup_object (value);
+      break;
+    case PROP_SEARCH_TOKENS:
+      g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
+      priv->search_tokens = g_value_dup_boxed (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -135,6 +156,20 @@ ga_entry_class_init (GaEntryClass *klass)
           0, G_MAXUINT64, 0,
           G_PARAM_READWRITE);
 
+  props[PROP_ICON_PAINTABLE] =
+      g_param_spec_object (
+          "icon-paintable",
+          NULL, NULL,
+          GDK_TYPE_PAINTABLE,
+          G_PARAM_READWRITE);
+
+  props[PROP_SEARCH_TOKENS] =
+      g_param_spec_boxed (
+          "search-tokens",
+          NULL, NULL,
+          G_TYPE_PTR_ARRAY,
+          G_PARAM_READWRITE);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 }
 
@@ -163,4 +198,15 @@ ga_entry_get_description (GaEntry *self)
 
   priv = ga_entry_get_instance_private (self);
   return priv->description;
+}
+
+GPtrArray *
+ga_entry_get_search_tokens (GaEntry *self)
+{
+  GaEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+
+  priv = ga_entry_get_instance_private (self);
+  return priv->search_tokens;
 }

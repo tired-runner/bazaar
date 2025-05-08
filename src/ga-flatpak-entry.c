@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <appstream.h>
+
 #include "ga-flatpak-private.h"
 
 struct _GaFlatpakEntry
@@ -155,16 +157,22 @@ ga_flatpak_entry_init (GaFlatpakEntry *self)
 GaFlatpakEntry *
 ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                                      FlatpakRemoteRef  *rref,
+                                     AsComponent       *component,
+                                     const char        *appstream_dir,
                                      GError           **error)
 {
-  g_autoptr (GaFlatpakEntry) self = NULL;
-  GBytes *bytes                   = NULL;
-  g_autoptr (GError) local_error  = NULL;
-  g_autoptr (GKeyFile) key_file   = NULL;
-  gboolean result                 = FALSE;
+  g_autoptr (GaFlatpakEntry) self       = NULL;
+  GBytes *bytes                         = NULL;
+  g_autoptr (GError) local_error        = NULL;
+  g_autoptr (GKeyFile) key_file         = NULL;
+  gboolean    result                    = FALSE;
+  const char *title                     = NULL;
+  g_autoptr (GPtrArray) search_tokens   = NULL;
+  g_autoptr (GdkTexture) icon_paintable = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
+  g_return_val_if_fail (appstream_dir != NULL, NULL);
 
   self          = g_object_new (GA_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
@@ -196,12 +204,50 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
 
   /* TODO: permissions, runtimes */
 
+  if (component != NULL)
+    {
+      AsIcon *icon = NULL;
+
+      title = as_component_get_name (component);
+      if (title == NULL)
+        title = as_component_get_id (component);
+
+      search_tokens = as_component_get_search_tokens (component);
+
+      icon = as_component_get_icon_stock (component);
+      if (icon != NULL)
+        {
+          g_autofree char *basename   = NULL;
+          g_autoptr (GFile) icon_file = NULL;
+
+          basename  = g_strdup_printf ("%s.png", as_icon_get_name (icon));
+          icon_file = g_file_new_build_filename (
+              appstream_dir,
+              "icons",
+              "flatpak",
+              "128x128",
+              basename,
+              NULL);
+          if (g_file_query_exists (icon_file, NULL))
+            icon_paintable = gdk_texture_new_from_file (icon_file, NULL);
+        }
+    }
+  if (title == NULL)
+    title = self->name;
+
+  if (search_tokens == NULL)
+    search_tokens = g_ptr_array_new_with_free_func (g_free);
+  g_ptr_array_add (search_tokens, g_strdup (self->name));
+  g_ptr_array_add (search_tokens, g_strdup (self->runtime));
+  g_ptr_array_add (search_tokens, g_strdup (self->command));
+
   g_object_set (
       self,
-      "title", self->command,
-      /* Appstream stuff? */
-      "description", NULL,
+      "title", title,
+      "description", component != NULL ? as_component_get_summary (component) : NULL,
       "size", flatpak_remote_ref_get_installed_size (rref),
+      "icon-paintable", icon_paintable,
+      "search-tokens", search_tokens,
       NULL);
 
   return g_steal_pointer (&self);

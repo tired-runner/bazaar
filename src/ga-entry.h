@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <gtk/gtk.h>
 #include <libdex.h>
 
 G_BEGIN_DECLS
@@ -37,5 +38,8 @@ ga_entry_get_title (GaEntry *self);
 
 const char *
 ga_entry_get_description (GaEntry *self);
+
+GPtrArray *
+ga_entry_get_search_tokens (GaEntry *self);
 
 G_END_DECLS

@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <appstream.h>
 #include <flatpak.h>
 
 #include "ga-flatpak-entry.h"
@@ -37,6 +38,8 @@ ga_flatpak_instance_get_installation (GaFlatpakInstance *self);
 GaFlatpakEntry *
 ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                                      FlatpakRemoteRef  *rref,
+                                     AsComponent       *component,
+                                     const char        *appstream_dir,
                                      GError           **error);
 
 FlatpakRef *

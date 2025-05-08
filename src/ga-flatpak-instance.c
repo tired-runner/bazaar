@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include <flatpak.h>
+#include <xmlb.h>
 
 #include "ga-flatpak-private.h"
 #include "ga-util.h"
@@ -67,15 +68,25 @@ GA_DEFINE_DATA (
 static DexFuture *
 ref_remote_apps_fiber (RefRemoteAppsData *data);
 
+static void
+ref_remote_apps_update_appstream_progress (const char        *status,
+                                           guint              progress,
+                                           gboolean           estimating,
+                                           RefRemoteAppsData *data);
+
 GA_DEFINE_DATA (
     ref_remote_apps_job,
     RefRemoteAppsJob,
     {
       RefRemoteAppsData *parent;
       FlatpakRemoteRef  *rref;
+      AsComponent       *component;
+      char              *appstream_dir;
     },
     GA_RELEASE_DATA (parent, ref_remote_apps_data_unref);
-    GA_RELEASE_DATA (rref, g_object_unref));
+    GA_RELEASE_DATA (rref, g_object_unref);
+    GA_RELEASE_DATA (component, g_object_unref);
+    GA_RELEASE_DATA (appstream_dir, g_free));
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
 
@@ -252,11 +263,125 @@ ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
 static DexFuture *
 ref_remote_apps_fiber (RefRemoteAppsData *data)
 {
-  GaFlatpakInstance *fp          = data->fp;
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GPtrArray) refs     = NULL;
-  g_autofree DexFuture **jobs    = NULL;
-  DexFuture             *future  = NULL;
+  GaFlatpakInstance *fp               = data->fp;
+  g_autoptr (GError) local_error      = NULL;
+  gboolean result                     = FALSE;
+  g_autoptr (FlatpakRemote) flathub   = NULL;
+  g_autoptr (GFile) appstream_dir     = NULL;
+  g_autofree char *appstream_dir_path = NULL;
+  g_autofree char *appstream_xml_path = NULL;
+  g_autoptr (GFile) appstream_xml     = NULL;
+  g_autoptr (XbBuilderSource) source  = NULL;
+  g_autoptr (XbBuilder) builder       = NULL;
+  const gchar *const *locales         = NULL;
+  g_autoptr (XbSilo) silo             = NULL;
+  g_autoptr (XbNode) root             = NULL;
+  g_autoptr (GPtrArray) children      = NULL;
+  g_autoptr (AsMetadata) metadata     = NULL;
+  AsComponentBox *components          = NULL;
+  g_autoptr (GHashTable) id_hash      = NULL;
+  g_autoptr (GPtrArray) refs          = NULL;
+  g_autofree DexFuture **jobs         = NULL;
+  DexFuture             *future       = NULL;
+
+  result = flatpak_installation_update_remote_sync (
+      fp->installation,
+      "flathub",
+      NULL,
+      &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  result = flatpak_installation_update_appstream_full_sync (
+      fp->installation,
+      "flathub",
+      NULL,
+      (FlatpakProgressCallback) ref_remote_apps_update_appstream_progress,
+      data,
+      NULL,
+      NULL,
+      &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  flathub = flatpak_installation_get_remote_by_name (
+      fp->installation,
+      "flathub",
+      NULL,
+      &local_error);
+  if (flathub == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  appstream_dir = flatpak_remote_get_appstream_dir (flathub, NULL);
+  /* TODO: make a proper error */
+  g_assert (appstream_dir != NULL);
+
+  appstream_dir_path = g_file_get_path (appstream_dir);
+  appstream_xml_path = g_build_filename (appstream_dir_path, "appstream.xml.gz", NULL);
+  /* TODO: make a proper error */
+  g_assert (g_file_test (appstream_xml_path, G_FILE_TEST_EXISTS));
+  appstream_xml = g_file_new_for_path (appstream_xml_path);
+
+  source = xb_builder_source_new ();
+  result = xb_builder_source_load_file (
+      source,
+      appstream_xml,
+      XB_BUILDER_SOURCE_FLAG_WATCH_FILE |
+          XB_BUILDER_SOURCE_FLAG_LITERAL_TEXT,
+      NULL,
+      &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+  builder = xb_builder_new ();
+  locales = g_get_language_names ();
+  for (guint i = 0; locales[i] != NULL; i++)
+    xb_builder_add_locale (builder, locales[i]);
+  xb_builder_import_source (builder, source);
+
+  silo = xb_builder_compile (
+      builder,
+      XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
+      NULL,
+      &local_error);
+  if (silo == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  root     = xb_silo_get_root (silo);
+  children = xb_node_get_children (root);
+  metadata = as_metadata_new ();
+
+  for (guint i = 0; i < children->len; i++)
+    {
+      XbNode          *component_node = NULL;
+      g_autofree char *component_xml  = NULL;
+
+      component_node = g_ptr_array_index (children, i);
+
+      component_xml = xb_node_export (
+          component_node, XB_NODE_EXPORT_FLAG_NONE, &local_error);
+      if (component_xml == NULL)
+        return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+      result = as_metadata_parse_data (
+          metadata, component_xml, -1,
+          AS_FORMAT_KIND_XML, &local_error);
+      if (!result)
+        return dex_future_new_for_error (g_steal_pointer (&local_error));
+    }
+
+  components = as_metadata_get_components (metadata);
+  id_hash    = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  for (guint i = 0; i < as_component_box_len (components); i++)
+    {
+      AsComponent *component = NULL;
+      const char  *id        = NULL;
+
+      component = as_component_box_index (components, i);
+      id        = as_component_get_id (component);
+
+      if (!g_hash_table_contains (id_hash, id))
+        g_hash_table_replace (id_hash, g_strdup (id), g_object_ref (component));
+    }
 
   refs = flatpak_installation_list_remote_refs_sync (
       fp->installation, "flathub", NULL, &local_error);
@@ -267,13 +392,20 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
   for (guint i = 0; i < refs->len; i++)
     {
       FlatpakRemoteRef *rref                    = NULL;
+      const char       *name                    = NULL;
+      AsComponent      *component               = NULL;
       g_autoptr (RefRemoteAppsJobData) job_data = NULL;
 
-      rref = g_ptr_array_index (refs, i);
+      rref      = g_ptr_array_index (refs, i);
+      name      = flatpak_ref_get_name (FLATPAK_REF (rref));
+      component = g_hash_table_lookup (id_hash, name);
 
-      job_data         = ref_remote_apps_job_data_new ();
-      job_data->parent = ref_remote_apps_data_ref (data);
-      job_data->rref   = g_object_ref (rref);
+      job_data            = ref_remote_apps_job_data_new ();
+      job_data->parent    = ref_remote_apps_data_ref (data);
+      job_data->rref      = g_object_ref (rref);
+      job_data->component = component != NULL ? g_object_ref (component) : NULL;
+      /* TODO: this is bad, should just steal once */
+      job_data->appstream_dir = g_strdup (appstream_dir_path);
 
       jobs[i] = dex_scheduler_spawn (
           fp->scheduler, 0,
@@ -289,6 +421,14 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
   return future;
 }
 
+static void
+ref_remote_apps_update_appstream_progress (const char        *status,
+                                           guint              progress,
+                                           gboolean           estimating,
+                                           RefRemoteAppsData *data)
+{
+}
+
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 {
@@ -298,7 +438,11 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   DexFuture                 *update      = NULL;
 
   entry = ga_flatpak_entry_new_for_remote_ref (
-      data->parent->fp, data->rref, &local_error);
+      data->parent->fp,
+      data->rref,
+      data->component,
+      data->appstream_dir,
+      &local_error);
   if (entry == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 

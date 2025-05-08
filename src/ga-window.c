@@ -177,6 +177,9 @@ search_clicked (GtkButton *button,
                     G_CALLBACK (search_selected_changed), self);
 
   adw_dialog_set_child (dialog, search_widget);
+  adw_dialog_set_content_width (dialog, 800);
+  adw_dialog_set_content_height (dialog, 1200);
+
   adw_dialog_present (dialog, GTK_WIDGET (self));
 }
 
