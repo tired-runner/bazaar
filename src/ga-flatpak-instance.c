@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include <flatpak.h>
+#include <glycin-gtk4.h>
 #include <xmlb.h>
 
 #include "ga-flatpak-private.h"
@@ -63,18 +64,32 @@ static DexFuture *
 ref_updates_fiber (GatherEntriesData *data);
 
 GA_DEFINE_DATA (
+    ref_remote_apps_for_remote,
+    RefRemoteAppsForRemote,
+    {
+      GatherEntriesData *parent;
+      FlatpakRemote     *remote;
+    },
+    GA_RELEASE_DATA (parent, gather_entries_data_unref);
+    GA_RELEASE_DATA (remote, g_object_unref));
+static DexFuture *
+ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data);
+
+GA_DEFINE_DATA (
     ref_remote_apps_job,
     RefRemoteAppsJob,
     {
-      GatherEntriesData *parent;
-      FlatpakRemoteRef  *rref;
-      AsComponent       *component;
-      char              *appstream_dir;
+      RefRemoteAppsForRemoteData *parent;
+      FlatpakRemoteRef           *rref;
+      AsComponent                *component;
+      char                       *appstream_dir;
+      GdkPaintable               *remote_icon;
     },
-    GA_RELEASE_DATA (parent, gather_entries_data_unref);
+    GA_RELEASE_DATA (parent, ref_remote_apps_for_remote_data_unref);
     GA_RELEASE_DATA (rref, g_object_unref);
     GA_RELEASE_DATA (component, g_object_unref);
-    GA_RELEASE_DATA (appstream_dir, g_free));
+    GA_RELEASE_DATA (appstream_dir, g_free);
+    GA_RELEASE_DATA (remote_icon, g_object_unref));
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
 
@@ -238,30 +253,86 @@ ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
 static DexFuture *
 ref_remote_apps_fiber (GatherEntriesData *data)
 {
-  GaFlatpakInstance *fp               = data->fp;
-  g_autoptr (GError) local_error      = NULL;
-  gboolean result                     = FALSE;
-  g_autoptr (FlatpakRemote) flathub   = NULL;
-  g_autoptr (GFile) appstream_dir     = NULL;
-  g_autofree char *appstream_dir_path = NULL;
-  g_autofree char *appstream_xml_path = NULL;
-  g_autoptr (GFile) appstream_xml     = NULL;
-  g_autoptr (XbBuilderSource) source  = NULL;
-  g_autoptr (XbBuilder) builder       = NULL;
-  const gchar *const *locales         = NULL;
-  g_autoptr (XbSilo) silo             = NULL;
-  g_autoptr (XbNode) root             = NULL;
-  g_autoptr (GPtrArray) children      = NULL;
-  g_autoptr (AsMetadata) metadata     = NULL;
-  AsComponentBox *components          = NULL;
-  g_autoptr (GHashTable) id_hash      = NULL;
-  g_autoptr (GPtrArray) refs          = NULL;
-  g_autofree DexFuture **jobs         = NULL;
-  DexFuture             *future       = NULL;
+  GaFlatpakInstance *fp          = data->fp;
+  g_autoptr (GError) local_error = NULL;
+  g_autoptr (GPtrArray) remotes  = NULL;
+  g_autofree DexFuture **jobs    = NULL;
+  DexFuture             *future  = NULL;
+
+  remotes = flatpak_installation_list_remotes (
+      fp->installation, NULL, &local_error);
+  if (remotes == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  if (remotes->len == 0)
+    return dex_future_new_true ();
+
+  jobs = g_malloc0_n (remotes->len, sizeof (*jobs));
+  for (guint i = 0; i < remotes->len; i++)
+    {
+      FlatpakRemote *remote                           = NULL;
+      g_autoptr (RefRemoteAppsForRemoteData) job_data = NULL;
+
+      remote = g_ptr_array_index (remotes, i);
+
+      job_data         = ref_remote_apps_for_remote_data_new ();
+      job_data->parent = gather_entries_data_ref (data);
+      job_data->remote = g_object_ref (remote);
+
+      jobs[i] = dex_scheduler_spawn (
+          fp->scheduler, 0,
+          (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
+          ref_remote_apps_for_remote_data_ref (job_data),
+          ref_remote_apps_for_remote_data_unref);
+    }
+
+  future = dex_future_allv (jobs, remotes->len);
+  for (guint i = 0; i < remotes->len; i++)
+    dex_unref (jobs[i]);
+
+  return future;
+}
+
+static void
+gather_entries_update_progress (const char        *status,
+                                guint              progress,
+                                gboolean           estimating,
+                                GatherEntriesData *data)
+{
+}
+
+static DexFuture *
+ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
+{
+  GaFlatpakInstance *fp                = data->parent->fp;
+  FlatpakRemote     *remote            = data->remote;
+  const char        *remote_name       = NULL;
+  g_autoptr (GError) local_error       = NULL;
+  gboolean result                      = FALSE;
+  g_autoptr (GFile) appstream_dir      = NULL;
+  g_autofree char *appstream_dir_path  = NULL;
+  g_autofree char *appstream_xml_path  = NULL;
+  g_autoptr (GFile) appstream_xml      = NULL;
+  g_autoptr (XbBuilderSource) source   = NULL;
+  g_autoptr (XbBuilder) builder        = NULL;
+  const gchar *const *locales          = NULL;
+  g_autoptr (XbSilo) silo              = NULL;
+  g_autoptr (XbNode) root              = NULL;
+  g_autoptr (GPtrArray) children       = NULL;
+  g_autoptr (AsMetadata) metadata      = NULL;
+  AsComponentBox *components           = NULL;
+  g_autoptr (GHashTable) id_hash       = NULL;
+  g_autofree char *remote_icon_name    = NULL;
+  g_autoptr (GdkPaintable) remote_icon = NULL;
+  g_autoptr (GPtrArray) refs           = NULL;
+  g_autofree DexFuture **jobs          = NULL;
+  DexFuture             *future        = NULL;
+
+  remote_name = flatpak_remote_get_name (remote);
 
   result = flatpak_installation_update_remote_sync (
       fp->installation,
-      "flathub",
+      remote_name,
       NULL,
       &local_error);
   if (!result)
@@ -269,7 +340,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
 
   result = flatpak_installation_update_appstream_full_sync (
       fp->installation,
-      "flathub",
+      remote_name,
       NULL,
       (FlatpakProgressCallback) gather_entries_update_progress,
       data,
@@ -279,15 +350,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   if (!result)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  flathub = flatpak_installation_get_remote_by_name (
-      fp->installation,
-      "flathub",
-      NULL,
-      &local_error);
-  if (flathub == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  appstream_dir = flatpak_remote_get_appstream_dir (flathub, NULL);
+  appstream_dir = flatpak_remote_get_appstream_dir (remote, NULL);
   /* TODO: make a proper error */
   g_assert (appstream_dir != NULL);
 
@@ -358,8 +421,36 @@ ref_remote_apps_fiber (GatherEntriesData *data)
         g_hash_table_replace (id_hash, g_strdup (id), g_object_ref (component));
     }
 
+  remote_icon_name = flatpak_remote_get_icon (remote);
+  if (remote_icon_name != NULL)
+    {
+      g_autoptr (GFile) remote_icon_file = NULL;
+
+      remote_icon_file = g_file_new_for_uri (remote_icon_name);
+      if (remote_icon_file != NULL)
+        {
+          g_autoptr (GlyLoader) loader = NULL;
+          g_autoptr (GlyImage) image   = NULL;
+          g_autoptr (GlyFrame) frame   = NULL;
+          GdkTexture *texture          = NULL;
+
+          loader = gly_loader_new (remote_icon_file);
+          image  = gly_loader_load (loader, &local_error);
+          if (image == NULL)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          frame = gly_image_next_frame (image, &local_error);
+          if (frame == NULL)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          texture = gly_gtk_frame_get_texture (frame);
+          if (texture != NULL)
+            remote_icon = GDK_PAINTABLE (texture);
+        }
+    }
+
   refs = flatpak_installation_list_remote_refs_sync (
-      fp->installation, "flathub", NULL, &local_error);
+      fp->installation, remote_name, NULL, &local_error);
   if (refs == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
@@ -376,11 +467,12 @@ ref_remote_apps_fiber (GatherEntriesData *data)
       component = g_hash_table_lookup (id_hash, name);
 
       job_data            = ref_remote_apps_job_data_new ();
-      job_data->parent    = gather_entries_data_ref (data);
+      job_data->parent    = ref_remote_apps_for_remote_data_ref (data);
       job_data->rref      = g_object_ref (rref);
       job_data->component = component != NULL ? g_object_ref (component) : NULL;
       /* TODO: this is bad, should just steal once */
       job_data->appstream_dir = g_strdup (appstream_dir_path);
+      job_data->remote_icon   = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
       jobs[i] = dex_scheduler_spawn (
           fp->scheduler, 0,
@@ -396,14 +488,6 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   return future;
 }
 
-static void
-gather_entries_update_progress (const char        *status,
-                                guint              progress,
-                                gboolean           estimating,
-                                GatherEntriesData *data)
-{
-}
-
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 {
@@ -413,19 +497,21 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   DexFuture              *update      = NULL;
 
   entry = ga_flatpak_entry_new_for_remote_ref (
-      data->parent->fp,
+      data->parent->parent->fp,
+      data->parent->remote,
       data->rref,
       data->component,
       data->appstream_dir,
+      data->remote_icon,
       &local_error);
   if (entry == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  update_data.parent = data->parent;
+  update_data.parent = data->parent->parent;
   update_data.entry  = GA_ENTRY (entry);
 
   update = dex_scheduler_spawn (
-      data->parent->home_scheduler, 0,
+      data->parent->parent->home_scheduler, 0,
       (DexFiberFunc) gather_entries_job_update,
       &update_data, NULL);
   if (!dex_await (update, &local_error))

@@ -156,18 +156,21 @@ ga_flatpak_entry_init (GaFlatpakEntry *self)
 
 GaFlatpakEntry *
 ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
+                                     FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
                                      const char        *appstream_dir,
+                                     GdkPaintable      *remote_icon,
                                      GError           **error)
 {
   g_autoptr (GaFlatpakEntry) self       = NULL;
   GBytes *bytes                         = NULL;
   g_autoptr (GError) local_error        = NULL;
   g_autoptr (GKeyFile) key_file         = NULL;
-  gboolean    result                    = FALSE;
-  const char *title                     = NULL;
-  const char *description               = NULL;
+  gboolean         result               = FALSE;
+  const char      *title                = NULL;
+  const char      *description          = NULL;
+  g_autofree char *description_fmt      = NULL;
   g_autoptr (GPtrArray) search_tokens   = NULL;
   g_autoptr (GdkTexture) icon_paintable = NULL;
 
@@ -236,30 +239,40 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                   NULL);
               if (g_file_query_exists (icon_file, NULL))
                 {
+                  /* Using glycin here is extremely slow for,
+                   * some reason so we'll opt for the old method.
+                   */
                   icon_paintable = gdk_texture_new_from_file (icon_file, NULL);
                   break;
                 }
             }
         }
     }
+
   if (title == NULL)
     title = self->name;
+  if (description != NULL)
+    description_fmt = g_strdup_printf (
+        "%s (%s)", description, flatpak_remote_get_name (remote));
+  else
+    description_fmt = g_strdup_printf (
+        "No summary found! (%s)", flatpak_remote_get_name (remote));
 
   if (search_tokens == NULL)
     search_tokens = g_ptr_array_new_with_free_func (g_free);
   g_ptr_array_add (search_tokens, g_strdup (title));
-  if (description != NULL)
-    g_ptr_array_add (search_tokens, g_strdup (description));
+  g_ptr_array_add (search_tokens, g_strdup (description_fmt));
   g_ptr_array_add (search_tokens, g_strdup (self->runtime));
   g_ptr_array_add (search_tokens, g_strdup (self->command));
 
   g_object_set (
       self,
       "title", title,
-      "description", description,
+      "description", description_fmt,
       "size", flatpak_remote_ref_get_installed_size (rref),
       "icon-paintable", icon_paintable,
       "search-tokens", search_tokens,
+      "remote-repo-icon", remote_icon,
       NULL);
 
   return g_steal_pointer (&self);

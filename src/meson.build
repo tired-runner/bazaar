@@ -18,6 +18,8 @@ ga_deps = [
   dependency('flatpak', version: '>= 1.9'),
   dependency('appstream', version : '>= 1.0'),
   dependency('xmlb', version : '>= 0.3.4'),
+  dependency('glycin-1', version : '>= 1.0'),
+  dependency('glycin-gtk4-1', version : '>= 1.0'),
 ]
 
 ga_sources += gnome.compile_resources('ga-resources',

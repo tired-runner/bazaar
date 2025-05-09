@@ -29,6 +29,7 @@ typedef struct
   guint64       size;
   GdkPaintable *icon_paintable;
   GPtrArray    *search_tokens;
+  GdkPaintable *remote_repo_icon;
 } GaEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GaEntry, ga_entry, G_TYPE_OBJECT)
@@ -42,6 +43,7 @@ enum
   PROP_SIZE,
   PROP_ICON_PAINTABLE,
   PROP_SEARCH_TOKENS,
+  PROP_REMOTE_REPO_ICON,
 
   LAST_PROP
 };
@@ -55,9 +57,9 @@ ga_entry_dispose (GObject *object)
 
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->description, g_free);
-
   g_clear_object (&priv->icon_paintable);
   g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
+  g_clear_object (&priv->remote_repo_icon);
 
   G_OBJECT_CLASS (ga_entry_parent_class)->dispose (object);
 }
@@ -87,6 +89,9 @@ ga_entry_get_property (GObject    *object,
       break;
     case PROP_SEARCH_TOKENS:
       g_value_set_boxed (value, priv->search_tokens);
+      break;
+    case PROP_REMOTE_REPO_ICON:
+      g_value_set_object (value, priv->remote_repo_icon);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -122,6 +127,10 @@ ga_entry_set_property (GObject      *object,
     case PROP_SEARCH_TOKENS:
       g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
       priv->search_tokens = g_value_dup_boxed (value);
+      break;
+    case PROP_REMOTE_REPO_ICON:
+      g_clear_object (&priv->remote_repo_icon);
+      priv->remote_repo_icon = g_value_dup_object (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -168,6 +177,13 @@ ga_entry_class_init (GaEntryClass *klass)
           "search-tokens",
           NULL, NULL,
           G_TYPE_PTR_ARRAY,
+          G_PARAM_READWRITE);
+
+  props[PROP_REMOTE_REPO_ICON] =
+      g_param_spec_object (
+          "remote-repo-icon",
+          NULL, NULL,
+          GDK_TYPE_PAINTABLE,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);

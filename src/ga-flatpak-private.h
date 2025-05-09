@@ -37,9 +37,11 @@ ga_flatpak_instance_get_installation (GaFlatpakInstance *self);
 
 GaFlatpakEntry *
 ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
+                                     FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
                                      const char        *appstream_dir,
+                                     GdkPaintable      *remote_icon,
                                      GError           **error);
 
 FlatpakRef *
