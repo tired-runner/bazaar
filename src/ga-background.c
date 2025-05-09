@@ -36,6 +36,9 @@ struct _GaBackground
   GPtrArray  *instances;
   GArray     *sorted_instances;
 
+  GPtrArray *last_instances;
+  double     time_at_replace;
+
   GtkEventControllerMotion *motion_controller;
   graphene_point_t          motion_offset;
   graphene_point_t          last_motion_offset;
@@ -131,6 +134,12 @@ update_motion (GaBackground *self,
                gboolean      instant);
 
 static void
+draw_instance (GtkSnapshot  *snapshot,
+               InstanceData *instance,
+               double        elapsed,
+               double        speedup);
+
+static void
 ga_background_dispose (GObject *object)
 {
   GaBackground *self = GA_BACKGROUND (object);
@@ -154,6 +163,7 @@ ga_background_dispose (GObject *object)
   g_clear_object (&self->entries);
   g_clear_pointer (&self->instances, g_ptr_array_unref);
   g_clear_object (&self->motion_controller);
+  g_clear_pointer (&self->last_instances, g_ptr_array_unref);
 
   G_OBJECT_CLASS (ga_background_parent_class)->dispose (object);
 }
@@ -264,7 +274,8 @@ ga_background_snapshot (GtkWidget   *widget,
   int              widget_height = 0;
   graphene_point_t motion_offset = { 0 };
 
-  if (self->instances == NULL)
+  if (self->instances == NULL &&
+      self->last_instances == NULL)
     return;
 
   elapsed       = g_timer_elapsed (self->timer, NULL);
@@ -291,48 +302,29 @@ ga_background_snapshot (GtkWidget   *widget,
   gtk_snapshot_translate (snapshot, &motion_offset);
   gtk_snapshot_perspective (snapshot, 50);
 
-  for (guint i = 0; i < self->sorted_instances->len; i++)
+  if (self->last_instances != NULL)
     {
-      InstanceData      *instance        = NULL;
-      graphene_rect_t    rect            = { 0 };
-      graphene_point3d_t instance_offset = { 0 };
-      double             instance_scale  = 0.0;
+      for (guint i = 0; i < self->last_instances->len; i++)
+        {
+          InstanceData *instance = NULL;
 
-      instance = g_ptr_array_index (
-          self->instances,
-          g_array_index (self->sorted_instances, guint, i));
-      gsk_render_node_get_bounds (instance->node, &rect);
+          /* already sorted */
+          instance = g_ptr_array_index (self->last_instances, i);
+          draw_instance (snapshot, instance, elapsed, 3.0);
+        }
+    }
 
-      if (elapsed - instance->position.start > 2.0)
-        instance_offset = instance->position.cur;
-      else
-        graphene_point3d_interpolate (
-            &instance->position.last,
-            &instance->position.cur,
-            adw_easing_ease (
-                ADW_EASE_OUT_ELASTIC,
-                (elapsed - instance->position.start) / 2.0),
-            &instance_offset);
-      instance_offset.y += 30.0 * sin (elapsed * instance->position.cur.z / 500.0);
-      instance_offset.z = 0.0;
+  if (self->instances != NULL)
+    {
+      for (guint i = 0; i < self->sorted_instances->len; i++)
+        {
+          InstanceData *instance = NULL;
 
-      if (elapsed - instance->scale.start > 1.0)
-        instance_scale = instance->scale.cur;
-      else
-        instance_scale =
-            instance->scale.last +
-            (instance->scale.cur - instance->scale.last) *
-                adw_easing_ease (
-                    ADW_EASE_OUT_EXPO,
-                    (elapsed - instance->scale.start) / 1.0);
-
-      gtk_snapshot_save (snapshot);
-      gtk_snapshot_translate_3d (snapshot, &instance_offset);
-      gtk_snapshot_scale (snapshot, instance_scale, instance_scale);
-      gtk_snapshot_append_node (snapshot, instance->blurred);
-      gtk_snapshot_restore (snapshot);
-
-      instance->scale.render = instance_scale;
+          instance = g_ptr_array_index (
+              self->instances,
+              g_array_index (self->sorted_instances, guint, i));
+          draw_instance (snapshot, instance, elapsed, 1.0);
+        }
     }
 }
 
@@ -351,6 +343,44 @@ ga_background_set_entries (GaBackground *self,
   g_return_if_fail (g_list_model_get_item_type (entries) == GA_TYPE_ENTRY);
 
   if (self->entries != NULL)
+    {
+      double elapsed = 0.0;
+
+      elapsed = g_timer_elapsed (self->timer, NULL);
+
+      g_clear_pointer (&self->last_instances, g_ptr_array_unref);
+      self->last_instances = g_ptr_array_new_with_free_func (
+          instance_data_unref);
+      g_ptr_array_set_size (self->last_instances,
+                            self->instances->len);
+
+      for (guint i = 0; i < self->sorted_instances->len; i++)
+        {
+          InstanceData *instance = NULL;
+
+          instance = g_ptr_array_index (
+              self->instances,
+              g_array_index (self->sorted_instances, guint, i));
+
+          g_ptr_array_index (self->last_instances, i) =
+              instance_data_ref (instance);
+
+          instance->position.last.x = instance->position.cur.x;
+          instance->position.last.y = instance->position.cur.y;
+          instance->position.cur.x *= 2.0;
+          instance->position.cur.y *= 2.0;
+          instance->position.start = elapsed;
+
+          instance->scale.cur   = 0.0;
+          instance->scale.last  = instance->scale.render;
+          instance->scale.start = elapsed;
+        }
+
+      self->time_at_replace = elapsed;
+    }
+  g_clear_pointer (&self->instances, g_ptr_array_unref);
+
+  if (self->entries != NULL)
     g_signal_handlers_disconnect_by_func (
         self->entries, entries_changed, self);
   g_clear_object (&self->entries);
@@ -359,7 +389,6 @@ ga_background_set_entries (GaBackground *self,
     g_signal_connect (self->entries, "items-changed",
                       G_CALLBACK (entries_changed), self);
 
-  g_clear_pointer (&self->instances, g_ptr_array_unref);
   if (self->entries != NULL)
     {
       self->instances = g_ptr_array_new_with_free_func (
@@ -508,6 +537,16 @@ entries_changed (GListModel   *entries,
 static gboolean
 tick_timeout (GaBackground *self)
 {
+  if (self->last_instances != NULL)
+    {
+      double elapsed = 0.0;
+
+      elapsed = g_timer_elapsed (self->timer, NULL);
+      /* TODO: don't have random numbers everywhere */
+      if (elapsed - self->time_at_replace > 1.0 / 3.0)
+        g_clear_pointer (&self->last_instances, g_ptr_array_unref);
+    }
+
   gtk_widget_queue_draw (GTK_WIDGET (self));
   return G_SOURCE_CONTINUE;
 }
@@ -631,4 +670,51 @@ update_motion (GaBackground *self,
     }
 
   gtk_widget_queue_draw (GTK_WIDGET (self));
+}
+
+static void
+draw_instance (GtkSnapshot  *snapshot,
+               InstanceData *instance,
+               double        elapsed,
+               double        speedup)
+{
+  graphene_rect_t    rect            = { 0 };
+  graphene_point3d_t instance_offset = { 0 };
+  double             instance_scale  = 0.0;
+
+  if (speedup <= 0.01)
+    speedup = 1.0;
+
+  gsk_render_node_get_bounds (instance->node, &rect);
+
+  if (elapsed - instance->position.start > (2.0 / speedup))
+    instance_offset = instance->position.cur;
+  else
+    graphene_point3d_interpolate (
+        &instance->position.last,
+        &instance->position.cur,
+        adw_easing_ease (
+            ADW_EASE_OUT_ELASTIC,
+            (elapsed - instance->position.start) / (2.0 / speedup)),
+        &instance_offset);
+  instance_offset.y += 20.0 * sin (elapsed * instance->position.cur.z / 500.0);
+  instance_offset.z = 0.0;
+
+  if (elapsed - instance->scale.start > (1.0 / speedup))
+    instance_scale = instance->scale.cur;
+  else
+    instance_scale =
+        instance->scale.last +
+        (instance->scale.cur - instance->scale.last) *
+            adw_easing_ease (
+                ADW_EASE_OUT_EXPO,
+                (elapsed - instance->scale.start) / (1.0 / speedup));
+
+  gtk_snapshot_save (snapshot);
+  gtk_snapshot_translate_3d (snapshot, &instance_offset);
+  gtk_snapshot_scale (snapshot, instance_scale, instance_scale);
+  gtk_snapshot_append_node (snapshot, instance->blurred);
+  gtk_snapshot_restore (snapshot);
+
+  instance->scale.render = instance_scale;
 }
