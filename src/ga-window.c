@@ -537,5 +537,8 @@ update_dialog_closed (AdwDialog *dialog,
         updates_buf[i] = g_list_model_get_item (updates, i);
 
       update (self, updates_buf, n_updates);
+
+      for (guint i = 0; i < n_updates; i++)
+        g_object_unref (updates_buf[i]);
     }
 }

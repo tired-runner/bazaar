@@ -167,6 +167,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
   g_autoptr (GKeyFile) key_file         = NULL;
   gboolean    result                    = FALSE;
   const char *title                     = NULL;
+  const char *description               = NULL;
   g_autoptr (GPtrArray) search_tokens   = NULL;
   g_autoptr (GdkTexture) icon_paintable = NULL;
 
@@ -212,6 +213,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
       if (title == NULL)
         title = as_component_get_id (component);
 
+      description   = as_component_get_summary (component);
       search_tokens = as_component_get_search_tokens (component);
 
       icon = as_component_get_icon_stock (component);
@@ -245,14 +247,16 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
 
   if (search_tokens == NULL)
     search_tokens = g_ptr_array_new_with_free_func (g_free);
-  g_ptr_array_add (search_tokens, g_strdup (self->name));
+  g_ptr_array_add (search_tokens, g_strdup (title));
+  if (description != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (description));
   g_ptr_array_add (search_tokens, g_strdup (self->runtime));
   g_ptr_array_add (search_tokens, g_strdup (self->command));
 
   g_object_set (
       self,
       "title", title,
-      "description", component != NULL ? as_component_get_summary (component) : NULL,
+      "description", description,
       "size", flatpak_remote_ref_get_installed_size (rref),
       "icon-paintable", icon_paintable,
       "search-tokens", search_tokens,

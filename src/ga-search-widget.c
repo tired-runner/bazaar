@@ -30,6 +30,9 @@ struct _GaSearchWidget
   GListModel *model;
   GaEntry    *selected;
 
+  GPtrArray  *match_tokens;
+  GHashTable *match_scores;
+
   /* Template widgets */
   GtkText     *search_bar;
   GtkLabel    *search_text;
@@ -64,6 +67,11 @@ match (GaEntry        *item,
        GaSearchWidget *self);
 
 static void
+pending_changed (GtkFilterListModel *model,
+                 GParamSpec         *pspec,
+                 GaSearchWidget     *self);
+
+static void
 activate (GtkListView    *list_view,
           guint           position,
           GaSearchWidget *self);
@@ -78,6 +86,8 @@ ga_search_widget_dispose (GObject *object)
 
   g_clear_object (&self->model);
   g_clear_object (&self->selected);
+  g_clear_pointer (&self->match_tokens, g_ptr_array_unref);
+  g_clear_pointer (&self->match_scores, g_hash_table_unref);
 
   G_OBJECT_CLASS (ga_search_widget_parent_class)->dispose (object);
 }
@@ -164,6 +174,9 @@ ga_search_widget_init (GaSearchWidget *self)
   GtkSortListModel   *sort_model                = NULL;
   g_autoptr (GtkSelectionModel) selection_model = NULL;
 
+  self->match_tokens = g_ptr_array_new_with_free_func (g_free);
+  self->match_scores = g_hash_table_new (g_direct_hash, g_direct_equal);
+
   gtk_widget_init_template (GTK_WIDGET (self));
   gtk_widget_add_css_class (GTK_WIDGET (self), "global-search");
 
@@ -178,6 +191,7 @@ ga_search_widget_init (GaSearchWidget *self)
   gtk_list_view_set_model (self->list_view, selection_model);
 
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
+  g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
 }
 
@@ -241,32 +255,109 @@ cmp_item (GaEntry        *a,
           GaEntry        *b,
           GaSearchWidget *self)
 {
-  /* Just setting this up for later */
-  return 0;
+  int a_score = 0;
+  int b_score = 0;
+
+  a_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, a));
+  b_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, b));
+
+  if (a_score == b_score)
+    {
+      /* slightly favor entries with a description */
+      if (ga_entry_get_description (a) != NULL)
+        a_score++;
+      if (ga_entry_get_description (b) != NULL)
+        b_score++;
+
+      /* slightly favor entries with an icon */
+      if (ga_entry_get_icon_paintable (a) != NULL)
+        a_score++;
+      if (ga_entry_get_icon_paintable (b) != NULL)
+        b_score++;
+    }
+  if (a_score == b_score)
+    {
+      const char *a_title = NULL;
+      const char *b_title = NULL;
+      int         cmp_res = 0;
+
+      a_title = ga_entry_get_title (a);
+      b_title = ga_entry_get_title (b);
+      cmp_res = g_strcmp0 (a_title, b_title);
+
+      if (cmp_res < 0)
+        a_score++;
+      if (cmp_res > 0)
+        b_score++;
+    }
+
+  if (a_score == b_score)
+    return 0;
+  return a_score < b_score ? 1 : -1;
 }
 
-static int
+static gboolean
 match (GaEntry        *item,
        GaSearchWidget *self)
 {
-  const char *search_text   = NULL;
-  GPtrArray  *search_tokens = NULL;
+  int        score         = 0;
+  GPtrArray *search_tokens = NULL;
 
-  search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
-  if (search_text == NULL)
-    return 0;
-
-  search_tokens = ga_entry_get_search_tokens (item);
-  for (guint i = 0; i < search_tokens->len; i++)
+  if (self->match_tokens->len == 0)
     {
-      const char *token = NULL;
-
-      token = g_ptr_array_index (search_tokens, i);
-      if (g_str_match_string (search_text, token, TRUE))
-        return 1;
+      score++;
+      goto done;
     }
 
-  return 0;
+  search_tokens = ga_entry_get_search_tokens (item);
+
+  for (guint i = 0; i < self->match_tokens->len; i++)
+    {
+      int         token_score = 0;
+      const char *match_token = NULL;
+
+      match_token = g_ptr_array_index (self->match_tokens, i);
+      for (guint j = 0; j < search_tokens->len; j++)
+        {
+          const char *search_token = NULL;
+
+          search_token = g_ptr_array_index (search_tokens, j);
+          if (g_strcmp0 (match_token, search_token) == 0)
+            token_score += 5;
+          else if (strstr (search_token, match_token) != NULL)
+            token_score += 3;
+          else if (g_str_match_string (match_token, search_token, TRUE))
+            token_score += 1;
+        }
+
+      if (token_score > 0)
+        score += token_score;
+      else
+        {
+          score = 0;
+          goto done;
+        }
+    }
+
+done:
+  g_hash_table_replace (self->match_scores, item, GINT_TO_POINTER (score));
+  return score > 0;
+}
+
+static void
+pending_changed (GtkFilterListModel *model,
+                 GParamSpec         *pspec,
+                 GaSearchWidget     *self)
+{
+  guint pending = 0;
+  guint n_items = 0;
+
+  pending = gtk_filter_list_model_get_pending (model);
+  n_items = g_list_model_get_n_items (G_LIST_MODEL (model));
+
+  if (pending == 0 && n_items > 0)
+    /* Here to combat weird list view scrolling behavior */
+    gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
 }
 
 static void
@@ -287,10 +378,29 @@ activate (GtkListView    *list_view,
 static void
 update_filter (GaSearchWidget *self)
 {
+  const char         *search_text       = NULL;
   GtkSingleSelection *selection_model   = NULL;
   GtkSortListModel   *sort_list_model   = NULL;
   GtkFilterListModel *filter_list_model = NULL;
   GtkFilter          *filter            = NULL;
+
+  g_ptr_array_set_size (self->match_tokens, 0);
+  g_hash_table_remove_all (self->match_scores);
+
+  search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
+  if (search_text != NULL)
+    {
+      g_autofree gchar **tokens = NULL;
+
+      tokens = g_strsplit_set (search_text, " \t\n", -1);
+      for (gchar **token = tokens; *token != NULL; token++)
+        {
+          if (**token != '\0')
+            g_ptr_array_add (self->match_tokens, *token);
+          else
+            g_free (*token);
+        }
+    }
 
   selection_model   = GTK_SINGLE_SELECTION (gtk_list_view_get_model (self->list_view));
   sort_list_model   = GTK_SORT_LIST_MODEL (gtk_single_selection_get_model (selection_model));
