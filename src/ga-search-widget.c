@@ -57,6 +57,10 @@ static void
 search_changed (GtkEditable    *editable,
                 GaSearchWidget *self);
 
+static void
+search_activate (GtkText        *text,
+                 GaSearchWidget *self);
+
 static gint
 cmp_item (GaEntry        *a,
           GaEntry        *b,
@@ -191,6 +195,7 @@ ga_search_widget_init (GaSearchWidget *self)
   gtk_list_view_set_model (self->list_view, selection_model);
 
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
+  g_signal_connect (self->search_bar, "activate", G_CALLBACK (search_activate), self);
   g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
 }
@@ -248,6 +253,25 @@ search_changed (GtkEditable    *editable,
                 GaSearchWidget *self)
 {
   update_filter (self);
+}
+
+static void
+search_activate (GtkText        *text,
+                 GaSearchWidget *self)
+{
+  GtkSelectionModel *model        = NULL;
+  guint              selected_idx = 0;
+
+  g_clear_object (&self->selected);
+
+  model        = gtk_list_view_get_model (self->list_view);
+  selected_idx = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+
+  if (selected_idx != GTK_INVALID_LIST_POSITION)
+    {
+      self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+    }
 }
 
 static gint
