@@ -1,4 +1,4 @@
-/* ga-flatpak-entry.h
+/* ga-update-page.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,14 +20,20 @@
 
 #pragma once
 
-#include "ga-entry.h"
+#include <adwaita.h>
+
+/* TODO: make interface for backend */
+#include "ga-flatpak-instance.h"
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_FLATPAK_ENTRY (ga_flatpak_entry_get_type ())
-G_DECLARE_FINAL_TYPE (GaFlatpakEntry, ga_flatpak_entry, GA, FLATPAK_ENTRY, GaEntry)
+#define GA_TYPE_UPDATE_PAGE (ga_update_page_get_type ())
+G_DECLARE_FINAL_TYPE (GaUpdatePage, ga_update_page, GA, UPDATE_PAGE, AdwBin)
 
-const char *
-ga_flatpak_entry_get_name (GaFlatpakEntry *self);
+GtkWidget *
+ga_update_page_new (GListModel *updates);
+
+GListModel *
+ga_updated_page_was_accepted (GaUpdatePage *self);
 
 G_END_DECLS

@@ -125,9 +125,6 @@
             </property>
           </object>
         </child>
-        <child>
-          <object class="AdwBanner" id="search_banner"/>
-        </child>
       </object>
     </property>
   </template>

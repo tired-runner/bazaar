@@ -23,6 +23,7 @@
 #include "ga-background.h"
 #include "ga-flatpak-instance.h"
 #include "ga-search-widget.h"
+#include "ga-update-page.h"
 #include "ga-window.h"
 
 struct _GaWindow
@@ -30,8 +31,8 @@ struct _GaWindow
   AdwApplicationWindow parent_instance;
 
   GaFlatpakInstance *flatpak;
-  GListStore        *installed;
   GListStore        *remote;
+  GHashTable        *id_to_entry_hash;
 
   /* Template widgets */
   GaBackground    *background;
@@ -65,6 +66,9 @@ static DexFuture *
 fetch_refs_then (DexFuture *future,
                  GaWindow  *self);
 static DexFuture *
+fetch_updates_then (DexFuture *future,
+                    GaWindow  *self);
+static DexFuture *
 refresh_catch (DexFuture *future,
                GaWindow  *self);
 static DexFuture *
@@ -72,12 +76,13 @@ refresh_finally (DexFuture *future,
                  GaWindow  *self);
 
 static void
-install_progress (const char *status,
-                  gboolean    is_estimating,
-                  int         progress_num,
-                  guint64     bytes_transferred,
-                  guint64     start_time,
-                  GaWindow   *self);
+install_progress (GaFlatpakEntry *entry,
+                  const char     *status,
+                  gboolean        is_estimating,
+                  int             progress_num,
+                  guint64         bytes_transferred,
+                  guint64         start_time,
+                  GaWindow       *self);
 static DexFuture *
 install_finally (DexFuture *future,
                  GaWindow  *self);
@@ -95,11 +100,20 @@ install (GaWindow *self,
          GaEntry  *entry);
 
 static void
+update (GaWindow *self,
+        GaEntry **updates,
+        guint     n_updates);
+
+static void
+update_dialog_closed (AdwDialog *dialog,
+                      GaWindow  *self);
+
+static void
 ga_window_dispose (GObject *object)
 {
   GaWindow *self = GA_WINDOW (object);
 
-  g_clear_object (&self->installed);
+  g_clear_pointer (&self->id_to_entry_hash, g_hash_table_unref);
   g_clear_object (&self->remote);
   g_clear_object (&self->flatpak);
 
@@ -188,22 +202,25 @@ static DexFuture *
 refresh_then (DexFuture *future,
               GaWindow  *self)
 {
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  DexFuture    *remote_future    = NULL;
+  g_autoptr (GError) local_error  = NULL;
+  const GValue *value             = NULL;
+  DexFuture    *ref_remote_future = NULL;
 
   value         = dex_future_get_value (future, &local_error);
   self->flatpak = g_value_dup_object (value);
 
-  remote_future = ga_flatpak_instance_ref_remote_apps (
+  ref_remote_future = ga_flatpak_instance_ref_remote_apps (
       self->flatpak,
       (GaFlatpakGatherEntriesFunc) gather_entries_progress,
       g_object_ref (self), g_object_unref);
-  remote_future = dex_future_then (
-      remote_future, (DexFutureCallback) fetch_refs_then,
+  ref_remote_future = dex_future_then (
+      ref_remote_future, (DexFutureCallback) fetch_refs_then,
+      g_object_ref (self), g_object_unref);
+  ref_remote_future = dex_future_then (
+      ref_remote_future, (DexFutureCallback) fetch_updates_then,
       g_object_ref (self), g_object_unref);
 
-  return remote_future;
+  return ref_remote_future;
 }
 
 static DexFuture *
@@ -214,7 +231,23 @@ fetch_refs_then (DexFuture *future,
   g_autoptr (GListStore) bg_entries = NULL;
   g_autoptr (GHashTable) set        = NULL;
 
-  n_entries  = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
+  n_entries = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
+
+  self->id_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  for (guint i = 0; i < n_entries; i++)
+    {
+      g_autoptr (GaFlatpakEntry) entry = NULL;
+      const char *name                 = NULL;
+
+      entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
+      name  = ga_flatpak_entry_get_name (entry);
+
+      g_hash_table_replace (
+          self->id_to_entry_hash,
+          g_strdup (name),
+          g_steal_pointer (&entry));
+    }
+
   bg_entries = g_list_store_new (GA_TYPE_ENTRY);
   set        = g_hash_table_new (g_direct_hash, g_direct_equal);
 
@@ -243,6 +276,56 @@ fetch_refs_then (DexFuture *future,
   adw_toast_overlay_add_toast (
       self->toasts,
       adw_toast_new_format ("Discovered %d Apps", n_entries));
+
+  return ga_flatpak_instance_ref_updates (self->flatpak);
+}
+
+static DexFuture *
+fetch_updates_then (DexFuture *future,
+                    GaWindow  *self)
+{
+  g_autoptr (GError) local_error = NULL;
+  const GValue *value            = NULL;
+  g_autoptr (GPtrArray) names    = NULL;
+
+  value = dex_future_get_value (future, NULL);
+  names = g_value_dup_boxed (value);
+
+  if (names->len > 0)
+    {
+      g_autoptr (GListStore) updates = NULL;
+
+      updates = g_list_store_new (GA_TYPE_ENTRY);
+      for (guint i = 0; i < names->len; i++)
+        {
+          const char *name  = NULL;
+          GaEntry    *entry = NULL;
+
+          name  = g_ptr_array_index (names, i);
+          entry = g_hash_table_lookup (self->id_to_entry_hash, name);
+
+          /* FIXME address all refs */
+          if (entry != NULL)
+            g_list_store_append (updates, entry);
+        }
+
+      if (g_list_model_get_n_items (G_LIST_MODEL (updates)) > 0)
+        {
+          GtkWidget *update_page = NULL;
+          AdwDialog *dialog      = NULL;
+
+          update_page = ga_update_page_new (G_LIST_MODEL (updates));
+          dialog      = adw_dialog_new ();
+
+          g_signal_connect (dialog, "closed", G_CALLBACK (update_dialog_closed), self);
+
+          adw_dialog_set_child (dialog, update_page);
+          adw_dialog_set_content_width (dialog, 500);
+          adw_dialog_set_content_height (dialog, 300);
+
+          adw_dialog_present (dialog, GTK_WIDGET (self));
+        }
+    }
 
   return dex_future_new_true ();
 }
@@ -274,14 +357,17 @@ refresh_finally (DexFuture *future,
 }
 
 static void
-install_progress (const char *status,
-                  gboolean    is_estimating,
-                  int         progress_num,
-                  guint64     bytes_transferred,
-                  guint64     start_time,
-                  GaWindow   *self)
+install_progress (GaFlatpakEntry *entry,
+                  const char     *status,
+                  gboolean        is_estimating,
+                  int             progress_num,
+                  guint64         bytes_transferred,
+                  guint64         start_time,
+                  GaWindow       *self)
 {
-  gboolean show_bar = FALSE;
+  gboolean         show_bar = FALSE;
+  const char      *title    = NULL;
+  g_autofree char *text     = NULL;
 
   show_bar = status != NULL && status[0] != '\0';
   gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), show_bar);
@@ -292,7 +378,10 @@ install_progress (const char *status,
   else
     gtk_progress_bar_set_fraction (self->progress_bar, (double) progress_num / 100.0);
 
-  gtk_label_set_text (self->progress_label, status);
+  title = ga_entry_get_title (GA_ENTRY (entry));
+  text  = g_strdup_printf ("Installing: %s (%s)", title, status);
+
+  gtk_label_set_text (self->progress_label, text);
 }
 
 static DexFuture *
@@ -311,6 +400,9 @@ install_finally (DexFuture *future,
     adw_toast_overlay_add_toast (
         self->toasts,
         adw_toast_new_format ("Failed! %s", local_error->message));
+
+  gtk_label_set_text (self->progress_label, NULL);
+  gtk_progress_bar_set_fraction (self->progress_bar, 0);
 
   gtk_widget_set_visible (GTK_WIDGET (self->progress_label), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
@@ -349,7 +441,7 @@ refresh (GaWindow *self)
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
 
-  g_clear_object (&self->installed);
+  g_clear_pointer (&self->id_to_entry_hash, g_hash_table_unref);
   g_list_store_remove_all (self->remote);
   g_clear_object (&self->flatpak);
 
@@ -363,6 +455,7 @@ refresh (GaWindow *self)
   future = dex_future_finally (
       future, (DexFutureCallback) refresh_finally,
       g_object_ref (self), g_object_unref);
+  dex_future_disown (future);
 }
 
 static void
@@ -378,13 +471,71 @@ install (GaWindow *self,
   gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
 
-  future = ga_flatpak_instance_install (
+  future = ga_flatpak_instance_schedule_transaction (
       self->flatpak,
-      GA_FLATPAK_ENTRY (entry),
-      (GaFlatpakInstallProgressFunc) install_progress,
+      (GaFlatpakEntry **) &entry,
+      1,
+      NULL,
+      0,
+      (GaFlatpakTransactionProgressFunc) install_progress,
       g_object_ref (self),
       g_object_unref);
   future = dex_future_finally (
       future, (DexFutureCallback) install_finally,
       g_object_ref (self), g_object_unref);
+  dex_future_disown (future);
+}
+
+static void
+update (GaWindow *self,
+        GaEntry **updates,
+        guint     n_updates)
+{
+  DexFuture *future = NULL;
+
+  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
+  gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
+
+  gtk_widget_set_visible (GTK_WIDGET (self->progress_label), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
+
+  future = ga_flatpak_instance_schedule_transaction (
+      self->flatpak,
+      NULL,
+      0,
+      (GaFlatpakEntry **) updates,
+      n_updates,
+      (GaFlatpakTransactionProgressFunc) install_progress,
+      g_object_ref (self),
+      g_object_unref);
+  future = dex_future_finally (
+      future, (DexFutureCallback) install_finally,
+      g_object_ref (self), g_object_unref);
+  dex_future_disown (future);
+}
+
+static void
+update_dialog_closed (AdwDialog *dialog,
+                      GaWindow  *self)
+{
+  GtkWidget *page                = NULL;
+  g_autoptr (GListModel) updates = NULL;
+
+  page    = adw_dialog_get_child (dialog);
+  updates = ga_updated_page_was_accepted (GA_UPDATE_PAGE (page));
+
+  if (updates != NULL)
+    {
+      guint                n_updates   = 0;
+      g_autofree GaEntry **updates_buf = NULL;
+
+      n_updates   = g_list_model_get_n_items (updates);
+      updates_buf = g_malloc_n (n_updates, sizeof (*updates_buf));
+
+      for (guint i = 0; i < n_updates; i++)
+        updates_buf[i] = g_list_model_get_item (updates, i);
+
+      update (self, updates_buf, n_updates);
+    }
 }

@@ -217,19 +217,27 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
       icon = as_component_get_icon_stock (component);
       if (icon != NULL)
         {
-          g_autofree char *basename   = NULL;
-          g_autoptr (GFile) icon_file = NULL;
+          for (int i = 128; i > 0; i -= 64)
+            {
+              g_autofree char *resolution = NULL;
+              g_autofree char *basename   = NULL;
+              g_autoptr (GFile) icon_file = NULL;
 
-          basename  = g_strdup_printf ("%s.png", as_icon_get_name (icon));
-          icon_file = g_file_new_build_filename (
-              appstream_dir,
-              "icons",
-              "flatpak",
-              "128x128",
-              basename,
-              NULL);
-          if (g_file_query_exists (icon_file, NULL))
-            icon_paintable = gdk_texture_new_from_file (icon_file, NULL);
+              resolution = g_strdup_printf ("%dx%d", i, i);
+              basename   = g_strdup_printf ("%s.png", as_icon_get_name (icon));
+              icon_file  = g_file_new_build_filename (
+                  appstream_dir,
+                  "icons",
+                  "flatpak",
+                  resolution,
+                  basename,
+                  NULL);
+              if (g_file_query_exists (icon_file, NULL))
+                {
+                  icon_paintable = gdk_texture_new_from_file (icon_file, NULL);
+                  break;
+                }
+            }
         }
     }
   if (title == NULL)
@@ -263,4 +271,12 @@ ga_flatpak_entry_get_ref (GaFlatpakEntry *self)
   g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), NULL);
 
   return FLATPAK_REF (self->rref);
+}
+
+const char *
+ga_flatpak_entry_get_name (GaFlatpakEntry *self)
+{
+  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), NULL);
+
+  return self->name;
 }

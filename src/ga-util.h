@@ -29,41 +29,52 @@
     g_clear_handle_id (&self->name, (remove));
 
 /* va args = releases */
-#define GA_DEFINE_DATA(name, Name, layout, ...)    \
-  typedef struct                                   \
-  {                                                \
-    gatomicrefcount rc;                            \
-    struct layout;                                 \
-  } Name##Data;                                    \
-  static inline Name##Data *                       \
-      name##_data_new (void)                       \
-  {                                                \
-    Name##Data *data = NULL;                       \
-    data             = g_new0 (typeof (*data), 1); \
-    g_atomic_ref_count_init (&data->rc);           \
-    return data;                                   \
-  }                                                \
-  static inline Name##Data *                       \
-      name##_data_ref (gpointer ptr)               \
-  {                                                \
-    Name##Data *self = ptr;                        \
-    g_atomic_ref_count_inc (&self->rc);            \
-    return self;                                   \
-  }                                                \
-  static void                                      \
-      name##_data_deinit (gpointer ptr)            \
-  {                                                \
-    Name##Data *self = ptr;                        \
-    __VA_ARGS__                                    \
-  }                                                \
-  static void                                      \
-      name##_data_unref (gpointer ptr)             \
-  {                                                \
-    Name##Data *self = ptr;                        \
-    if (g_atomic_ref_count_dec (&self->rc))        \
-      {                                            \
-        name##_data_deinit (self);                 \
-        g_free (self);                             \
-      }                                            \
-  }                                                \
+#define GA_DEFINE_DATA(name, Name, layout, ...)     \
+  typedef struct                                    \
+  {                                                 \
+    gatomicrefcount rc;                             \
+    struct layout;                                  \
+  } Name##Data;                                     \
+  G_GNUC_UNUSED                                     \
+  static inline Name##Data *                        \
+      name##_data_new (void)                        \
+  {                                                 \
+    Name##Data *data = NULL;                        \
+    data             = g_new0 (typeof (*data), 1);  \
+    g_atomic_ref_count_init (&data->rc);            \
+    return data;                                    \
+  }                                                 \
+  G_GNUC_UNUSED                                     \
+  static inline Name##Data *                        \
+      name##_data_ref (gpointer ptr)                \
+  {                                                 \
+    Name##Data *self = ptr;                         \
+    g_atomic_ref_count_inc (&self->rc);             \
+    return self;                                    \
+  }                                                 \
+  G_GNUC_UNUSED                                     \
+  static void                                       \
+      name##_data_deinit (gpointer ptr)             \
+  {                                                 \
+    Name##Data *self = ptr;                         \
+    __VA_ARGS__                                     \
+  }                                                 \
+  G_GNUC_UNUSED                                     \
+  static void                                       \
+      name##_data_unref (gpointer ptr)              \
+  {                                                 \
+    Name##Data *self = ptr;                         \
+    if (g_atomic_ref_count_dec (&self->rc))         \
+      {                                             \
+        name##_data_deinit (self);                  \
+        g_free (self);                              \
+      }                                             \
+  }                                                 \
+  G_GNUC_UNUSED                                     \
+  static void                                       \
+      name##_data_unref_closure (gpointer  data,    \
+                                 GClosure *closure) \
+  {                                                 \
+    name##_data_unref (data);                       \
+  }                                                 \
   G_DEFINE_AUTOPTR_CLEANUP_FUNC (Name##Data, name##_data_unref);

@@ -4,6 +4,7 @@
     <file>gtk/styles.css</file>
     <file preprocess="xml-stripblanks">ga-window.ui</file>
     <file preprocess="xml-stripblanks">ga-search-widget.ui</file>
+    <file preprocess="xml-stripblanks">ga-update-page.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
   </gresource>
 </gresources>

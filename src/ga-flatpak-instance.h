@@ -32,9 +32,6 @@ G_DECLARE_FINAL_TYPE (GaFlatpakInstance, ga_flatpak_instance, GA, FLATPAK_INSTAN
 DexFuture *
 ga_flatpak_instance_new (void);
 
-DexFuture *
-ga_flatpak_instance_ref_installed_apps (GaFlatpakInstance *self);
-
 typedef void (*GaFlatpakGatherEntriesFunc) (
     GaEntry *entry,
     gpointer user_data);
@@ -45,19 +42,26 @@ ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
                                      gpointer                   user_data,
                                      GDestroyNotify             destroy_user_data);
 
-typedef void (*GaFlatpakInstallProgressFunc) (
-    const char *status,
-    gboolean    is_estimating,
-    int         progress_num,
-    guint64     bytes_transferred,
-    guint64     start_time,
-    gpointer    user_data);
+DexFuture *
+ga_flatpak_instance_ref_updates (GaFlatpakInstance *self);
+
+typedef void (*GaFlatpakTransactionProgressFunc) (
+    GaFlatpakEntry *entry,
+    const char     *status,
+    gboolean        is_estimating,
+    int             progress_num,
+    guint64         bytes_transferred,
+    guint64         start_time,
+    gpointer        user_data);
 
 DexFuture *
-ga_flatpak_instance_install (GaFlatpakInstance           *self,
-                             GaFlatpakEntry              *entry,
-                             GaFlatpakInstallProgressFunc progress_func,
-                             gpointer                     user_data,
-                             GDestroyNotify               destroy_user_data);
+ga_flatpak_instance_schedule_transaction (GaFlatpakInstance               *self,
+                                          GaFlatpakEntry                 **installs,
+                                          guint                            n_installs,
+                                          GaFlatpakEntry                 **updates,
+                                          guint                            n_updates,
+                                          GaFlatpakTransactionProgressFunc progress_func,
+                                          gpointer                         user_data,
+                                          GDestroyNotify                   destroy_user_data);
 
 G_END_DECLS

@@ -3,6 +3,7 @@ ga_sources = [
   'ga-application.c',
   'ga-window.c',
   'ga-search-widget.c',
+  'ga-update-page.c',
   'ga-background.c',
   'ga-flatpak-instance.c',
   'ga-entry.c',

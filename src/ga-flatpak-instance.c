@@ -45,16 +45,8 @@ static DexFuture *
 init_fiber (InitData *data);
 
 GA_DEFINE_DATA (
-    ref_installed_apps,
-    RefInstalledApps,
-    { GaFlatpakInstance *fp; },
-    GA_RELEASE_DATA (fp, g_object_unref))
-static DexFuture *
-ref_installed_apps_fiber (RefInstalledAppsData *data);
-
-GA_DEFINE_DATA (
-    ref_remote_apps,
-    RefRemoteApps,
+    gather_entries,
+    GatherEntries,
     {
       GaFlatpakInstance         *fp;
       DexScheduler              *home_scheduler;
@@ -66,80 +58,100 @@ GA_DEFINE_DATA (
     GA_RELEASE_DATA (home_scheduler, dex_unref);
     GA_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
-ref_remote_apps_fiber (RefRemoteAppsData *data);
-
-static void
-ref_remote_apps_update_appstream_progress (const char        *status,
-                                           guint              progress,
-                                           gboolean           estimating,
-                                           RefRemoteAppsData *data);
+ref_remote_apps_fiber (GatherEntriesData *data);
+static DexFuture *
+ref_updates_fiber (GatherEntriesData *data);
 
 GA_DEFINE_DATA (
     ref_remote_apps_job,
     RefRemoteAppsJob,
     {
-      RefRemoteAppsData *parent;
+      GatherEntriesData *parent;
       FlatpakRemoteRef  *rref;
       AsComponent       *component;
       char              *appstream_dir;
     },
-    GA_RELEASE_DATA (parent, ref_remote_apps_data_unref);
+    GA_RELEASE_DATA (parent, gather_entries_data_unref);
     GA_RELEASE_DATA (rref, g_object_unref);
     GA_RELEASE_DATA (component, g_object_unref);
     GA_RELEASE_DATA (appstream_dir, g_free));
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
 
+static void
+gather_entries_update_progress (const char        *status,
+                                guint              progress,
+                                gboolean           estimating,
+                                GatherEntriesData *data);
+
 typedef struct
 {
-  RefRemoteAppsJobData *parent;
-  GaEntry              *entry;
-} RefRemoteAppsJobUpdateData;
+  GatherEntriesData *parent;
+  GaEntry           *entry;
+} GatherEntriesUpdateData;
 static DexFuture *
-ref_remote_apps_job_update (RefRemoteAppsJobUpdateData *data);
+gather_entries_job_update (GatherEntriesUpdateData *data);
 
 GA_DEFINE_DATA (
-    install,
-    Install,
+    transaction,
+    Transaction,
     {
-      GaFlatpakInstance           *fp;
-      GaFlatpakEntry              *entry;
-      GaFlatpakInstallProgressFunc progress_func;
-      gpointer                     user_data;
-      GDestroyNotify               destroy_user_data;
-      guint                        timeout_handle;
+      GaFlatpakInstance               *fp;
+      GPtrArray                       *installations;
+      GPtrArray                       *updates;
+      GHashTable                      *ref_to_entry_hash;
+      GaFlatpakTransactionProgressFunc progress_func;
+      gpointer                         user_data;
+      GDestroyNotify                   destroy_user_data;
     },
     GA_RELEASE_DATA (fp, g_object_unref);
-    GA_RELEASE_DATA (entry, g_object_unref);
-    GA_RELEASE_DATA (user_data, self->destroy_user_data);
-    GA_RELEASE_UTAG (timeout_handle, g_source_remove))
+    GA_RELEASE_DATA (installations, g_ptr_array_unref);
+    GA_RELEASE_DATA (updates, g_ptr_array_unref);
+    GA_RELEASE_DATA (ref_to_entry_hash, g_hash_table_unref);
+    GA_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
-install_fiber (InstallData *data);
+transaction_fiber (TransactionData *data);
 static void
-install_new_operation (FlatpakTransaction          *object,
-                       FlatpakTransactionOperation *operation,
-                       FlatpakTransactionProgress  *progress,
-                       InstallData                 *data);
-static void
-install_progress_changed (FlatpakTransactionProgress *object,
-                          InstallData                *data);
+transaction_new_operation (FlatpakTransaction          *object,
+                           FlatpakTransactionOperation *operation,
+                           FlatpakTransactionProgress  *progress,
+                           TransactionData             *data);
+static GaFlatpakEntry *
+find_entry_from_operation (TransactionData             *data,
+                           FlatpakTransactionOperation *operation);
+
 GA_DEFINE_DATA (
-    idle_install,
-    IdleInstall,
+    transaction_operation,
+    TransactionOperation,
     {
-      InstallData *install;
-      char        *status;
-      gboolean     is_estimating;
-      int          progress_num;
-      guint64      bytes_transferred;
-      guint64      start_time;
+      TransactionData *parent;
+      GaFlatpakEntry  *entry;
+      guint            timeout_handle;
     },
-    GA_RELEASE_DATA (install, install_data_unref);
+    GA_RELEASE_DATA (parent, transaction_data_unref);
+    GA_RELEASE_DATA (entry, g_object_unref);
+    GA_RELEASE_UTAG (timeout_handle, g_source_remove))
+static void
+transaction_progress_changed (FlatpakTransactionProgress *object,
+                              TransactionOperationData   *data);
+
+GA_DEFINE_DATA (
+    idle_transaction,
+    IdleTransaction,
+    {
+      TransactionOperationData *parent;
+      char                     *status;
+      gboolean                  is_estimating;
+      int                       progress_num;
+      guint64                   bytes_transferred;
+      guint64                   start_time;
+    },
+    GA_RELEASE_DATA (parent, transaction_operation_data_unref);
     GA_RELEASE_DATA (status, g_free));
 static gboolean
-install_progress_idle (IdleInstallData *data);
+transaction_progress_idle (IdleTransactionData *data);
 static gboolean
-install_progress_timeout (IdleInstallData *data);
+transaction_progress_timeout (IdleTransactionData *data);
 
 static void
 ga_flatpak_instance_dispose (GObject *object)
@@ -201,54 +213,17 @@ init_fiber (InitData *data)
 }
 
 DexFuture *
-ga_flatpak_instance_ref_installed_apps (GaFlatpakInstance *self)
-{
-  g_autoptr (RefInstalledAppsData) data = NULL;
-
-  g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
-
-  data     = ref_installed_apps_data_new ();
-  data->fp = g_object_ref (self);
-
-  return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_installed_apps_fiber,
-      ref_installed_apps_data_ref (data), ref_installed_apps_data_unref);
-}
-
-static DexFuture *
-ref_installed_apps_fiber (RefInstalledAppsData *data)
-{
-  GaFlatpakInstance *fp          = data->fp;
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GPtrArray) refs     = NULL;
-  g_autoptr (GListStore) store   = NULL;
-
-  refs = flatpak_installation_list_installed_refs_by_kind (
-      fp->installation,
-      FLATPAK_REF_KIND_APP,
-      NULL,
-      &local_error);
-  if (refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  store = g_list_store_new (FLATPAK_TYPE_REF);
-  g_list_store_splice (store, 0, 0, refs->pdata, refs->len);
-
-  return dex_future_new_for_object (store);
-}
-
-DexFuture *
 ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
                                      GaFlatpakGatherEntriesFunc progress_func,
                                      gpointer                   user_data,
                                      GDestroyNotify             destroy_user_data)
 {
-  g_autoptr (RefRemoteAppsData) data = NULL;
+  g_autoptr (GatherEntriesData) data = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
   g_return_val_if_fail (progress_func != NULL, NULL);
 
-  data                    = ref_remote_apps_data_new ();
+  data                    = gather_entries_data_new ();
   data->fp                = g_object_ref (self);
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = progress_func;
@@ -257,11 +232,11 @@ ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
 
   return dex_scheduler_spawn (
       self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
-      ref_remote_apps_data_ref (data), ref_remote_apps_data_unref);
+      gather_entries_data_ref (data), gather_entries_data_unref);
 }
 
 static DexFuture *
-ref_remote_apps_fiber (RefRemoteAppsData *data)
+ref_remote_apps_fiber (GatherEntriesData *data)
 {
   GaFlatpakInstance *fp               = data->fp;
   g_autoptr (GError) local_error      = NULL;
@@ -296,7 +271,7 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
       fp->installation,
       "flathub",
       NULL,
-      (FlatpakProgressCallback) ref_remote_apps_update_appstream_progress,
+      (FlatpakProgressCallback) gather_entries_update_progress,
       data,
       NULL,
       NULL,
@@ -401,7 +376,7 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
       component = g_hash_table_lookup (id_hash, name);
 
       job_data            = ref_remote_apps_job_data_new ();
-      job_data->parent    = ref_remote_apps_data_ref (data);
+      job_data->parent    = gather_entries_data_ref (data);
       job_data->rref      = g_object_ref (rref);
       job_data->component = component != NULL ? g_object_ref (component) : NULL;
       /* TODO: this is bad, should just steal once */
@@ -422,20 +397,20 @@ ref_remote_apps_fiber (RefRemoteAppsData *data)
 }
 
 static void
-ref_remote_apps_update_appstream_progress (const char        *status,
-                                           guint              progress,
-                                           gboolean           estimating,
-                                           RefRemoteAppsData *data)
+gather_entries_update_progress (const char        *status,
+                                guint              progress,
+                                gboolean           estimating,
+                                GatherEntriesData *data)
 {
 }
 
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 {
-  g_autoptr (GError) local_error         = NULL;
-  g_autoptr (GaFlatpakEntry) entry       = NULL;
-  RefRemoteAppsJobUpdateData update_data = { 0 };
-  DexFuture                 *update      = NULL;
+  g_autoptr (GError) local_error      = NULL;
+  g_autoptr (GaFlatpakEntry) entry    = NULL;
+  GatherEntriesUpdateData update_data = { 0 };
+  DexFuture              *update      = NULL;
 
   entry = ga_flatpak_entry_new_for_remote_ref (
       data->parent->fp,
@@ -446,12 +421,12 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   if (entry == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  update_data.parent = data;
+  update_data.parent = data->parent;
   update_data.entry  = GA_ENTRY (entry);
 
   update = dex_scheduler_spawn (
       data->parent->home_scheduler, 0,
-      (DexFiberFunc) ref_remote_apps_job_update,
+      (DexFiberFunc) gather_entries_job_update,
       &update_data, NULL);
   if (!dex_await (update, &local_error))
     return dex_future_new_for_error (g_steal_pointer (&local_error));
@@ -459,67 +434,176 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   return dex_future_new_true ();
 }
 
-static DexFuture *
-ref_remote_apps_job_update (RefRemoteAppsJobUpdateData *data)
+DexFuture *
+ga_flatpak_instance_ref_updates (GaFlatpakInstance *self)
 {
-  data->parent->parent->progress_func (
+  g_autoptr (GatherEntriesData) data = NULL;
+
+  g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
+
+  data                    = gather_entries_data_new ();
+  data->fp                = g_object_ref (self);
+  data->home_scheduler    = dex_scheduler_ref_thread_default ();
+  data->progress_func     = NULL;
+  data->user_data         = NULL;
+  data->destroy_user_data = NULL;
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) ref_updates_fiber,
+      gather_entries_data_ref (data), gather_entries_data_unref);
+}
+
+static DexFuture *
+ref_updates_fiber (GatherEntriesData *data)
+{
+  GaFlatpakInstance *fp          = data->fp;
+  g_autoptr (GError) local_error = NULL;
+  g_autoptr (GPtrArray) refs     = NULL;
+  g_autoptr (GPtrArray) ids      = NULL;
+
+  refs = flatpak_installation_list_installed_refs_for_update (
+      fp->installation, NULL, &local_error);
+  if (refs == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  ids = g_ptr_array_new_with_free_func (g_free);
+  g_ptr_array_set_size (ids, refs->len);
+
+  for (guint i = 0; i < refs->len; i++)
+    {
+      FlatpakInstalledRef *iref = NULL;
+      const char          *name = NULL;
+
+      iref = g_ptr_array_index (refs, i);
+      name = flatpak_ref_get_name (FLATPAK_REF (iref));
+
+      g_ptr_array_index (ids, i) = g_strdup (name);
+    }
+
+  return dex_future_new_take_boxed (
+      G_TYPE_PTR_ARRAY, g_steal_pointer (&ids));
+}
+
+static DexFuture *
+gather_entries_job_update (GatherEntriesUpdateData *data)
+{
+  data->parent->progress_func (
       data->entry,
-      data->parent->parent->user_data);
+      data->parent->user_data);
 
   return dex_future_new_true ();
 }
 
 DexFuture *
-ga_flatpak_instance_install (GaFlatpakInstance           *self,
-                             GaFlatpakEntry              *entry,
-                             GaFlatpakInstallProgressFunc progress_func,
-                             gpointer                     user_data,
-                             GDestroyNotify               destroy_user_data)
+ga_flatpak_instance_schedule_transaction (GaFlatpakInstance               *self,
+                                          GaFlatpakEntry                 **installs,
+                                          guint                            n_installs,
+                                          GaFlatpakEntry                 **updates,
+                                          guint                            n_updates,
+                                          GaFlatpakTransactionProgressFunc progress_func,
+                                          gpointer                         user_data,
+                                          GDestroyNotify                   destroy_user_data)
 {
-  g_autoptr (InstallData) data = NULL;
+  GaFlatpakEntry **installs_dup    = NULL;
+  GaFlatpakEntry **updates_dup     = NULL;
+  g_autoptr (TransactionData) data = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (self), NULL);
-  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (entry), NULL);
 
-  data                    = install_data_new ();
+  if (n_installs > 0)
+    {
+      installs_dup = g_malloc0_n (n_installs, sizeof (*installs_dup));
+      for (guint i = 0; i < n_installs; i++)
+        installs_dup[i] = g_object_ref (installs[i]);
+    }
+  if (n_updates > 0)
+    {
+      updates_dup = g_malloc0_n (n_updates, sizeof (*updates_dup));
+      for (guint i = 0; i < n_updates; i++)
+        updates_dup[i] = g_object_ref (updates[i]);
+    }
+
+  data                    = transaction_data_new ();
   data->fp                = g_object_ref (self);
-  data->entry             = g_object_ref (entry);
+  data->installations     = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
+  data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
+  data->ref_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
   data->progress_func     = progress_func;
   data->user_data         = user_data;
   data->destroy_user_data = destroy_user_data;
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) install_fiber,
-      install_data_ref (data), install_data_unref);
+      self->scheduler, 0, (DexFiberFunc) transaction_fiber,
+      transaction_data_ref (data), transaction_data_unref);
 }
 
 static DexFuture *
-install_fiber (InstallData *data)
+transaction_fiber (TransactionData *data)
 {
   GaFlatpakInstance *fp                           = data->fp;
-  GaFlatpakEntry    *entry                        = data->entry;
+  GPtrArray         *installations                = data->installations;
+  GPtrArray         *updates                      = data->updates;
   g_autoptr (GError) local_error                  = NULL;
   g_autoptr (FlatpakTransaction) transaction      = NULL;
-  FlatpakRef      *ref                            = NULL;
-  g_autofree char *ref_fmt                        = NULL;
-  gboolean         result                         = FALSE;
+  gboolean result                                 = FALSE;
   g_autoptr (FlatpakTransactionProgress) progress = NULL;
 
   transaction = flatpak_transaction_new_for_installation (fp->installation, NULL, &local_error);
   if (transaction == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
-  g_signal_connect (transaction, "new-operation", G_CALLBACK (install_new_operation), data);
+  g_signal_connect (transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
 
-  ref     = ga_flatpak_entry_get_ref (entry);
-  ref_fmt = flatpak_ref_format_ref (ref);
-  result  = flatpak_transaction_add_install (
-      transaction,
-      flatpak_remote_ref_get_remote_name (FLATPAK_REMOTE_REF (ref)),
-      ref_fmt,
-      NULL,
-      &local_error);
-  if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+  if (installations != NULL)
+    {
+      for (guint i = 0; i < installations->len; i++)
+        {
+          GaFlatpakEntry  *entry   = NULL;
+          FlatpakRef      *ref     = NULL;
+          g_autofree char *ref_fmt = NULL;
+
+          entry   = g_ptr_array_index (installations, i);
+          ref     = ga_flatpak_entry_get_ref (entry);
+          ref_fmt = flatpak_ref_format_ref (ref);
+          result  = flatpak_transaction_add_install (
+              transaction,
+              flatpak_remote_ref_get_remote_name (FLATPAK_REMOTE_REF (ref)),
+              ref_fmt,
+              NULL,
+              &local_error);
+          if (!result)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          g_hash_table_replace (data->ref_to_entry_hash,
+                                g_steal_pointer (&ref_fmt),
+                                g_object_ref (entry));
+        }
+    }
+
+  if (updates != NULL)
+    {
+      for (guint i = 0; i < updates->len; i++)
+        {
+          GaFlatpakEntry  *entry   = NULL;
+          FlatpakRef      *ref     = NULL;
+          g_autofree char *ref_fmt = NULL;
+
+          entry   = g_ptr_array_index (updates, i);
+          ref     = ga_flatpak_entry_get_ref (entry);
+          ref_fmt = flatpak_ref_format_ref (ref);
+          result  = flatpak_transaction_add_update (
+              transaction,
+              ref_fmt,
+              NULL,
+              NULL,
+              &local_error);
+          if (!result)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          g_hash_table_replace (data->ref_to_entry_hash,
+                                g_steal_pointer (&ref_fmt),
+                                g_object_ref (entry));
+        }
+    }
 
   result = flatpak_transaction_run (transaction, NULL, &local_error);
   if (!result)
@@ -529,28 +613,70 @@ install_fiber (InstallData *data)
 }
 
 static void
-install_new_operation (FlatpakTransaction          *transaction,
-                       FlatpakTransactionOperation *operation,
-                       FlatpakTransactionProgress  *progress,
-                       InstallData                 *data)
+transaction_new_operation (FlatpakTransaction          *transaction,
+                           FlatpakTransactionOperation *operation,
+                           FlatpakTransactionProgress  *progress,
+                           TransactionData             *data)
 {
   flatpak_transaction_progress_set_update_frequency (progress, 10);
 
   if (data->progress_func != NULL)
-    g_signal_connect (
-        progress, "changed",
-        G_CALLBACK (install_progress_changed),
-        data);
+    {
+      GaFlatpakEntry *entry                               = NULL;
+      g_autoptr (TransactionOperationData) operation_data = NULL;
+
+      entry = find_entry_from_operation (data, operation);
+      g_assert (entry != NULL);
+
+      operation_data                 = transaction_operation_data_new ();
+      operation_data->parent         = transaction_data_ref (data);
+      operation_data->entry          = g_object_ref (entry);
+      operation_data->timeout_handle = 0;
+
+      g_signal_connect_data (
+          progress, "changed",
+          G_CALLBACK (transaction_progress_changed),
+          transaction_operation_data_ref (operation_data),
+          transaction_operation_data_unref_closure,
+          G_CONNECT_DEFAULT);
+    }
+}
+
+static GaFlatpakEntry *
+find_entry_from_operation (TransactionData             *data,
+                           FlatpakTransactionOperation *operation)
+{
+  const char     *ref_fmt        = NULL;
+  GaFlatpakEntry *entry          = NULL;
+  GPtrArray      *related_to_ops = NULL;
+
+  ref_fmt = flatpak_transaction_operation_get_ref (operation);
+  entry   = g_hash_table_lookup (data->ref_to_entry_hash, ref_fmt);
+  if (entry != NULL)
+    return entry;
+
+  related_to_ops = flatpak_transaction_operation_get_related_to_ops (operation);
+  for (guint i = 0; i < related_to_ops->len; i++)
+    {
+      FlatpakTransactionOperation *related_op = NULL;
+
+      related_op = g_ptr_array_index (related_to_ops, i);
+      entry      = find_entry_from_operation (data, related_op);
+      if (entry != NULL)
+        return entry;
+    }
+
+  return NULL;
 }
 
 static void
-install_progress_changed (FlatpakTransactionProgress *progress,
-                          InstallData                *data)
+transaction_progress_changed (FlatpakTransactionProgress *progress,
+                              TransactionOperationData   *data)
 {
-  g_autoptr (IdleInstallData) idle_data = NULL;
+  g_autoptr (IdleTransactionData) idle_data = NULL;
 
-  idle_data                    = idle_install_data_new ();
-  idle_data->install           = install_data_ref (data);
+  idle_data                    = idle_transaction_data_new ();
+  idle_data->parent            = transaction_operation_data_ref (data);
   idle_data->status            = flatpak_transaction_progress_get_status (progress);
   idle_data->is_estimating     = flatpak_transaction_progress_get_is_estimating (progress);
   idle_data->progress_num      = flatpak_transaction_progress_get_progress (progress);
@@ -559,9 +685,9 @@ install_progress_changed (FlatpakTransactionProgress *progress,
 
   g_idle_add_full (
       G_PRIORITY_DEFAULT,
-      (GSourceFunc) install_progress_idle,
-      idle_install_data_ref (idle_data),
-      idle_install_data_unref);
+      (GSourceFunc) transaction_progress_idle,
+      idle_transaction_data_ref (idle_data),
+      idle_transaction_data_unref);
 
   if (idle_data->is_estimating)
     {
@@ -570,9 +696,9 @@ install_progress_changed (FlatpakTransactionProgress *progress,
         data->timeout_handle = g_timeout_add_full (
             G_PRIORITY_DEFAULT,
             10,
-            (GSourceFunc) install_progress_timeout,
-            idle_install_data_ref (idle_data),
-            idle_install_data_unref);
+            (GSourceFunc) transaction_progress_timeout,
+            idle_transaction_data_ref (idle_data),
+            idle_transaction_data_unref);
     }
   else
     g_clear_handle_id (&data->timeout_handle,
@@ -580,29 +706,31 @@ install_progress_changed (FlatpakTransactionProgress *progress,
 }
 
 static gboolean
-install_progress_idle (IdleInstallData *data)
+transaction_progress_idle (IdleTransactionData *data)
 {
-  data->install->progress_func (
+  data->parent->parent->progress_func (
+      data->parent->entry,
       data->status,
       data->is_estimating,
       data->progress_num,
       data->bytes_transferred,
       data->start_time,
-      data->install->user_data);
+      data->parent->parent->user_data);
 
   return G_SOURCE_REMOVE;
 }
 
 static gboolean
-install_progress_timeout (IdleInstallData *data)
+transaction_progress_timeout (IdleTransactionData *data)
 {
-  data->install->progress_func (
+  data->parent->parent->progress_func (
+      data->parent->entry,
       data->status,
       data->is_estimating,
       data->progress_num,
       data->bytes_transferred,
       data->start_time,
-      data->install->user_data);
+      data->parent->parent->user_data);
 
   return G_SOURCE_CONTINUE;
 }
