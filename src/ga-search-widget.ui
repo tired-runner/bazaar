@@ -51,8 +51,8 @@
         </child>
         <child>
           <object class="GtkScrolledWindow">
-            <property name="width-request">400</property>
-            <property name="height-request">500</property>
+            <property name="width-request">100</property>
+            <property name="height-request">100</property>
             <property name="overflow">hidden</property>
             <property name="vexpand">TRUE</property>
             <property name="hscrollbar-policy">never</property>
@@ -74,7 +74,7 @@
         <property name="margin-bottom">3</property>
         <property name="margin-start">9</property>
         <property name="margin-end">6</property>
-        <property name="spacing">6</property>
+        <property name="spacing">18</property>
         <child>
           <object class="GtkImage">
             <property name="icon-size">large</property>

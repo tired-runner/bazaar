@@ -38,8 +38,8 @@
             </child>
             <child>
               <object class="GtkScrolledWindow">
-                <property name="width-request">400</property>
-                <property name="height-request">500</property>
+                <property name="width-request">100</property>
+                <property name="height-request">100</property>
                 <property name="overflow">hidden</property>
                 <property name="vexpand">TRUE</property>
                 <property name="hscrollbar-policy">never</property>
