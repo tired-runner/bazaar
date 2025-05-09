@@ -84,6 +84,36 @@ ga_application_class_init (GaApplicationClass *klass)
 }
 
 static void
+ga_application_refresh_action (GSimpleAction *action,
+                               GVariant      *parameter,
+                               gpointer       user_data)
+{
+  GaApplication *self   = user_data;
+  GtkWindow     *window = NULL;
+
+  g_assert (GA_IS_APPLICATION (self));
+
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+
+  ga_window_refresh (GA_WINDOW (window));
+}
+
+static void
+ga_application_search_action (GSimpleAction *action,
+                              GVariant      *parameter,
+                              gpointer       user_data)
+{
+  GaApplication *self   = user_data;
+  GtkWindow     *window = NULL;
+
+  g_assert (GA_IS_APPLICATION (self));
+
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+
+  ga_window_search (GA_WINDOW (window));
+}
+
+static void
 ga_application_about_action (GSimpleAction *action,
                              GVariant      *parameter,
                              gpointer       user_data)
@@ -121,8 +151,10 @@ ga_application_quit_action (GSimpleAction *action,
 }
 
 static const GActionEntry app_actions[] = {
-  {  "quit",  ga_application_quit_action },
-  { "about", ga_application_about_action },
+  {    "quit",    ga_application_quit_action },
+  {   "about",   ga_application_about_action },
+  {  "search",  ga_application_search_action },
+  { "refresh", ga_application_refresh_action },
 };
 
 static void
@@ -137,4 +169,12 @@ ga_application_init (GaApplication *self)
       GTK_APPLICATION (self),
       "app.quit",
       (const char *[]) { "<primary>q", NULL });
+  gtk_application_set_accels_for_action (
+      GTK_APPLICATION (self),
+      "app.search",
+      (const char *[]) { "<primary>f", NULL });
+  gtk_application_set_accels_for_action (
+      GTK_APPLICATION (self),
+      "app.refresh",
+      (const char *[]) { "<primary>r", NULL });
 }

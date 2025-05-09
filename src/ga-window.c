@@ -116,6 +116,9 @@ update (GaWindow *self,
         guint     n_updates);
 
 static void
+search (GaWindow *self);
+
+static void
 ga_window_dispose (GObject *object)
 {
   GaWindow *self = GA_WINDOW (object);
@@ -183,20 +186,7 @@ static void
 search_clicked (GtkButton *button,
                 GaWindow  *self)
 {
-  GtkWidget *search_widget = NULL;
-  AdwDialog *dialog        = NULL;
-
-  search_widget = ga_search_widget_new (G_LIST_MODEL (self->remote));
-  dialog        = adw_dialog_new ();
-
-  g_signal_connect (search_widget, "notify::selected",
-                    G_CALLBACK (search_selected_changed), self);
-
-  adw_dialog_set_child (dialog, search_widget);
-  adw_dialog_set_content_width (dialog, 800);
-  adw_dialog_set_content_height (dialog, 1200);
-
-  adw_dialog_present (dialog, GTK_WIDGET (self));
+  search (self);
 }
 
 static void
@@ -505,6 +495,32 @@ update_dialog_closed (AdwDialog *dialog,
     }
 }
 
+void
+ga_window_refresh (GaWindow *self)
+{
+  g_return_if_fail (GA_IS_WINDOW (self));
+
+  if (gtk_widget_get_sensitive (GTK_WIDGET (self->refresh)))
+    refresh (self);
+  else
+    adw_toast_overlay_add_toast (
+        self->toasts,
+        adw_toast_new_format ("Can't refresh right now!"));
+}
+
+void
+ga_window_search (GaWindow *self)
+{
+  g_return_if_fail (GA_IS_WINDOW (self));
+
+  if (gtk_widget_get_sensitive (GTK_WIDGET (self->search)))
+    search (self);
+  else
+    adw_toast_overlay_add_toast (
+        self->toasts,
+        adw_toast_new_format ("Can't search right now!"));
+}
+
 static void
 refresh (GaWindow *self)
 {
@@ -587,4 +603,23 @@ update (GaWindow *self,
       future, (DexFutureCallback) install_finally,
       g_object_ref (self), g_object_unref);
   dex_future_disown (future);
+}
+
+static void
+search (GaWindow *self)
+{
+  GtkWidget *search_widget = NULL;
+  AdwDialog *dialog        = NULL;
+
+  search_widget = ga_search_widget_new (G_LIST_MODEL (self->remote));
+  dialog        = adw_dialog_new ();
+
+  g_signal_connect (search_widget, "notify::selected",
+                    G_CALLBACK (search_selected_changed), self);
+
+  adw_dialog_set_child (dialog, search_widget);
+  adw_dialog_set_content_width (dialog, 800);
+  adw_dialog_set_content_height (dialog, 1200);
+
+  adw_dialog_present (dialog, GTK_WIDGET (self));
 }

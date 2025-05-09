@@ -27,4 +27,10 @@ G_BEGIN_DECLS
 #define GA_TYPE_WINDOW (ga_window_get_type ())
 G_DECLARE_FINAL_TYPE (GaWindow, ga_window, GA, WINDOW, AdwApplicationWindow)
 
+void
+ga_window_refresh (GaWindow *self);
+
+void
+ga_window_search (GaWindow *self);
+
 G_END_DECLS
