@@ -64,7 +64,7 @@ GA_DEFINE_DATA (
     Instance,
     {
       GskRenderNode *node;
-      GskRenderNode *blurred;
+      GdkTexture    *blurred;
       struct
       {
         graphene_point3d_t cur;
@@ -81,7 +81,7 @@ GA_DEFINE_DATA (
       gboolean hovering;
     },
     GA_RELEASE_DATA (node, gsk_render_node_unref);
-    GA_RELEASE_DATA (blurred, gsk_render_node_unref))
+    GA_RELEASE_DATA (blurred, g_object_unref))
 
 static void
 ga_background_measure (GtkWidget     *widget,
@@ -244,7 +244,7 @@ static void
 ga_background_init (GaBackground *self)
 {
   self->timeout = g_timeout_add (
-      (1.0 / 60.0) * G_TIME_SPAN_MILLISECOND,
+      (1.0 / 30.0) * G_TIME_SPAN_MILLISECOND,
       (GSourceFunc) tick_timeout, self);
   self->timer = g_timer_new ();
 
@@ -454,6 +454,9 @@ entries_changed (GListModel   *entries,
                  guint         added,
                  GaBackground *self)
 {
+  GtkNative   *native   = NULL;
+  GskRenderer *renderer = NULL;
+
   if (removed > 0)
     g_ptr_array_remove_range (self->instances, position, removed);
 
@@ -519,20 +522,25 @@ entries_changed (GListModel   *entries,
         }
     }
 
+  native   = gtk_widget_get_native (GTK_WIDGET (self));
+  renderer = gtk_native_get_renderer (native);
+
   for (guint i = 0; i < self->instances->len; i++)
     {
-      InstanceData *instance           = NULL;
-      g_autoptr (GtkSnapshot) snapshot = NULL;
+      InstanceData *instance                 = NULL;
+      g_autoptr (GtkSnapshot) snapshot       = NULL;
+      g_autoptr (GskRenderNode) blurred_node = NULL;
 
       instance = g_ptr_array_index (self->instances, i);
-      g_clear_pointer (&instance->blurred, gsk_render_node_unref);
+      g_clear_object (&instance->blurred);
 
       snapshot = gtk_snapshot_new ();
       gtk_snapshot_push_blur (snapshot, -instance->position.cur.z / 10.0);
       gtk_snapshot_append_node (snapshot, instance->node);
       gtk_snapshot_pop (snapshot);
 
-      instance->blurred = gtk_snapshot_to_node (snapshot);
+      blurred_node      = gtk_snapshot_to_node (snapshot);
+      instance->blurred = gsk_renderer_render_texture (renderer, blurred_node, NULL);
     }
 
   g_array_set_size (self->sorted_instances, self->instances->len);
@@ -691,6 +699,8 @@ draw_instance (GtkSnapshot  *snapshot,
   graphene_rect_t    rect            = { 0 };
   graphene_point3d_t instance_offset = { 0 };
   double             instance_scale  = 0.0;
+  int                texture_width   = 0;
+  int                texture_height  = 0;
 
   if (speedup <= 0.01)
     speedup = 1.0;
@@ -720,10 +730,16 @@ draw_instance (GtkSnapshot  *snapshot,
                 ADW_EASE_OUT_EXPO,
                 (elapsed - instance->scale.start) / (1.0 / speedup));
 
+  texture_width  = gdk_texture_get_width (instance->blurred);
+  texture_height = gdk_texture_get_height (instance->blurred);
+
   gtk_snapshot_save (snapshot);
   gtk_snapshot_translate_3d (snapshot, &instance_offset);
   gtk_snapshot_scale (snapshot, instance_scale, instance_scale);
-  gtk_snapshot_append_node (snapshot, instance->blurred);
+  gtk_snapshot_append_texture (
+      snapshot, instance->blurred,
+      &GRAPHENE_RECT_INIT (-texture_width / 2.0, -texture_height / 2.0,
+                           texture_width, texture_height));
   gtk_snapshot_restore (snapshot);
 
   instance->scale.render = instance_scale;
