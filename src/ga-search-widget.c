@@ -137,6 +137,42 @@ ga_search_widget_set_property (GObject      *object,
 }
 
 static void
+action_move (GtkWidget  *widget,
+             const char *action_name,
+             GVariant   *parameter)
+{
+  GaSearchWidget    *self     = GA_SEARCH_WIDGET (widget);
+  GtkSelectionModel *model    = NULL;
+  guint              selected = 0;
+  guint              n_items  = 0;
+
+  model   = gtk_list_view_get_model (self->list_view);
+  n_items = g_list_model_get_n_items (G_LIST_MODEL (model));
+
+  if (n_items == 0)
+    return;
+
+  selected = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+
+  if (selected == GTK_INVALID_LIST_POSITION)
+    selected = 0;
+  else
+    {
+      int offset = 0;
+
+      offset = g_variant_get_int32 (parameter);
+      if (offset < 0 && ABS (offset) > selected)
+        selected = n_items + (offset % -(int) n_items);
+      else
+        selected = (selected + offset) % n_items;
+    }
+
+  gtk_list_view_scroll_to (
+      self->list_view, selected,
+      GTK_LIST_SCROLL_SELECT, NULL);
+}
+
+static void
 ga_search_widget_class_init (GaSearchWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -167,6 +203,8 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_text);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, sheet_spinner);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
+
+  gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }
 
 static void
@@ -213,7 +251,6 @@ void
 ga_search_widget_set_model (GaSearchWidget *self,
                             GListModel     *model)
 {
-
   GtkSingleSelection *selection_model   = NULL;
   GtkSortListModel   *sort_list_model   = NULL;
   GtkFilterListModel *filter_list_model = NULL;

@@ -3,6 +3,66 @@
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
   <template class="GaSearchWidget" parent="AdwBin">
+    <child>
+      <object class='GtkShortcutController'>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;p</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>-1</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;n</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>1</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;k</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>-1</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;j</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>1</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;&lt;alt&gt;p</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>-10</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;&lt;alt&gt;n</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>10</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;&lt;alt&gt;k</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>-10</property>
+          </object>
+        </child>
+        <child>
+          <object class='GtkShortcut'>
+            <property name='trigger'>&lt;primary&gt;&lt;alt&gt;j</property>
+            <property name='action'>action(move)</property>
+            <property name='arguments'>10</property>
+          </object>
+        </child>
+      </object>
+    </child>
     <property name="child">
       <object class="GtkBox">
         <style>
