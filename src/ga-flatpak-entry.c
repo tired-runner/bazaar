@@ -297,3 +297,23 @@ ga_flatpak_entry_get_name (GaFlatpakEntry *self)
 
   return self->name;
 }
+
+gboolean
+ga_flatpak_entry_launch (GaFlatpakEntry *self,
+                         GError        **error)
+{
+  FlatpakInstallation *installation = NULL;
+
+  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), FALSE);
+
+  installation = ga_flatpak_instance_get_installation (self->flatpak);
+
+  /* async? */
+  return flatpak_installation_launch (
+      installation,
+      flatpak_ref_get_name (FLATPAK_REF (self->rref)),
+      flatpak_ref_get_arch (FLATPAK_REF (self->rref)),
+      flatpak_ref_get_branch (FLATPAK_REF (self->rref)),
+      flatpak_ref_get_commit (FLATPAK_REF (self->rref)),
+      NULL, error);
+}

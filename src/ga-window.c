@@ -100,6 +100,19 @@ install_confirmation_response (AdwAlertDialog *alert,
                                GaWindow       *self);
 
 static void
+install_success_toast_button_clicked (AdwToast *toast,
+                                      GaWindow *self);
+
+static void
+install_error_toast_button_clicked (AdwToast *toast,
+                                    GaWindow *window);
+
+static void
+error_alert_response (AdwAlertDialog *alert,
+                      gchar          *response,
+                      GaWindow       *self);
+
+static void
 update_dialog_closed (AdwDialog *dialog,
                       GaWindow  *self);
 
@@ -117,6 +130,10 @@ update (GaWindow *self,
 
 static void
 search (GaWindow *self);
+
+static void
+show_error (GaWindow *self,
+            char     *error_text);
 
 static void
 ga_window_dispose (GObject *object)
@@ -386,18 +403,56 @@ static DexFuture *
 install_finally (DexFuture *future,
                  GaWindow  *self)
 {
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
+  if (self->pending_installation != NULL)
+    {
+      const char *entry_title        = NULL;
+      g_autoptr (GError) local_error = NULL;
+      const GValue *value            = NULL;
 
-  value = dex_future_get_value (future, &local_error);
-  if (value != NULL)
-    adw_toast_overlay_add_toast (
-        self->toasts,
-        adw_toast_new_format ("Installed!"));
-  else
-    adw_toast_overlay_add_toast (
-        self->toasts,
-        adw_toast_new_format ("Failed! %s", local_error->message));
+      entry_title = ga_entry_get_title (self->pending_installation);
+      value       = dex_future_get_value (future, &local_error);
+
+      if (value != NULL)
+        {
+          AdwToast *toast = NULL;
+
+          toast = adw_toast_new_format ("Successfully installed %s", entry_title);
+          if (GA_IS_FLATPAK_ENTRY (self->pending_installation))
+            {
+              adw_toast_set_button_label (toast, "Launch");
+
+              g_object_set_data_full (
+                  G_OBJECT (toast), "to-launch",
+                  g_object_ref (self->pending_installation),
+                  g_object_unref);
+              g_signal_connect (
+                  toast, "button-clicked",
+                  G_CALLBACK (install_success_toast_button_clicked),
+                  self);
+            }
+
+          adw_toast_overlay_add_toast (self->toasts, toast);
+        }
+      else
+        {
+          AdwToast *toast = NULL;
+
+          toast = adw_toast_new_format ("Failed to install %s", entry_title);
+          adw_toast_set_button_label (toast, "View Error");
+
+          g_object_set_data_full (
+              G_OBJECT (toast), "error-text",
+              g_strdup (local_error->message), g_free);
+          g_signal_connect (
+              toast, "button-clicked",
+              G_CALLBACK (install_error_toast_button_clicked),
+              self);
+
+          adw_toast_overlay_add_toast (self->toasts, toast);
+        }
+    }
+
+  g_clear_object (&self->pending_installation);
 
   gtk_label_set_text (self->progress_label, NULL);
   gtk_progress_bar_set_fraction (self->progress_bar, 0);
@@ -463,8 +518,57 @@ install_confirmation_response (AdwAlertDialog *alert,
   if (self->pending_installation != NULL &&
       g_strcmp0 (response, "install") == 0)
     install (self, self->pending_installation);
+  else
+    g_clear_object (&self->pending_installation);
+}
 
-  g_clear_object (&self->pending_installation);
+static void
+install_success_toast_button_clicked (AdwToast *toast,
+                                      GaWindow *self)
+{
+  g_autoptr (GaFlatpakEntry) entry = NULL;
+  g_autoptr (GError) local_error   = NULL;
+  gboolean result                  = FALSE;
+
+  entry = g_object_steal_data (G_OBJECT (toast), "to-launch");
+  g_assert (entry != NULL);
+
+  result = ga_flatpak_entry_launch (entry, &local_error);
+  if (!result)
+    show_error (self, g_strdup (local_error->message));
+}
+
+static void
+install_error_toast_button_clicked (AdwToast *toast,
+                                    GaWindow *self)
+{
+  g_autofree char *error_text = NULL;
+
+  error_text = g_object_steal_data (G_OBJECT (toast), "error-text");
+  g_assert (error_text != NULL);
+
+  show_error (self, error_text);
+}
+
+static void
+error_alert_response (AdwAlertDialog *alert,
+                      gchar          *response,
+                      GaWindow       *self)
+{
+  if (g_strcmp0 (response, "copy") == 0)
+    {
+      const char   *body = NULL;
+      GdkClipboard *clipboard;
+
+      body      = adw_alert_dialog_get_body (alert);
+      clipboard = gdk_display_get_clipboard (gdk_display_get_default ());
+
+      gdk_clipboard_set_text (clipboard, body);
+
+      adw_toast_overlay_add_toast (
+          self->toasts,
+          adw_toast_new_format ("Error copied to clipboard"));
+    }
 }
 
 static void
@@ -622,4 +726,30 @@ search (GaWindow *self)
   adw_dialog_set_content_height (dialog, 1200);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
+}
+
+static void
+show_error (GaWindow *self,
+            char     *error_text)
+{
+  AdwDialog *alert = NULL;
+
+  alert = adw_alert_dialog_new (NULL, NULL);
+  adw_alert_dialog_format_heading (
+      ADW_ALERT_DIALOG (alert), "An Error Occured");
+  adw_alert_dialog_format_body (
+      ADW_ALERT_DIALOG (alert),
+      "%s", error_text);
+  adw_alert_dialog_add_responses (
+      ADW_ALERT_DIALOG (alert),
+      "close", "Close",
+      "copy", "Copy and Close",
+      NULL);
+  adw_alert_dialog_set_response_appearance (
+      ADW_ALERT_DIALOG (alert), "copy", ADW_RESPONSE_SUGGESTED);
+  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "close");
+  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "close");
+
+  g_signal_connect (alert, "response", G_CALLBACK (error_alert_response), self);
+  adw_dialog_present (alert, GTK_WIDGET (self));
 }

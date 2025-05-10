@@ -30,4 +30,8 @@ G_DECLARE_FINAL_TYPE (GaFlatpakEntry, ga_flatpak_entry, GA, FLATPAK_ENTRY, GaEnt
 const char *
 ga_flatpak_entry_get_name (GaFlatpakEntry *self);
 
+gboolean
+ga_flatpak_entry_launch (GaFlatpakEntry *self,
+                         GError        **error);
+
 G_END_DECLS
