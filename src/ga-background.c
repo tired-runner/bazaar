@@ -492,16 +492,26 @@ entries_changed (GListModel   *entries,
           instance->node    = gtk_snapshot_to_node (snapshot);
           instance->blurred = NULL;
 
-          instance->position.cur.x  = g_random_double_range (-500, 500);
-          instance->position.cur.y  = g_random_double_range (-500, 500);
-          instance->position.cur.z  = g_random_double_range (-1000, -100);
+          instance->position.cur.y = g_random_double_range (-450.0, 450.0);
+          instance->position.cur.x = g_random_double_range (-400.0, 400.0);
+
+          if (ABS (instance->position.cur.x) < 200.0 &&
+              ABS (instance->position.cur.y) < 150.0)
+            {
+              instance->position.cur.x +=
+                  200.0 * (instance->position.cur.x < 0 ? -1.0 : 1.0);
+              instance->position.cur.y +=
+                  150.0 * (instance->position.cur.y < 0 ? -1.0 : 1.0);
+            }
+
+          instance->position.cur.z  = g_random_double_range (-1250.0, -100.0);
           instance->position.last.x = instance->position.cur.x * 2.0;
           instance->position.last.y = instance->position.cur.y * 2.0;
           instance->position.last.z = instance->position.cur.z;
           instance->position.start  = elapsed;
 
-          instance->scale.cur    = 0.75;
-          instance->scale.render = 0.75;
+          instance->scale.cur    = 1.75;
+          instance->scale.render = 1.75;
           instance->scale.last   = 0.5;
           instance->scale.start  = elapsed;
 
@@ -518,7 +528,7 @@ entries_changed (GListModel   *entries,
       g_clear_pointer (&instance->blurred, gsk_render_node_unref);
 
       snapshot = gtk_snapshot_new ();
-      gtk_snapshot_push_blur (snapshot, -instance->position.cur.z / 25.0);
+      gtk_snapshot_push_blur (snapshot, -instance->position.cur.z / 10.0);
       gtk_snapshot_append_node (snapshot, instance->node);
       gtk_snapshot_pop (snapshot);
 
@@ -636,10 +646,10 @@ update_motion (GaBackground *self,
           graphene_rect_t rect = { 0 };
 
           gsk_render_node_get_bounds (instance->node, &rect);
-          rect.origin.x *= 0.75;
-          rect.origin.y *= 0.75;
-          rect.size.width *= 0.75;
-          rect.size.height *= 0.75;
+          rect.origin.x *= 1.75;
+          rect.origin.y *= 1.75;
+          rect.size.width *= 1.75;
+          rect.size.height *= 1.75;
           rect.origin.x += (double) widget_width / 2.0 + instance->position.cur.x +
                            0.05 * (self->motion_offset.x - (double) widget_width / 2.0);
           rect.origin.y += (double) widget_height / 2.0 + instance->position.cur.y +
@@ -664,7 +674,7 @@ update_motion (GaBackground *self,
         {
           instance->hovering    = FALSE;
           instance->scale.last  = instance->scale.render;
-          instance->scale.cur   = 0.75;
+          instance->scale.cur   = 1.75;
           instance->scale.start = elapsed;
         }
     }

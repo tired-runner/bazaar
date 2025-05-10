@@ -5,7 +5,7 @@
   <template class="GaWindow" parent="AdwApplicationWindow">
     <property name="title" translatable="yes">Gnome Apps Next</property>
     <property name="default-width">1000</property>
-    <property name="default-height">800</property>
+    <property name="default-height">1200</property>
     <property name="width-request">200</property>
     <property name="height-request">400</property>
     <property name="content">
@@ -124,7 +124,7 @@
                             <property name="hexpand">TRUE</property>
                             <property name="vexpand">TRUE</property>
                             <property name="visible">TRUE</property>
-                            <property name="label">Welcome</property>
+                            <property name="label">Press Control-f to search</property>
                             <property name="wrap">TRUE</property>
                           </object>
                         </child>

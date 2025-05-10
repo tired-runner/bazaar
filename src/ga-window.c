@@ -267,7 +267,7 @@ fetch_refs_then (DexFuture *future,
   set        = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   for (guint safe = 0, found = 0;
-       safe < 1000 && found < MIN (50, n_entries);
+       safe < 1000 && found < MIN (20, n_entries);
        safe++)
     {
       guint i                   = 0;
@@ -279,6 +279,8 @@ fetch_refs_then (DexFuture *future,
 
       entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
       if (ga_entry_get_icon_paintable (entry) == NULL)
+        continue;
+      if (!g_str_has_prefix (ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)), "org.gnome."))
         continue;
 
       g_list_store_append (bg_entries, entry);
