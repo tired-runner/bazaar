@@ -189,7 +189,6 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
 {
   g_autoptr (GaFlatpakEntry) self         = NULL;
   GBytes *bytes                           = NULL;
-  g_autoptr (GError) local_error          = NULL;
   g_autoptr (GKeyFile) key_file           = NULL;
   gboolean         result                 = FALSE;
   const char      *title                  = NULL;
@@ -219,18 +218,18 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
   bytes    = flatpak_remote_ref_get_metadata (rref);
 
   result = g_key_file_load_from_bytes (
-      key_file, bytes, G_KEY_FILE_NONE, &local_error);
+      key_file, bytes, G_KEY_FILE_NONE, error);
   if (!result)
-    goto err;
+    return NULL;
 
-#define GET_STRING(member, group_name, key)       \
-  G_STMT_START                                    \
-  {                                               \
-    self->member = g_key_file_get_string (        \
-        key_file, group_name, key, &local_error); \
-    if (self->member == NULL)                     \
-      goto err;                                   \
-  }                                               \
+#define GET_STRING(member, group_name, key) \
+  G_STMT_START                              \
+  {                                         \
+    self->member = g_key_file_get_string (  \
+        key_file, group_name, key, error);  \
+    if (self->member == NULL)               \
+      return NULL;                          \
+  }                                         \
   G_STMT_END
 
   GET_STRING (name, "Application", "name");
@@ -274,9 +273,9 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
           g_autoptr (GString) string       = NULL;
           g_autoptr (GRegex) cleanup_regex = NULL;
 
-          silo = xb_silo_new_from_xml (long_description_raw, &local_error);
+          silo = xb_silo_new_from_xml (long_description_raw, error);
           if (silo == NULL)
-            goto err;
+            return NULL;
 
           root   = xb_silo_get_root (silo);
           string = g_string_new (NULL);
@@ -440,10 +439,6 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
       NULL);
 
   return g_steal_pointer (&self);
-
-err:
-  g_propagate_error (error, g_steal_pointer (&local_error));
-  return NULL;
 }
 
 FlatpakRef *
