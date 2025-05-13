@@ -40,4 +40,7 @@ ga_search_widget_get_model (GaSearchWidget *self);
 gpointer
 ga_search_widget_get_selected (GaSearchWidget *self);
 
+gpointer
+ga_search_widget_get_previewing (GaSearchWidget *self);
+
 G_END_DECLS

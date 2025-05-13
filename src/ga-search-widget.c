@@ -29,6 +29,9 @@ struct _GaSearchWidget
 
   GListModel *model;
   GaEntry    *selected;
+  GaEntry    *previewing;
+
+  guint previewing_timeout;
 
   GPtrArray  *match_tokens;
   GHashTable *match_scores;
@@ -48,6 +51,7 @@ enum
 
   PROP_MODEL,
   PROP_SELECTED,
+  PROP_PREVIEWING,
 
   LAST_PROP
 };
@@ -76,6 +80,14 @@ pending_changed (GtkFilterListModel *model,
                  GaSearchWidget     *self);
 
 static void
+selected_item_changed (GtkSingleSelection *model,
+                       GParamSpec         *pspec,
+                       GaSearchWidget     *self);
+
+static void
+previewing_property_timeout (GaSearchWidget *self);
+
+static void
 activate (GtkListView    *list_view,
           guint           position,
           GaSearchWidget *self);
@@ -90,6 +102,8 @@ ga_search_widget_dispose (GObject *object)
 
   g_clear_object (&self->model);
   g_clear_object (&self->selected);
+  g_clear_object (&self->previewing);
+  g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_pointer (&self->match_tokens, g_ptr_array_unref);
   g_clear_pointer (&self->match_scores, g_hash_table_unref);
 
@@ -107,10 +121,13 @@ ga_search_widget_get_property (GObject    *object,
   switch (prop_id)
     {
     case PROP_MODEL:
-      g_value_set_object (value, self->model);
+      g_value_set_object (value, ga_search_widget_get_model (self));
       break;
     case PROP_SELECTED:
-      g_value_set_object (value, self->selected);
+      g_value_set_object (value, ga_search_widget_get_selected (self));
+      break;
+    case PROP_PREVIEWING:
+      g_value_set_object (value, ga_search_widget_get_previewing (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -131,6 +148,7 @@ ga_search_widget_set_property (GObject      *object,
       ga_search_widget_set_model (self, g_value_get_object (value));
       break;
     case PROP_SELECTED:
+    case PROP_PREVIEWING:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -141,6 +159,13 @@ invert_boolean (gpointer object,
                 gboolean value)
 {
   return !value;
+}
+
+static gboolean
+is_null (gpointer object,
+         GObject *value)
+{
+  return value == NULL;
 }
 
 static void
@@ -203,6 +228,13 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
           GA_TYPE_ENTRY,
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
+  props[PROP_PREVIEWING] =
+      g_param_spec_object (
+          "previewing",
+          NULL, NULL,
+          GA_TYPE_ENTRY,
+          G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-search-widget.ui");
@@ -211,6 +243,7 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, sheet_spinner);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, is_null);
 
   gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }
@@ -243,6 +276,7 @@ ga_search_widget_init (GaSearchWidget *self)
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
   g_signal_connect (self->search_bar, "activate", G_CALLBACK (search_activate), self);
   g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
+  g_signal_connect (selection_model, "notify::selected-item", G_CALLBACK (selected_item_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
 }
 
@@ -291,6 +325,13 @@ ga_search_widget_get_selected (GaSearchWidget *self)
 {
   g_return_val_if_fail (GA_IS_SEARCH_WIDGET (self), NULL);
   return self->selected;
+}
+
+gpointer
+ga_search_widget_get_previewing (GaSearchWidget *self)
+{
+  g_return_val_if_fail (GA_IS_SEARCH_WIDGET (self), NULL);
+  return self->previewing;
 }
 
 static void
@@ -427,6 +468,37 @@ pending_changed (GtkFilterListModel *model,
   if (pending == 0 && n_items > 0)
     /* Here to combat weird list view scrolling behavior */
     gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
+}
+
+static void
+selected_item_changed (GtkSingleSelection *model,
+                       GParamSpec         *pspec,
+                       GaSearchWidget     *self)
+{
+  g_clear_handle_id (&self->previewing_timeout, g_source_remove);
+  g_clear_object (&self->previewing);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PREVIEWING]);
+  self->previewing_timeout = g_timeout_add_once (
+      500, (GSourceOnceFunc) previewing_property_timeout, self);
+}
+
+static void
+previewing_property_timeout (GaSearchWidget *self)
+{
+  GtkSelectionModel *model    = NULL;
+  guint              selected = 0;
+
+  self->previewing_timeout = 0;
+
+  g_clear_object (&self->previewing);
+  model    = gtk_list_view_get_model (self->list_view);
+  selected = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+
+  if (selected != GTK_INVALID_LIST_POSITION)
+    self->previewing = g_list_model_get_item (G_LIST_MODEL (model), selected);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PREVIEWING]);
 }
 
 static void

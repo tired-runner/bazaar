@@ -321,10 +321,27 @@
                       </object>
                     </child>
                     <child>
+                      <object class="AdwSpinner">
+                        <property name="height-request">100</property>
+                        <binding name="visible">
+                          <closure function="is_null" type="gboolean">
+                            <lookup name="previewing">GaSearchWidget</lookup>
+                          </closure>
+                        </binding>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkFrame">
                         <style>
                           <class name="card"/>
                         </style>
+                        <binding name="visible">
+                          <closure function="invert_boolean" type="gboolean">
+                            <closure function="is_null" type="gboolean">
+                              <lookup name="previewing">GaSearchWidget</lookup>
+                            </closure>
+                          </closure>
+                        </binding>
                         <property name="child">
                           <object class="GtkScrolledWindow" id="screenshot_scroll">
                             <property name="height-request">450</property>
@@ -339,9 +356,7 @@
                                   <object class="GtkNoSelection">
                                     <binding name="model">
                                       <lookup name="screenshot-paintables" type="GaEntry">
-                                        <lookup name="selected-item" type="GtkSingleSelection">
-                                          <lookup name="model">list_view</lookup>
-                                        </lookup>
+                                        <lookup name="previewing">GaSearchWidget</lookup>
                                       </lookup>
                                     </binding>
                                   </object>
