@@ -4,10 +4,10 @@
   <requires lib="Adw" version="1.0"/>
   <template class="GaWindow" parent="AdwApplicationWindow">
     <property name="title" translatable="yes">Gnome Apps Next</property>
-    <property name="default-width">1000</property>
+    <property name="default-width">1500</property>
     <property name="default-height">1200</property>
-    <property name="width-request">200</property>
-    <property name="height-request">400</property>
+    <property name="width-request">450</property>
+    <property name="height-request">900</property>
     <property name="content">
       <object class="AdwBottomSheet" id="sheet">
         <property name="bottom-bar">
@@ -28,6 +28,7 @@
                       <class name="dim-label"/>
                     </style>
                     <property name="vexpand">TRUE</property>
+                    <property name="ellipsize">end</property>
                   </object>
                 </property>
               </object>
@@ -74,8 +75,7 @@
         <property name="content">
           <object class="GtkOverlay">
             <property name="child">
-              <object class="GaBackground" id="background">
-              </object>
+              <object class="GaBackground" id="background"/>
             </property>
             <child type="overlay">
               <object class="AdwToolbarView">
@@ -111,21 +111,9 @@
                       <object class="GtkBox">
                         <child>
                           <object class="AdwSpinner" id="spinner">
-                            <property name="hexpand">TRUE</property>
-                            <property name="vexpand">TRUE</property>
                             <property name="visible">FALSE</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel" id="label">
-                            <style>
-                              <class name="title-1"/>
-                            </style>
                             <property name="hexpand">TRUE</property>
                             <property name="vexpand">TRUE</property>
-                            <property name="visible">TRUE</property>
-                            <property name="label">Press Control-f to search</property>
-                            <property name="wrap">TRUE</property>
                           </object>
                         </child>
                       </object>

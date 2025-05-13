@@ -1,4 +1,4 @@
-/* ga-entry.h
+/* ga-paintable-model.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -25,33 +25,18 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_ENTRY (ga_entry_get_type ())
-G_DECLARE_DERIVABLE_TYPE (GaEntry, ga_entry, GA, ENTRY, GObject)
+#define GA_TYPE_PAINTABLE_MODEL (ga_paintable_model_get_type ())
+G_DECLARE_FINAL_TYPE (GaPaintableModel, ga_paintable_model, GA, PAINTABLE_MODEL, GObject)
 
-struct _GaEntryClass
-{
-  GObjectClass parent_class;
-};
+GaPaintableModel *
+ga_paintable_model_new (DexScheduler *scheduler,
+                        GListModel   *model);
 
-const char *
-ga_entry_get_title (GaEntry *self);
+void
+ga_paintable_model_set_model (GaPaintableModel *self,
+                              GListModel       *model);
 
-const char *
-ga_entry_get_description (GaEntry *self);
-
-const char *
-ga_entry_get_long_description (GaEntry *self);
-
-const char *
-ga_entry_get_remote_repo_name (GaEntry *self);
-
-guint64
-ga_entry_get_size (GaEntry *self);
-
-GdkPaintable *
-ga_entry_get_icon_paintable (GaEntry *self);
-
-GPtrArray *
-ga_entry_get_search_tokens (GaEntry *self);
+GListModel *
+ga_paintable_model_get_model (GaPaintableModel *self);
 
 G_END_DECLS

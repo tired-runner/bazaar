@@ -31,3 +31,21 @@
 .global-search .preview-bin {
     border-left: 1px solid color-mix(in srgb, var(--border-color) 25%, transparent);
 }
+
+.good-icon {
+    padding: 4px;
+    color: var(--success-fg-color);
+    background-color: var(--success-bg-color);
+    border-radius: 5px;
+}
+
+.bad-icon {
+    padding: 4px;
+    color: var(--warning-fg-color);
+    background-color: var(--warning-bg-color);
+    border-radius: 5px;
+}
+
+.screenshot {
+    border-radius: 10px;
+}

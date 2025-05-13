@@ -34,7 +34,8 @@ struct _GaWindow
   GListStore        *remote;
   GHashTable        *id_to_entry_hash;
 
-  GaEntry *pending_installation;
+  GListStore *bg_entries;
+  GaEntry    *pending_installation;
 
   /* Template widgets */
   GaBackground    *background;
@@ -42,7 +43,6 @@ struct _GaWindow
   GtkButton       *search;
   AdwToastOverlay *toasts;
   AdwSpinner      *spinner;
-  GtkLabel        *label;
   GtkLabel        *progress_label;
   GtkProgressBar  *progress_bar;
   AdwSpinner      *progress_spinner;
@@ -124,6 +124,10 @@ install (GaWindow *self,
          GaEntry  *entry);
 
 static void
+try_install (GaWindow *self,
+             GaEntry  *entry);
+
+static void
 update (GaWindow *self,
         GaEntry **updates,
         guint     n_updates);
@@ -144,6 +148,7 @@ ga_window_dispose (GObject *object)
   g_clear_object (&self->remote);
   g_clear_object (&self->flatpak);
   g_clear_object (&self->pending_installation);
+  g_clear_object (&self->bg_entries);
 
   G_OBJECT_CLASS (ga_window_parent_class)->dispose (object);
 }
@@ -161,7 +166,6 @@ ga_window_class_init (GaWindowClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-window.ui");
   gtk_widget_class_bind_template_child (widget_class, GaWindow, background);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, spinner);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, label);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, search);
@@ -242,9 +246,8 @@ static DexFuture *
 fetch_refs_then (DexFuture *future,
                  GaWindow  *self)
 {
-  guint n_entries                   = 0;
-  g_autoptr (GListStore) bg_entries = NULL;
-  g_autoptr (GHashTable) set        = NULL;
+  guint n_entries            = 0;
+  g_autoptr (GHashTable) set = NULL;
 
   n_entries = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
 
@@ -263,8 +266,9 @@ fetch_refs_then (DexFuture *future,
           g_steal_pointer (&entry));
     }
 
-  bg_entries = g_list_store_new (GA_TYPE_ENTRY);
-  set        = g_hash_table_new (g_direct_hash, g_direct_equal);
+  g_clear_object (&self->bg_entries);
+  self->bg_entries = g_list_store_new (GA_TYPE_ENTRY);
+  set              = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   for (guint safe = 0, found = 0;
        safe < 1000 && found < MIN (20, n_entries);
@@ -283,12 +287,12 @@ fetch_refs_then (DexFuture *future,
       if (!g_str_has_prefix (ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)), "org.gnome."))
         continue;
 
-      g_list_store_append (bg_entries, entry);
+      g_list_store_append (self->bg_entries, entry);
       g_hash_table_add (set, GUINT_TO_POINTER (i));
       found++;
     }
 
-  ga_background_set_entries (self->background, G_LIST_MODEL (bg_entries));
+  ga_background_set_entries (self->background, G_LIST_MODEL (self->bg_entries));
 
   adw_toast_overlay_add_toast (
       self->toasts,
@@ -365,7 +369,6 @@ static DexFuture *
 refresh_finally (DexFuture *future,
                  GaWindow  *self)
 {
-  gtk_widget_set_visible (GTK_WIDGET (self->label), TRUE);
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
@@ -475,38 +478,12 @@ search_selected_changed (GaSearchWidget *search,
                          GaWindow       *self)
 {
   GaEntry   *entry  = NULL;
-  AdwDialog *alert  = NULL;
   GtkWidget *dialog = NULL;
 
   entry = ga_search_widget_get_selected (search);
-  if (entry == NULL || !GA_IS_FLATPAK_ENTRY (entry))
-    goto done;
+  if (entry != NULL && GA_IS_FLATPAK_ENTRY (entry))
+    try_install (self, entry);
 
-  g_clear_object (&self->pending_installation);
-  self->pending_installation = g_object_ref (entry);
-
-  alert = adw_alert_dialog_new (NULL, NULL);
-  adw_alert_dialog_format_heading (
-      ADW_ALERT_DIALOG (alert), "Confirm Transaction");
-  adw_alert_dialog_format_body_markup (
-      ADW_ALERT_DIALOG (alert),
-      "You are about to install the following Flatpak:\n\n<b>%s</b>\n<tt>%s</tt>\n\nAre you sure?",
-      ga_entry_get_title (entry),
-      ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)));
-  adw_alert_dialog_add_responses (
-      ADW_ALERT_DIALOG (alert),
-      "cancel", "Cancel",
-      "install", "Install",
-      NULL);
-  adw_alert_dialog_set_response_appearance (
-      ADW_ALERT_DIALOG (alert), "install", ADW_RESPONSE_SUGGESTED);
-  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "cancel");
-  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
-
-  g_signal_connect (alert, "response", G_CALLBACK (install_confirmation_response), self);
-  adw_dialog_present (alert, GTK_WIDGET (self));
-
-done:
   dialog = gtk_widget_get_ancestor (GTK_WIDGET (search), ADW_TYPE_DIALOG);
   if (dialog != NULL)
     adw_dialog_close (ADW_DIALOG (dialog));
@@ -632,7 +609,6 @@ refresh (GaWindow *self)
 {
   DexFuture *future = NULL;
 
-  gtk_widget_set_visible (GTK_WIDGET (self->label), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), TRUE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
@@ -683,6 +659,37 @@ install (GaWindow *self,
 }
 
 static void
+try_install (GaWindow *self,
+             GaEntry  *entry)
+{
+  AdwDialog *alert = NULL;
+
+  g_clear_object (&self->pending_installation);
+  self->pending_installation = g_object_ref (entry);
+
+  alert = adw_alert_dialog_new (NULL, NULL);
+  adw_alert_dialog_format_heading (
+      ADW_ALERT_DIALOG (alert), "Confirm Transaction");
+  adw_alert_dialog_format_body_markup (
+      ADW_ALERT_DIALOG (alert),
+      "You are about to install the following Flatpak:\n\n<b>%s</b>\n<tt>%s</tt>\n\nAre you sure?",
+      ga_entry_get_title (entry),
+      ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)));
+  adw_alert_dialog_add_responses (
+      ADW_ALERT_DIALOG (alert),
+      "cancel", "Cancel",
+      "install", "Install",
+      NULL);
+  adw_alert_dialog_set_response_appearance (
+      ADW_ALERT_DIALOG (alert), "install", ADW_RESPONSE_SUGGESTED);
+  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "cancel");
+  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
+
+  g_signal_connect (alert, "response", G_CALLBACK (install_confirmation_response), self);
+  adw_dialog_present (alert, GTK_WIDGET (self));
+}
+
+static void
 update (GaWindow *self,
         GaEntry **updates,
         guint     n_updates)
@@ -724,7 +731,7 @@ search (GaWindow *self)
                     G_CALLBACK (search_selected_changed), self);
 
   adw_dialog_set_child (dialog, search_widget);
-  adw_dialog_set_content_width (dialog, 800);
+  adw_dialog_set_content_width (dialog, 1500);
   adw_dialog_set_content_height (dialog, 1200);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));

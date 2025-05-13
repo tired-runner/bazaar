@@ -8,6 +8,7 @@ ga_sources = [
   'ga-flatpak-instance.c',
   'ga-entry.c',
   'ga-flatpak-entry.c',
+  'ga-paintable-model.c',
 ]
 
 ga_deps = [

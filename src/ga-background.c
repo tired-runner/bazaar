@@ -162,6 +162,7 @@ ga_background_dispose (GObject *object)
   g_clear_pointer (&self->timer, g_timer_destroy);
   g_clear_object (&self->entries);
   g_clear_pointer (&self->instances, g_ptr_array_unref);
+  g_clear_pointer (&self->sorted_instances, g_array_unref);
   g_clear_object (&self->motion_controller);
   g_clear_pointer (&self->last_instances, g_ptr_array_unref);
 
@@ -310,7 +311,7 @@ ga_background_snapshot (GtkWidget   *widget,
 
           /* already sorted */
           instance = g_ptr_array_index (self->last_instances, i);
-          draw_instance (snapshot, instance, elapsed, 3.0);
+          draw_instance (snapshot, instance, elapsed, 1.5);
         }
     }
 
@@ -339,8 +340,9 @@ ga_background_set_entries (GaBackground *self,
                            GListModel   *entries)
 {
   g_return_if_fail (GA_IS_BACKGROUND (self));
-  g_return_if_fail (G_IS_LIST_MODEL (entries));
-  g_return_if_fail (g_list_model_get_item_type (entries) == GA_TYPE_ENTRY);
+  g_return_if_fail (entries == NULL ||
+                    (G_IS_LIST_MODEL (entries) &&
+                     g_list_model_get_item_type (entries) == GA_TYPE_ENTRY));
 
   if (self->entries != NULL)
     {
@@ -633,6 +635,9 @@ update_motion (GaBackground *self,
 
   self->motion_offset.x = x;
   self->motion_offset.y = y;
+
+  if (self->instances == NULL)
+    return;
 
   widget_width  = gtk_widget_get_width (GTK_WIDGET (self));
   widget_height = gtk_widget_get_height (GTK_WIDGET (self));

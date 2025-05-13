@@ -21,8 +21,22 @@
 #include "config.h"
 
 #include <appstream.h>
+#include <glycin-gtk4.h>
+#include <xmlb.h>
 
 #include "ga-flatpak-private.h"
+#include "ga-paintable-model.h"
+
+enum
+{
+  NO_ELEMENT,
+  PARAGRAPH,
+  ORDERED_LIST,
+  UNORDERED_LIST,
+  LIST_ITEM,
+  CODE,
+  EMPHASIS,
+};
 
 struct _GaFlatpakEntry
 {
@@ -50,6 +64,16 @@ enum
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+static void
+compile_appstream_description (XbNode  *node,
+                               GString *string,
+                               int      parent_kind,
+                               int      idx);
+
+static inline void
+append_markup_escaped (GString    *string,
+                       const char *append);
 
 static void
 ga_flatpak_entry_dispose (GObject *object)
@@ -163,16 +187,25 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                                      GdkPaintable      *remote_icon,
                                      GError           **error)
 {
-  g_autoptr (GaFlatpakEntry) self       = NULL;
-  GBytes *bytes                         = NULL;
-  g_autoptr (GError) local_error        = NULL;
-  g_autoptr (GKeyFile) key_file         = NULL;
-  gboolean         result               = FALSE;
-  const char      *title                = NULL;
-  const char      *description          = NULL;
-  g_autofree char *description_fmt      = NULL;
-  g_autoptr (GPtrArray) search_tokens   = NULL;
-  g_autoptr (GdkTexture) icon_paintable = NULL;
+  g_autoptr (GaFlatpakEntry) self         = NULL;
+  GBytes *bytes                           = NULL;
+  g_autoptr (GError) local_error          = NULL;
+  g_autoptr (GKeyFile) key_file           = NULL;
+  gboolean         result                 = FALSE;
+  const char      *title                  = NULL;
+  const char      *description            = NULL;
+  const char      *metadata_license       = NULL;
+  const char      *project_license        = NULL;
+  gboolean         is_floss               = FALSE;
+  const char      *project_group          = NULL;
+  const char      *developer              = NULL;
+  const char      *developer_id           = NULL;
+  g_autofree char *long_description       = NULL;
+  const char      *remote_name            = NULL;
+  g_autoptr (GPtrArray) as_search_tokens  = NULL;
+  g_autoptr (GPtrArray) search_tokens     = NULL;
+  g_autoptr (GdkTexture) icon_paintable   = NULL;
+  g_autoptr (GaPaintableModel) paintables = NULL;
 
   g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
@@ -210,14 +243,73 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
 
   if (component != NULL)
     {
-      AsIcon *icon = NULL;
+      const char  *long_description_raw = NULL;
+      AsIcon      *icon                 = NULL;
+      AsDeveloper *developer_obj        = NULL;
+      GPtrArray   *screenshots          = NULL;
 
       title = as_component_get_name (component);
       if (title == NULL)
         title = as_component_get_id (component);
 
-      description   = as_component_get_summary (component);
-      search_tokens = as_component_get_search_tokens (component);
+      description      = as_component_get_summary (component);
+      metadata_license = as_component_get_metadata_license (component);
+      project_license  = as_component_get_project_license (component);
+      is_floss         = as_component_is_floss (component);
+      project_group    = as_component_get_project_group (component);
+      as_search_tokens = as_component_get_search_tokens (component);
+
+      developer_obj = as_component_get_developer (component);
+      if (developer_obj != NULL)
+        {
+          developer    = as_developer_get_name (developer_obj);
+          developer_id = as_developer_get_id (developer_obj);
+        }
+
+      long_description_raw = as_component_get_description (component);
+      if (long_description_raw != NULL)
+        {
+          g_autoptr (XbSilo) silo          = NULL;
+          g_autoptr (XbNode) root          = NULL;
+          g_autoptr (GString) string       = NULL;
+          g_autoptr (GRegex) cleanup_regex = NULL;
+
+          silo = xb_silo_new_from_xml (long_description_raw, &local_error);
+          if (silo == NULL)
+            goto err;
+
+          root   = xb_silo_get_root (silo);
+          string = g_string_new (NULL);
+
+          cleanup_regex = g_regex_new (
+              "^ +| +$|\\t+|\\A\\s+|\\s+\\z",
+              G_REGEX_MULTILINE,
+              G_REGEX_MATCH_DEFAULT,
+              NULL);
+          g_assert (cleanup_regex != NULL);
+
+          for (int i = 0; root != NULL; i++)
+            {
+              const char *tail = NULL;
+              XbNode     *next = NULL;
+
+              compile_appstream_description (root, string, NO_ELEMENT, i);
+
+              tail = xb_node_get_tail (root);
+              if (tail != NULL)
+                append_markup_escaped (string, tail);
+
+              next = xb_node_get_next (root);
+              g_object_unref (root);
+              root = next;
+            }
+
+          /* Could be better but bleh */
+          g_string_replace (string, "  ", "", 0);
+          long_description = g_regex_replace (
+              cleanup_regex, string->str, -1, 0,
+              "", G_REGEX_MATCH_DEFAULT, NULL);
+        }
 
       icon = as_component_get_icon_stock (component);
       if (icon != NULL)
@@ -247,32 +339,104 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                 }
             }
         }
+
+      screenshots = as_component_get_screenshots_all (component);
+      if (screenshots != NULL)
+        {
+          g_autoptr (GListStore) files = NULL;
+
+          files = g_list_store_new (G_TYPE_FILE);
+
+          for (guint i = 0; i < screenshots->len; i++)
+            {
+              AsScreenshot *screenshot = NULL;
+              GPtrArray    *images     = NULL;
+
+              screenshot = g_ptr_array_index (screenshots, i);
+              images     = as_screenshot_get_images_all (screenshot);
+
+              for (guint j = 0; j < images->len; j++)
+                {
+                  AsImage    *image_obj             = NULL;
+                  const char *url                   = NULL;
+                  g_autoptr (GFile) screenshot_file = NULL;
+
+                  image_obj       = g_ptr_array_index (images, j);
+                  url             = as_image_get_url (image_obj);
+                  screenshot_file = g_file_new_for_uri (url);
+
+                  if (screenshot_file != NULL)
+                    {
+                      g_list_store_append (files, screenshot_file);
+                      break;
+                    }
+                }
+            }
+
+          if (g_list_model_get_n_items (G_LIST_MODEL (files)) > 0)
+            paintables = ga_paintable_model_new (
+                dex_scheduler_get_thread_default (),
+                G_LIST_MODEL (files));
+        }
     }
 
-  if (title == NULL)
-    title = self->name;
-  if (description != NULL)
-    description_fmt = g_strdup_printf (
-        "%s (%s)", description, flatpak_remote_get_name (remote));
-  else
-    description_fmt = g_strdup_printf (
-        "No summary found! (%s)", flatpak_remote_get_name (remote));
+  search_tokens = g_ptr_array_new_with_free_func (g_free);
+  if (as_search_tokens != NULL)
+    {
+      for (guint i = 0; i < as_search_tokens->len; i++)
+        g_ptr_array_add (
+            search_tokens,
+            g_strdup (g_ptr_array_index (as_search_tokens, i)));
+    }
 
-  if (search_tokens == NULL)
-    search_tokens = g_ptr_array_new_with_free_func (g_free);
-  g_ptr_array_add (search_tokens, g_strdup (title));
-  g_ptr_array_add (search_tokens, g_strdup (description_fmt));
+  g_ptr_array_add (search_tokens, g_strdup (self->name));
   g_ptr_array_add (search_tokens, g_strdup (self->runtime));
   g_ptr_array_add (search_tokens, g_strdup (self->command));
+
+  if (title != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (title));
+  else
+    title = self->name;
+
+  if (description != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (description));
+  if (long_description != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (long_description));
+
+  remote_name = flatpak_remote_get_name (remote);
+  if (remote_name != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (remote_name));
+
+  if (metadata_license != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (metadata_license));
+  if (project_license != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (project_license));
+  if (project_group != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (project_group));
+  if (developer != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (developer));
+  if (developer_id != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (developer_id));
+  if (metadata_license != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (metadata_license));
 
   g_object_set (
       self,
       "title", title,
-      "description", description_fmt,
+      "description", description,
+      "long-description", long_description,
+      "remote-repo-name", remote_name,
       "size", flatpak_remote_ref_get_installed_size (rref),
       "icon-paintable", icon_paintable,
       "search-tokens", search_tokens,
       "remote-repo-icon", remote_icon,
+      "metadata-license", metadata_license,
+      "project-license", project_license,
+      "is-floss", is_floss,
+      "project-group", project_group,
+      "developer", developer,
+      "developer-id", developer_id,
+      "screenshot-paintables", paintables,
       NULL);
 
   return g_steal_pointer (&self);
@@ -316,4 +480,98 @@ ga_flatpak_entry_launch (GaFlatpakEntry *self,
       flatpak_ref_get_branch (FLATPAK_REF (self->rref)),
       flatpak_ref_get_commit (FLATPAK_REF (self->rref)),
       NULL, error);
+}
+
+static void
+compile_appstream_description (XbNode  *node,
+                               GString *string,
+                               int      parent_kind,
+                               int      idx)
+{
+  XbNode     *child   = NULL;
+  const char *element = NULL;
+  const char *text    = NULL;
+  int         kind    = NO_ELEMENT;
+
+  child   = xb_node_get_child (node);
+  element = xb_node_get_element (node);
+  text    = xb_node_get_text (node);
+
+  if (element != NULL)
+    {
+      if (g_strcmp0 (element, "p") == 0)
+        kind = PARAGRAPH;
+      else if (g_strcmp0 (element, "ol") == 0)
+        kind = ORDERED_LIST;
+      else if (g_strcmp0 (element, "ul") == 0)
+        kind = UNORDERED_LIST;
+      else if (g_strcmp0 (element, "li") == 0)
+        kind = LIST_ITEM;
+      else if (g_strcmp0 (element, "code") == 0)
+        kind = CODE;
+      else if (g_strcmp0 (element, "em") == 0)
+        kind = EMPHASIS;
+    }
+
+  if (string->len > 0 &&
+      (kind == PARAGRAPH ||
+       kind == ORDERED_LIST ||
+       kind == UNORDERED_LIST))
+    g_string_append (string, "\n");
+
+  if (kind == EMPHASIS)
+    g_string_append (string, "<b>");
+  else if (kind == CODE)
+    g_string_append (string, "<tt>");
+
+  if (kind == LIST_ITEM)
+    {
+      switch (parent_kind)
+        {
+        case ORDERED_LIST:
+          g_string_append_printf (string, "%d. ", idx);
+          break;
+        case UNORDERED_LIST:
+          g_string_append (string, "- ");
+          break;
+        default:
+          break;
+        }
+    }
+
+  if (text != NULL)
+    append_markup_escaped (string, text);
+
+  for (int i = 0; child != NULL; i++)
+    {
+      const char *tail = NULL;
+      XbNode     *next = NULL;
+
+      compile_appstream_description (child, string, kind, i);
+
+      tail = xb_node_get_tail (child);
+      if (tail != NULL)
+        append_markup_escaped (string, tail);
+
+      next = xb_node_get_next (child);
+      g_object_unref (child);
+      child = next;
+    }
+
+  if (kind == EMPHASIS)
+    g_string_append (string, "</b>");
+  else if (kind == CODE)
+    g_string_append (string, "</tt>");
+  else
+    g_string_append (string, "\n");
+}
+
+static inline void
+append_markup_escaped (GString    *string,
+                       const char *append)
+{
+  g_autofree char *escaped = NULL;
+
+  escaped = g_markup_escape_text (append, -1);
+  g_string_append (string, escaped);
 }

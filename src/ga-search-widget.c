@@ -136,6 +136,13 @@ ga_search_widget_set_property (GObject      *object,
     }
 }
 
+static gboolean
+invert_boolean (gpointer object,
+                gboolean value)
+{
+  return !value;
+}
+
 static void
 action_move (GtkWidget  *widget,
              const char *action_name,
@@ -203,6 +210,7 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_text);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, sheet_spinner);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
+  gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 
   gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }
