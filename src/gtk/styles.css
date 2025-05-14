@@ -47,5 +47,15 @@
 }
 
 .screenshot {
-    border-radius: 10px;
+    border-radius: 20px;
+}
+
+.long-description {
+    border-top: 2px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.screenshot-scroll {
+    border-top: 2px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
 }

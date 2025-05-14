@@ -34,13 +34,16 @@ struct _GaSearchWidget
   guint previewing_timeout;
 
   GPtrArray  *match_tokens;
+  GRegex     *match_regex;
   GHashTable *match_scores;
 
   /* Template widgets */
-  GtkText     *search_bar;
-  GtkLabel    *search_text;
-  AdwSpinner  *sheet_spinner;
-  GtkListView *list_view;
+  GtkText         *search_bar;
+  GtkLabel        *search_text;
+  AdwSpinner      *search_spinner;
+  GtkToggleButton *regex_toggle;
+  GtkLabel        *regex_error;
+  GtkListView     *list_view;
 };
 
 G_DEFINE_FINAL_TYPE (GaSearchWidget, ga_search_widget, ADW_TYPE_BIN)
@@ -60,6 +63,10 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 static void
 search_changed (GtkEditable    *editable,
                 GaSearchWidget *self);
+
+static void
+regex_toggled (GtkToggleButton *toggle,
+               GaSearchWidget  *self);
 
 static void
 search_activate (GtkText        *text,
@@ -105,6 +112,7 @@ ga_search_widget_dispose (GObject *object)
   g_clear_object (&self->previewing);
   g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_pointer (&self->match_tokens, g_ptr_array_unref);
+  g_clear_pointer (&self->match_regex, g_regex_unref);
   g_clear_pointer (&self->match_scores, g_hash_table_unref);
 
   G_OBJECT_CLASS (ga_search_widget_parent_class)->dispose (object);
@@ -240,7 +248,9 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-search-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_bar);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_text);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, sheet_spinner);
+  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_spinner);
+  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, regex_toggle);
+  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, regex_error);
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
@@ -275,6 +285,7 @@ ga_search_widget_init (GaSearchWidget *self)
 
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
   g_signal_connect (self->search_bar, "activate", G_CALLBACK (search_activate), self);
+  g_signal_connect (self->regex_toggle, "toggled", G_CALLBACK (regex_toggled), self);
   g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
   g_signal_connect (selection_model, "notify::selected-item", G_CALLBACK (selected_item_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
@@ -337,6 +348,13 @@ ga_search_widget_get_previewing (GaSearchWidget *self)
 static void
 search_changed (GtkEditable    *editable,
                 GaSearchWidget *self)
+{
+  update_filter (self);
+}
+
+static void
+regex_toggled (GtkToggleButton *toggle,
+               GaSearchWidget  *self)
 {
   update_filter (self);
 }
@@ -413,39 +431,61 @@ match (GaEntry        *item,
   int        score         = 0;
   GPtrArray *search_tokens = NULL;
 
-  if (self->match_tokens->len == 0)
-    {
-      score++;
-      goto done;
-    }
-
   search_tokens = ga_entry_get_search_tokens (item);
 
-  for (guint i = 0; i < self->match_tokens->len; i++)
+  if (self->match_regex != NULL)
     {
-      int         token_score = 0;
-      const char *match_token = NULL;
-
-      match_token = g_ptr_array_index (self->match_tokens, i);
-      for (guint j = 0; j < search_tokens->len; j++)
+      for (guint i = 0; i < search_tokens->len; i++)
         {
-          const char *search_token = NULL;
+          const char *search_token    = NULL;
+          g_autoptr (GMatchInfo) info = NULL;
 
-          search_token = g_ptr_array_index (search_tokens, j);
-          if (g_strcmp0 (match_token, search_token) == 0)
-            token_score += 5;
-          else if (strstr (search_token, match_token) != NULL)
-            token_score += 3;
-          else if (g_str_match_string (match_token, search_token, TRUE))
-            token_score += 1;
+          search_token = g_ptr_array_index (search_tokens, i);
+          g_regex_match (self->match_regex, search_token,
+                         G_REGEX_MATCH_DEFAULT, &info);
+
+          if (info != NULL)
+            {
+              if (!g_match_info_is_partial_match (info))
+                score++;
+              score += g_match_info_get_match_count (info);
+            }
+        }
+    }
+  else
+    {
+      if (self->match_tokens->len == 0)
+        {
+          score++;
+          goto done;
         }
 
-      if (token_score > 0)
-        score += token_score;
-      else
+      for (guint i = 0; i < self->match_tokens->len; i++)
         {
-          score = 0;
-          goto done;
+          int         token_score = 0;
+          const char *match_token = NULL;
+
+          match_token = g_ptr_array_index (self->match_tokens, i);
+          for (guint j = 0; j < search_tokens->len; j++)
+            {
+              const char *search_token = NULL;
+
+              search_token = g_ptr_array_index (search_tokens, j);
+              if (g_strcmp0 (match_token, search_token) == 0)
+                token_score += 5;
+              else if (strstr (search_token, match_token) != NULL)
+                token_score += 3;
+              else if (g_str_match_string (match_token, search_token, TRUE))
+                token_score += 1;
+            }
+
+          if (token_score > 0)
+            score += token_score;
+          else
+            {
+              score = 0;
+              goto done;
+            }
         }
     }
 
@@ -465,9 +505,14 @@ pending_changed (GtkFilterListModel *model,
   pending = gtk_filter_list_model_get_pending (model);
   n_items = g_list_model_get_n_items (G_LIST_MODEL (model));
 
-  if (pending == 0 && n_items > 0)
-    /* Here to combat weird list view scrolling behavior */
-    gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
+  if (pending == 0)
+    {
+      if (n_items > 0)
+        /* Here to combat weird list view scrolling behavior */
+        gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
+
+      gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), FALSE);
+    }
 }
 
 static void
@@ -520,27 +565,68 @@ static void
 update_filter (GaSearchWidget *self)
 {
   const char         *search_text       = NULL;
+  gboolean            reset_regex       = FALSE;
   GtkSingleSelection *selection_model   = NULL;
   GtkSortListModel   *sort_list_model   = NULL;
   GtkFilterListModel *filter_list_model = NULL;
   GtkFilter          *filter            = NULL;
 
   g_ptr_array_set_size (self->match_tokens, 0);
+  g_clear_pointer (&self->match_regex, g_regex_unref);
   g_hash_table_remove_all (self->match_scores);
 
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
-  if (search_text != NULL)
+  if (search_text != NULL && *search_text != '\0')
     {
-      g_autofree gchar **tokens = NULL;
-
-      tokens = g_strsplit_set (search_text, " \t\n", -1);
-      for (gchar **token = tokens; *token != NULL; token++)
+      if (gtk_toggle_button_get_active (self->regex_toggle))
         {
-          if (**token != '\0')
-            g_ptr_array_add (self->match_tokens, *token);
+          g_autoptr (GError) local_error = NULL;
+
+          self->match_regex = g_regex_new (
+              search_text, G_REGEX_DEFAULT,
+              G_REGEX_MATCH_DEFAULT, &local_error);
+
+          if (self->match_regex != NULL)
+            {
+              gtk_label_set_label (self->regex_error, NULL);
+              gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), NULL);
+              gtk_widget_add_css_class (GTK_WIDGET (self->regex_toggle), "success");
+              gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "error");
+            }
           else
-            g_free (*token);
+            {
+              gtk_label_set_label (self->regex_error, local_error->message);
+              gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), local_error->message);
+              gtk_widget_add_css_class (GTK_WIDGET (self->regex_toggle), "error");
+              gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "success");
+            }
         }
+      else
+        reset_regex = TRUE;
+
+      if (self->match_regex == NULL)
+        {
+          g_autofree gchar **tokens = NULL;
+
+          tokens = g_strsplit_set (search_text, " \t\n", -1);
+          for (gchar **token = tokens; *token != NULL; token++)
+            {
+              if (**token != '\0')
+                g_ptr_array_add (self->match_tokens, *token);
+              else
+                g_free (*token);
+            }
+        }
+    }
+  else
+    reset_regex = TRUE;
+
+  if (reset_regex)
+    {
+      gtk_label_set_label (self->regex_error, NULL);
+      gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), NULL);
+      gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "success");
+      gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "error");
     }
 
   selection_model   = GTK_SINGLE_SELECTION (gtk_list_view_get_model (self->list_view));
@@ -549,4 +635,7 @@ update_filter (GaSearchWidget *self)
   filter            = gtk_filter_list_model_get_filter (filter_list_model);
 
   gtk_filter_changed (filter, GTK_FILTER_CHANGE_DIFFERENT);
+
+  if (gtk_filter_list_model_get_pending (filter_list_model) > 0)
+    gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), TRUE);
 }

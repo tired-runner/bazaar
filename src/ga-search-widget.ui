@@ -91,8 +91,28 @@
               <object class="GtkLabel" id="search_text"/>
             </child>
             <child>
-              <object class="AdwSpinner" id="sheet_spinner">
+              <object class="GtkLabel" id="regex_error">
+                <style>
+                  <class name="error"/>
+                  <class name="body"/>
+                  <class name="monospace"/>
+                </style>
+                <property name="has-tooltip">TRUE</property>
+                <property name="ellipsize">start</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinner" id="search_spinner">
                 <property name="visible">FALSE</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="regex_toggle">
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text">Whether to match using regular expressions</property>
+                <property name="icon-name">regex-symbolic</property>
               </object>
             </child>
             <child>
@@ -116,10 +136,19 @@
             <property name="child">
               <object class="GtkBox" id="content_box">
                 <property name="orientation">horizontal</property>
+                <binding name="visible">
+                  <closure function="invert_boolean" type="gboolean">
+                    <closure function="is_null" type="gboolean">
+                      <lookup name="selected-item" type="GtkSingleSelection">
+                        <lookup name="model">list_view</lookup>
+                      </lookup>
+                    </closure>
+                  </closure>
+                </binding>
                 <child>
                   <object class="GtkBox" id="entry_view">
-                    <property name="hexpand">FALSE</property>
                     <property name="vexpand">TRUE</property>
+                    <property name="hexpand">FALSE</property>
                     <property name="margin-start">10</property>
                     <property name="margin-end">10</property>
                     <property name="margin-top">10</property>
@@ -128,13 +157,12 @@
                     <property name="spacing">10</property>
                     <child>
                       <object class="GtkBox">
-                        <property name="hexpand">TRUE</property>
                         <property name="orientation">horizontal</property>
                         <property name="spacing">10</property>
                         <child>
                           <object class="GtkBox">
                             <property name="orientation">vertical</property>
-                            <property name="spacing">10</property>
+                            <property name="spacing">25</property>
                             <child>
                               <object class="GtkPicture">
                                 <property name="width-request">140</property>
@@ -283,35 +311,31 @@
                               </object>
                             </child>
                             <child>
-                              <object class="GtkFrame">
+                              <object class="GtkScrolledWindow" id="long_desc_scroll">
                                 <style>
-                                  <class name="card"/>
+                                  <class name="long-description"/>
                                 </style>
+                                <property name="hscrollbar-policy">never</property>
+                                <property name="propagate-natural-height">TRUE</property>
                                 <property name="child">
-                                  <object class="GtkScrolledWindow" id="long_desc_scroll">
-                                    <property name="hscrollbar-policy">never</property>
-                                    <property name="propagate-natural-height">TRUE</property>
-                                    <property name="child">
-                                      <object class="GtkLabel" id="long_description">
-                                        <property name="margin-start">10</property>
-                                        <property name="margin-end">10</property>
-                                        <property name="margin-top">10</property>
-                                        <property name="margin-bottom">10</property>
-                                        <property name="valign">start</property>
-                                        <property name="xalign">0</property>
-                                        <property name="selectable">TRUE</property>
-                                        <property name="wrap">TRUE</property>
-                                        <property name="wrap-mode">word-char</property>
-                                        <property name="use-markup">TRUE</property>
-                                        <binding name="label">
-                                          <lookup name="long-description" type="GaEntry">
-                                            <lookup name="selected-item" type="GtkSingleSelection">
-                                              <lookup name="model">list_view</lookup>
-                                            </lookup>
-                                          </lookup>
-                                        </binding>
-                                      </object>
-                                    </property>
+                                  <object class="GtkLabel" id="long_description">
+                                    <property name="margin-start">10</property>
+                                    <property name="margin-end">10</property>
+                                    <property name="margin-top">10</property>
+                                    <property name="margin-bottom">10</property>
+                                    <property name="valign">start</property>
+                                    <property name="xalign">0</property>
+                                    <property name="selectable">TRUE</property>
+                                    <property name="wrap">TRUE</property>
+                                    <property name="wrap-mode">word-char</property>
+                                    <property name="use-markup">TRUE</property>
+                                    <binding name="label">
+                                      <lookup name="long-description" type="GaEntry">
+                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                          <lookup name="model">list_view</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
                                   </object>
                                 </property>
                               </object>
@@ -331,10 +355,59 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkFrame">
+                      <object class="GtkScrolledWindow" id="screenshot_scroll">
                         <style>
-                          <class name="card"/>
+                          <class name="screenshot-scroll"/>
                         </style>
+                        <property name="width-request">140</property>
+                        <property name="height-request">125</property>
+                        <property name="propagate-natural-height">TRUE</property>
+                        <property name="hscrollbar-policy">never</property>
+                        <property name="child">
+                          <object class="GtkListView" id="screenshots">
+                            <style>
+                              <class name="navigation-sidebar"/>
+                            </style>
+                            <property name="margin-start">5</property>
+                            <property name="margin-end">5</property>
+                            <property name="model">
+                              <object class="GtkNoSelection">
+                                <binding name="model">
+                                  <lookup name="screenshot-paintables" type="GaEntry">
+                                    <lookup name="previewing">GaSearchWidget</lookup>
+                                  </lookup>
+                                </binding>
+                              </object>
+                            </property>
+                            <property name="factory">
+                              <object class="GtkBuilderListItemFactory">
+                                <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
+    <property name="child">
+      <object class="GtkPicture">
+        <style>
+          <class name="screenshot"/>
+        </style>
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
+        <property name="height-request">512</property>
+        <property name="content-fit">cover</property>
+        <binding name="paintable">
+          <lookup name="item">GtkListItem</lookup>
+        </binding>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                                </property>
+                              </object>
+                            </property>
+                          </object>
+                        </property>
                         <binding name="visible">
                           <closure function="invert_boolean" type="gboolean">
                             <closure function="is_null" type="gboolean">
@@ -342,64 +415,14 @@
                             </closure>
                           </closure>
                         </binding>
-                        <property name="child">
-                          <object class="GtkScrolledWindow" id="screenshot_scroll">
-                            <property name="height-request">450</property>
-                            <property name="hexpand">TRUE</property>
-                            <property name="propagate-natural-height">TRUE</property>
-                            <property name="hscrollbar-policy">never</property>
-                            <property name="child">
-                              <object class="GtkListView">
-                                <property name="width-request">140</property>
-                                <property name="orientation">vertical</property>
-                                <property name="model">
-                                  <object class="GtkNoSelection">
-                                    <binding name="model">
-                                      <lookup name="screenshot-paintables" type="GaEntry">
-                                        <lookup name="previewing">GaSearchWidget</lookup>
-                                      </lookup>
-                                    </binding>
-                                  </object>
-                                </property>
-                                <property name="factory">
-                                  <object class="GtkBuilderListItemFactory">
-                                    <property name="bytes"><![CDATA[
-<?xml version="1.0" encoding="UTF-8"?>
-<interface>
-  <template class="GtkListItem">
-    <property name="child">
-      <object class="GtkScrolledWindow">
-        <property name="vscrollbar-policy">never</property>
-        <property name="child">
-          <object class="GtkPicture">
-            <style>
-              <class name="screenshot"/>
-            </style>
-            <property name="height-request">512</property>
-            <property name="content-fit">cover</property>
-            <binding name="paintable">
-              <lookup name="item">GtkListItem</lookup>
-            </binding>
-          </object>
-        </property>
-      </object>
-    </property>
-  </template>
-</interface>
-]]>
-                                    </property>
-                                  </object>
-                                </property>
-                              </object>
-                            </property>
-                          </object>
-                        </property>
                       </object>
                     </child>
                   </object>
                 </child>
                 <child>
-                  <object class="GtkSeparator"/>
+                  <object class="GtkSeparator" id="main_separator">
+                    <property name="visible">FALSE</property>
+                  </object>
                 </child>
                 <child>
                   <object class="GtkScrolledWindow" id="entry_list_scroll">
@@ -421,11 +444,11 @@
     <property name="child">
       <object class="GtkBox">
         <property name="orientation">horizontal</property>
-        <property name="margin-top">3</property>
-        <property name="margin-bottom">3</property>
-        <property name="margin-start">9</property>
-        <property name="margin-end">6</property>
-        <property name="spacing">18</property>
+        <property name="margin-top">8</property>
+        <property name="margin-bottom">8</property>
+        <property name="margin-start">3</property>
+        <property name="margin-end">3</property>
+        <property name="spacing">20</property>
         <child>
           <object class="GtkImage">
             <property name="icon-size">large</property>
@@ -482,6 +505,7 @@
               <object class="AdwBreakpoint">
                 <condition>max-width: 1200px</condition>
                 <setter object="content_box" property="orientation">vertical</setter>
+                <setter object="main_separator" property="visible">TRUE</setter>
                 
                 <setter object="entry_view" property="vexpand">FALSE</setter>
                 <setter object="entry_view" property="hexpand">TRUE</setter>
@@ -504,8 +528,7 @@
                 <setter object="long_desc_scroll" property="height-request">150</setter>
                 <setter object="long_desc_scroll" property="propagate-natural-height">FALSE</setter>
                 
-                <setter object="screenshot_scroll" property="height-request">175</setter>
-                
+                <setter object="screenshot_scroll" property="height-request">125</setter>
                 <setter object="entry_list_scroll" property="height-request">250</setter>
               </object>
             </child>
