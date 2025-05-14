@@ -445,11 +445,7 @@ match (GaEntry        *item,
                          G_REGEX_MATCH_DEFAULT, &info);
 
           if (info != NULL)
-            {
-              if (!g_match_info_is_partial_match (info))
-                score++;
-              score += g_match_info_get_match_count (info);
-            }
+            score += g_match_info_get_match_count (info);
         }
     }
   else
