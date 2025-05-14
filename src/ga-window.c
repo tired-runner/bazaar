@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "ga-background.h"
+#include "ga-browse-widget.h"
 #include "ga-flatpak-instance.h"
 #include "ga-search-widget.h"
 #include "ga-update-page.h"
@@ -39,10 +40,12 @@ struct _GaWindow
 
   /* Template widgets */
   GaBackground    *background;
+  GaBrowseWidget  *browse;
   GtkButton       *refresh;
   GtkButton       *search;
   AdwToastOverlay *toasts;
   AdwSpinner      *spinner;
+  AdwStatusPage   *status;
   GtkLabel        *progress_label;
   GtkProgressBar  *progress_bar;
   AdwSpinner      *progress_spinner;
@@ -120,6 +123,9 @@ static void
 refresh (GaWindow *self);
 
 static void
+browse (GaWindow *self);
+
+static void
 install (GaWindow *self,
          GaEntry  *entry);
 
@@ -162,10 +168,13 @@ ga_window_class_init (GaWindowClass *klass)
   object_class->dispose = ga_window_dispose;
 
   g_type_ensure (GA_TYPE_BACKGROUND);
+  g_type_ensure (GA_TYPE_BROWSE_WIDGET);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-window.ui");
   gtk_widget_class_bind_template_child (widget_class, GaWindow, background);
+  gtk_widget_class_bind_template_child (widget_class, GaWindow, browse);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, spinner);
+  gtk_widget_class_bind_template_child (widget_class, GaWindow, status);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, GaWindow, search);
@@ -182,6 +191,7 @@ ga_window_init (GaWindow *self)
   self->remote = g_list_store_new (GA_TYPE_ENTRY);
 
   gtk_widget_init_template (GTK_WIDGET (self));
+  // ga_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));
 
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
@@ -370,6 +380,9 @@ refresh_finally (DexFuture *future,
                  GaWindow  *self)
 {
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (self->status), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
+
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
 
@@ -592,6 +605,14 @@ ga_window_refresh (GaWindow *self)
 }
 
 void
+ga_window_browse (GaWindow *self)
+{
+  g_return_if_fail (GA_IS_WINDOW (self));
+
+  browse (self);
+}
+
+void
 ga_window_search (GaWindow *self)
 {
   g_return_if_fail (GA_IS_WINDOW (self));
@@ -610,6 +631,9 @@ refresh (GaWindow *self)
   DexFuture *future = NULL;
 
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
+
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
 
@@ -628,6 +652,16 @@ refresh (GaWindow *self)
       future, (DexFutureCallback) refresh_finally,
       g_object_ref (self), g_object_unref);
   dex_future_disown (future);
+}
+
+static void
+browse (GaWindow *self)
+{
+  ga_background_set_entries (self->background, NULL);
+
+  gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (self->browse), TRUE);
 }
 
 static void

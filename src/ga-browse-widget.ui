@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="GaBrowseWidget" parent="AdwBin">
+    <property name="child">
+      <object class="GtkScrolledWindow">
+        <property name="hscrollbar-policy">never</property>
+        <property name="child">
+          <object class="GtkGridView" id="grid">
+            <style>
+              <class name="navigation-sidebar"/>
+            </style>
+            <property name="min-columns">1</property>
+            <property name="max-columns">1000</property>
+            <property name="model">
+              <object class="GtkNoSelection">
+                <binding name="model">
+                  <lookup name="model">GaBrowseWidget</lookup>
+                </binding>
+              </object>
+            </property>
+            <property name="factory">
+              <object class="GtkBuilderListItemFactory">
+                <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
+    <property name="child">
+      <object class="GtkFrame">
+        <style>
+          <class name="card"/>
+        </style>
+        <property name="child">
+          <object class="GtkBox">
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-end">10</property>
+            <property name="orientation">horizontal</property>
+            <property name="spacing">10</property>
+            <child>
+              <object class="GtkImage">
+                <property name="icon-size">large</property>
+                <binding name="paintable">
+                  <lookup name="icon-paintable" type="GaEntry">
+                    <lookup name="item">GtkListItem</lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">5</property>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="title-3"/>
+                    </style>
+                    <property name="xalign">0</property>
+                    <property name="ellipsize">end</property>
+                    <property name="width-chars">20</property>
+                    <property name="max-width-chars">20</property>
+                    <binding name="label">
+                      <lookup name="title" type="GaEntry">
+                        <lookup name="item">GtkListItem</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="dimmed"/>
+                    </style>
+                    <property name="xalign">0</property>
+                    <property name="ellipsize">end</property>
+                    <property name="width-chars">20</property>
+                    <property name="max-width-chars">20</property>
+                    <binding name="label">
+                      <lookup name="description" type="GaEntry">
+                        <lookup name="item">GtkListItem</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                </property>
+              </object>
+            </property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

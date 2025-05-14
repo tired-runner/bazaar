@@ -244,11 +244,7 @@ ga_background_class_init (GaBackgroundClass *klass)
 static void
 ga_background_init (GaBackground *self)
 {
-  self->timeout = g_timeout_add (
-      (1.0 / 30.0) * G_TIME_SPAN_MILLISECOND,
-      (GSourceFunc) tick_timeout, self);
-  self->timer = g_timer_new ();
-
+  self->timer            = g_timer_new ();
   self->sorted_instances = g_array_new (FALSE, TRUE, sizeof (guint));
 }
 
@@ -399,6 +395,10 @@ ga_background_set_entries (GaBackground *self,
           self->entries, 0, 0,
           g_list_model_get_n_items (self->entries),
           self);
+      if (self->timeout == 0)
+        self->timeout = g_timeout_add (
+            (1.0 / 30.0) * G_TIME_SPAN_MILLISECOND,
+            (GSourceFunc) tick_timeout, self);
     }
 
   gtk_widget_queue_draw (GTK_WIDGET (self));
@@ -564,7 +564,16 @@ tick_timeout (GaBackground *self)
       elapsed = g_timer_elapsed (self->timer, NULL);
       /* TODO: don't have random numbers everywhere */
       if (elapsed - self->time_at_replace > 1.0 / 3.0)
-        g_clear_pointer (&self->last_instances, g_ptr_array_unref);
+        {
+          g_clear_pointer (&self->last_instances, g_ptr_array_unref);
+
+          if (self->instances == NULL)
+            {
+              self->timeout = 0;
+              gtk_widget_queue_draw (GTK_WIDGET (self));
+              return G_SOURCE_REMOVE;
+            }
+        }
     }
 
   gtk_widget_queue_draw (GTK_WIDGET (self));

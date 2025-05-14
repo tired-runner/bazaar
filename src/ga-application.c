@@ -99,6 +99,21 @@ ga_application_refresh_action (GSimpleAction *action,
 }
 
 static void
+ga_application_browse_action (GSimpleAction *action,
+                              GVariant      *parameter,
+                              gpointer       user_data)
+{
+  GaApplication *self   = user_data;
+  GtkWindow     *window = NULL;
+
+  g_assert (GA_IS_APPLICATION (self));
+
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+
+  ga_window_browse (GA_WINDOW (window));
+}
+
+static void
 ga_application_search_action (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)
@@ -154,6 +169,7 @@ static const GActionEntry app_actions[] = {
   {    "quit",    ga_application_quit_action },
   {   "about",   ga_application_about_action },
   {  "search",  ga_application_search_action },
+  {  "browse",  ga_application_browse_action },
   { "refresh", ga_application_refresh_action },
 };
 
@@ -173,6 +189,10 @@ ga_application_init (GaApplication *self)
       GTK_APPLICATION (self),
       "app.search",
       (const char *[]) { "<primary>f", NULL });
+  gtk_application_set_accels_for_action (
+      GTK_APPLICATION (self),
+      "app.browse",
+      (const char *[]) { "<primary>b", NULL });
   gtk_application_set_accels_for_action (
       GTK_APPLICATION (self),
       "app.refresh",

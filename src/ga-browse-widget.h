@@ -1,4 +1,4 @@
-/* ga-window.h
+/* ga-browse-widget.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,16 +24,17 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_WINDOW (ga_window_get_type ())
-G_DECLARE_FINAL_TYPE (GaWindow, ga_window, GA, WINDOW, AdwApplicationWindow)
+#define GA_TYPE_BROWSE_WIDGET (ga_browse_widget_get_type ())
+G_DECLARE_FINAL_TYPE (GaBrowseWidget, ga_browse_widget, GA, BROWSE_WIDGET, AdwBin)
+
+GtkWidget *
+ga_browse_widget_new (GListModel *model);
 
 void
-ga_window_refresh (GaWindow *self);
+ga_browse_widget_set_model (GaBrowseWidget *self,
+                            GListModel     *model);
 
-void
-ga_window_browse (GaWindow *self);
-
-void
-ga_window_search (GaWindow *self);
+GListModel *
+ga_browse_widget_get_model (GaBrowseWidget *self);
 
 G_END_DECLS
