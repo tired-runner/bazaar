@@ -8,7 +8,11 @@
     <file preprocess="xml-stripblanks">ga-update-page.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
     
-    <file preprocess="xml-stripblanks">icons/scalable/actions/license-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/regex-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/license-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/people-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/globe-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/drive-harddisk-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/external-link-symbolic.svg</file>
   </gresource>
 </gresources>

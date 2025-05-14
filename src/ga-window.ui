@@ -6,8 +6,8 @@
     <property name="title" translatable="yes">Gnome Apps Next</property>
     <property name="default-width">1500</property>
     <property name="default-height">1200</property>
-    <property name="width-request">450</property>
-    <property name="height-request">900</property>
+    <property name="width-request">400</property>
+    <property name="height-request">750</property>
     <property name="content">
       <object class="AdwBottomSheet" id="sheet">
         <property name="bottom-bar">

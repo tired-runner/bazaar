@@ -28,6 +28,7 @@ typedef struct
   char         *description;
   char         *long_description;
   char         *remote_repo_name;
+  char         *url;
   guint64       size;
   GdkPaintable *icon_paintable;
   GdkPaintable *remote_repo_icon;
@@ -51,6 +52,7 @@ enum
   PROP_DESCRIPTION,
   PROP_LONG_DESCRIPTION,
   PROP_REMOTE_REPO_NAME,
+  PROP_URL,
   PROP_SIZE,
   PROP_ICON_PAINTABLE,
   PROP_SEARCH_TOKENS,
@@ -75,6 +77,9 @@ ga_entry_dispose (GObject *object)
 
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->description, g_free);
+  g_clear_pointer (&priv->long_description, g_free);
+  g_clear_pointer (&priv->remote_repo_name, g_free);
+  g_clear_pointer (&priv->url, g_free);
   g_clear_object (&priv->icon_paintable);
   g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
   g_clear_object (&priv->remote_repo_icon);
@@ -110,6 +115,9 @@ ga_entry_get_property (GObject    *object,
       break;
     case PROP_REMOTE_REPO_NAME:
       g_value_set_string (value, priv->remote_repo_name);
+      break;
+    case PROP_URL:
+      g_value_set_string (value, priv->url);
       break;
     case PROP_SIZE:
       g_value_set_uint64 (value, priv->size);
@@ -175,6 +183,10 @@ ga_entry_set_property (GObject      *object,
     case PROP_REMOTE_REPO_NAME:
       g_clear_pointer (&priv->remote_repo_name, g_free);
       priv->remote_repo_name = g_value_dup_string (value);
+      break;
+    case PROP_URL:
+      g_clear_pointer (&priv->url, g_free);
+      priv->url = g_value_dup_string (value);
       break;
     case PROP_SIZE:
       priv->size = g_value_get_uint64 (value);
@@ -250,9 +262,15 @@ ga_entry_class_init (GaEntryClass *klass)
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
-  props[PROP_REMOTE_REPO_NAME] =
+  props[PROP_URL] =
       g_param_spec_string (
           "remote-repo-name",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_REMOTE_REPO_NAME] =
+      g_param_spec_string (
+          "url",
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 

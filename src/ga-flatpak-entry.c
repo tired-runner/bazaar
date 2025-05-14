@@ -201,6 +201,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
   const char      *developer_id           = NULL;
   g_autofree char *long_description       = NULL;
   const char      *remote_name            = NULL;
+  const char      *project_url            = NULL;
   g_autoptr (GPtrArray) as_search_tokens  = NULL;
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
@@ -256,6 +257,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
       project_license  = as_component_get_project_license (component);
       is_floss         = as_component_is_floss (component);
       project_group    = as_component_get_project_group (component);
+      project_url      = as_component_get_url (component, AS_URL_KIND_HOMEPAGE);
       as_search_tokens = as_component_get_search_tokens (component);
 
       developer_obj = as_component_get_developer (component);
@@ -425,6 +427,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
       "description", description,
       "long-description", long_description,
       "remote-repo-name", remote_name,
+      "url", project_url,
       "size", flatpak_remote_ref_get_installed_size (rref),
       "icon-paintable", icon_paintable,
       "search-tokens", search_tokens,

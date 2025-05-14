@@ -176,6 +176,21 @@ is_null (gpointer object,
   return value == NULL;
 }
 
+static char *
+format_size (gpointer object,
+             guint64  value)
+{
+  return g_format_size (value);
+}
+
+static char *
+format_as_link (gpointer    object,
+                const char *value)
+{
+  return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
+                          value, value, value);
+}
+
 static void
 action_move (GtkWidget  *widget,
              const char *action_name,
@@ -254,6 +269,8 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, format_size);
+  gtk_widget_class_bind_template_callback (widget_class, format_as_link);
 
   gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }

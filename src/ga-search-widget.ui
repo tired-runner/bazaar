@@ -157,6 +157,7 @@
                     <property name="spacing">10</property>
                     <child>
                       <object class="GtkBox">
+                        <property name="vexpand">FALSE</property>
                         <property name="orientation">horizontal</property>
                         <property name="spacing">10</property>
                         <child>
@@ -165,7 +166,7 @@
                             <property name="spacing">25</property>
                             <child>
                               <object class="GtkPicture">
-                                <property name="width-request">140</property>
+                                <property name="width-request">130</property>
                                 <property name="content-fit">scale-down</property>
                                 <property name="can-shrink">FALSE</property>
                                 <binding name="paintable">
@@ -179,66 +180,191 @@
                             </child>
                             <child>
                               <object class="GtkBox">
-                                <property name="orientation">horizontal</property>
+                                <property name="orientation">vertical</property>
                                 <property name="spacing">5</property>
                                 <child>
-                                  <object class="GtkImage">
-                                    <style>
-                                      <class name="good-icon"/>
-                                    </style>
-                                    <property name="has-tooltip">TRUE</property>
-                                    <property name="tooltip-text">This application has a FLOSS license, meaning the source code can be audited for safety.</property>
-                                    <property name="icon-name">license-symbolic</property>
-                                    <binding name="visible">
-                                      <lookup name="is-floss" type="GaEntry">
-                                        <lookup name="selected-item" type="GtkSingleSelection">
-                                          <lookup name="model">list_view</lookup>
-                                        </lookup>
-                                      </lookup>
-                                    </binding>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkImage">
-                                    <style>
-                                      <class name="bad-icon"/>
-                                    </style>
-                                    <property name="has-tooltip">TRUE</property>
-                                    <property name="tooltip-text">This application has a proprietary license, meaning the source code cannot be audited and your privacy may be at risk.</property>
-                                    <property name="icon-name">dialog-warning-symbolic</property>
-                                    <binding name="visible">
-                                      <closure function="invert_boolean" type="gboolean">
-                                        <lookup name="is-floss" type="GaEntry">
-                                          <lookup name="selected-item" type="GtkSingleSelection">
-                                            <lookup name="model">list_view</lookup>
+                                  <object class="GtkBox">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">10</property>
+                                    <child>
+                                      <object class="GtkImage">
+                                        <style>
+                                          <class name="good-icon"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text">This application has a FLOSS license, meaning the source code can be audited for safety.</property>
+                                        <property name="icon-name">license-symbolic</property>
+                                        <binding name="visible">
+                                          <lookup name="is-floss" type="GaEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
                                           </lookup>
-                                        </lookup>
-                                      </closure>
-                                    </binding>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkImage">
+                                        <style>
+                                          <class name="bad-icon"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text">This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk.</property>
+                                        <property name="icon-name">dialog-warning-symbolic</property>
+                                        <binding name="visible">
+                                          <closure function="invert_boolean" type="gboolean">
+                                            <lookup name="is-floss" type="GaEntry">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="xalign">0</property>
+                                        <property name="selectable">TRUE</property>
+                                        <property name="ellipsize">end</property>
+                                        <property name="width-chars">17</property>
+                                        <property name="max-width-chars">17</property>
+                                        <binding name="tooltip-text">
+                                          <lookup name="project-license" type="GaEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                        <binding name="label">
+                                          <lookup name="project-license" type="GaEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
                                   </object>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel">
-                                    <property name="has-tooltip">TRUE</property>
-                                    <property name="xalign">0</property>
-                                    <property name="selectable">TRUE</property>
-                                    <property name="ellipsize">end</property>
-                                    <property name="width-chars">20</property>
-                                    <property name="max-width-chars">20</property>
-                                    <binding name="tooltip-text">
-                                      <lookup name="project-license" type="GaEntry">
-                                        <lookup name="selected-item" type="GtkSingleSelection">
-                                          <lookup name="model">list_view</lookup>
-                                        </lookup>
-                                      </lookup>
-                                    </binding>
-                                    <binding name="label">
-                                      <lookup name="project-license" type="GaEntry">
-                                        <lookup name="selected-item" type="GtkSingleSelection">
-                                          <lookup name="model">list_view</lookup>
-                                        </lookup>
-                                      </lookup>
-                                    </binding>
+                                  <object class="GtkBox">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">10</property>
+                                    <child>
+                                      <object class="GtkImage">
+                                        <style>
+                                          <class name="neutral-icon"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text">Remote repo name</property>
+                                        <property name="icon-name">globe-symbolic</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="xalign">0</property>
+                                        <property name="selectable">TRUE</property>
+                                        <property name="ellipsize">end</property>
+                                        <property name="width-chars">17</property>
+                                        <property name="max-width-chars">17</property>
+                                        <binding name="tooltip-text">
+                                          <lookup name="remote-repo-name" type="GaEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                        <binding name="label">
+                                          <lookup name="remote-repo-name" type="GaEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">10</property>
+                                    <child>
+                                      <object class="GtkImage">
+                                        <style>
+                                          <class name="neutral-icon"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text">Project URL</property>
+                                        <property name="icon-name">external-link-symbolic</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="xalign">0</property>
+                                        <property name="use-markup">TRUE</property>
+                                        <property name="ellipsize">start</property>
+                                        <property name="width-chars">17</property>
+                                        <property name="max-width-chars">17</property>
+                                        <binding name="label">
+                                          <closure function="format_as_link" type="gchararray">
+                                            <lookup name="url" type="GaEntry">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">10</property>
+                                    <child>
+                                      <object class="GtkImage">
+                                        <style>
+                                          <class name="neutral-icon"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text">Download size</property>
+                                        <property name="icon-name">drive-harddisk-symbolic</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="xalign">0</property>
+                                        <property name="selectable">TRUE</property>
+                                        <property name="ellipsize">end</property>
+                                        <property name="width-chars">17</property>
+                                        <property name="max-width-chars">17</property>
+                                        <binding name="tooltip-text">
+                                          <closure function="format_size" type="gchararray">
+                                            <lookup name="size" type="GaEntry">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                        <binding name="label">
+                                          <closure function="format_size" type="gchararray">
+                                            <lookup name="size" type="GaEntry">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
                                   </object>
                                 </child>
                               </object>
@@ -315,8 +441,8 @@
                                 <style>
                                   <class name="long-description"/>
                                 </style>
+                                <property name="vexpand">TRUE</property>
                                 <property name="hscrollbar-policy">never</property>
-                                <property name="propagate-natural-height">TRUE</property>
                                 <property name="child">
                                   <object class="GtkLabel" id="long_description">
                                     <property name="margin-start">10</property>
@@ -345,43 +471,46 @@
                       </object>
                     </child>
                     <child>
-                      <object class="AdwSpinner">
-                        <property name="height-request">100</property>
-                        <binding name="visible">
-                          <closure function="is_null" type="gboolean">
-                            <lookup name="previewing">GaSearchWidget</lookup>
-                          </closure>
-                        </binding>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkScrolledWindow" id="screenshot_scroll">
                         <style>
                           <class name="screenshot-scroll"/>
                         </style>
                         <property name="width-request">140</property>
-                        <property name="height-request">125</property>
+                        <property name="vexpand">TRUE</property>
                         <property name="propagate-natural-height">TRUE</property>
                         <property name="hscrollbar-policy">never</property>
                         <property name="child">
-                          <object class="GtkListView" id="screenshots">
-                            <style>
-                              <class name="navigation-sidebar"/>
-                            </style>
-                            <property name="margin-start">5</property>
-                            <property name="margin-end">5</property>
-                            <property name="model">
-                              <object class="GtkNoSelection">
-                                <binding name="model">
-                                  <lookup name="screenshot-paintables" type="GaEntry">
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="AdwSpinner">
+                                <property name="height-request">150</property>
+                                <binding name="visible">
+                                  <closure function="is_null" type="gboolean">
                                     <lookup name="previewing">GaSearchWidget</lookup>
-                                  </lookup>
+                                  </closure>
                                 </binding>
                               </object>
-                            </property>
-                            <property name="factory">
-                              <object class="GtkBuilderListItemFactory">
-                                <property name="bytes"><![CDATA[
+                            </child>
+                            <child>
+                              <object class="GtkListView" id="screenshots">
+                                <style>
+                                  <class name="navigation-sidebar"/>
+                                </style>
+                                <property name="margin-start">5</property>
+                                <property name="margin-end">5</property>
+                                <property name="model">
+                                  <object class="GtkNoSelection">
+                                    <binding name="model">
+                                      <lookup name="screenshot-paintables" type="GaEntry">
+                                        <lookup name="previewing">GaSearchWidget</lookup>
+                                      </lookup>
+                                    </binding>
+                                  </object>
+                                </property>
+                                <property name="factory">
+                                  <object class="GtkBuilderListItemFactory">
+                                    <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -403,18 +532,20 @@
   </template>
 </interface>
 ]]>
+                                    </property>
+                                  </object>
                                 </property>
+                                <binding name="visible">
+                                  <closure function="invert_boolean" type="gboolean">
+                                    <closure function="is_null" type="gboolean">
+                                      <lookup name="previewing">GaSearchWidget</lookup>
+                                    </closure>
+                                  </closure>
+                                </binding>
                               </object>
-                            </property>
+                            </child>
                           </object>
                         </property>
-                        <binding name="visible">
-                          <closure function="invert_boolean" type="gboolean">
-                            <closure function="is_null" type="gboolean">
-                              <lookup name="previewing">GaSearchWidget</lookup>
-                            </closure>
-                          </closure>
-                        </binding>
                       </object>
                     </child>
                   </object>
@@ -503,7 +634,7 @@
             </property>
             <child>
               <object class="AdwBreakpoint">
-                <condition>max-width: 1200px</condition>
+                <condition>max-width: 900px</condition>
                 <setter object="content_box" property="orientation">vertical</setter>
                 <setter object="main_separator" property="visible">TRUE</setter>
                 
@@ -525,11 +656,10 @@
                 <setter object="description_label" property="max-width-chars">-1</setter>
                 <setter object="description_label" property="ellipsize">end</setter>
                 
-                <setter object="long_desc_scroll" property="height-request">150</setter>
-                <setter object="long_desc_scroll" property="propagate-natural-height">FALSE</setter>
-                
-                <setter object="screenshot_scroll" property="height-request">125</setter>
-                <setter object="entry_list_scroll" property="height-request">250</setter>
+                <setter object="screenshot_scroll" property="height-request">100</setter>
+                <setter object="screenshot_scroll" property="propagate-natural-height">FALSE</setter>
+                <setter object="screenshot_scroll" property="vexpand">FALSE</setter>
+                <setter object="entry_list_scroll" property="height-request">175</setter>
               </object>
             </child>
           </object>

@@ -32,6 +32,13 @@
     border-left: 1px solid color-mix(in srgb, var(--border-color) 25%, transparent);
 }
 
+.neutral-icon {
+    padding: 4px;
+    color: var(--accent-fg-color);
+    background-color: var(--accent-bg-color);
+    border-radius: 5px;
+}
+
 .good-icon {
     padding: 4px;
     color: var(--success-fg-color);
