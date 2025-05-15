@@ -1,6 +1,6 @@
 # bazaar
 
-![Image](https://github.com/user-attachments/assets/75cb6702-05a0-41d0-9d99-d0ca772ab0d2)
+![Image](https://github.com/user-attachments/assets/1e305d42-8907-49d0-8522-ad9f9ed483a4)
 
 A new app store idea for GNOME. This is very much work-in-progress,
 and nothing about the current state of the project is final; I intend
