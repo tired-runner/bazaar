@@ -1,4 +1,4 @@
-/* ga-util.h
+/* bz-util.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,16 @@
 
 #pragma once
 
-#define GA_RELEASE_DATA(name, unref) \
+#define BZ_RELEASE_DATA(name, unref) \
   if ((unref) != NULL)               \
     g_clear_pointer (&self->name, (unref));
 
-#define GA_RELEASE_UTAG(name, remove) \
+#define BZ_RELEASE_UTAG(name, remove) \
   if ((remove) != NULL)               \
     g_clear_handle_id (&self->name, (remove));
 
 /* va args = releases */
-#define GA_DEFINE_DATA(name, Name, layout, ...)     \
+#define BZ_DEFINE_DATA(name, Name, layout, ...)     \
   typedef struct                                    \
   {                                                 \
     gatomicrefcount rc;                             \

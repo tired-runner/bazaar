@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=gnome-apps-next
-Exec=gnome-apps-next
+Name=bazaar
+Exec=bazaar
 Icon=org.gnome.Example
 Terminal=false
 Type=Application

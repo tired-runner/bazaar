@@ -2,8 +2,8 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
-  <template class="GaWindow" parent="AdwApplicationWindow">
-    <property name="title" translatable="yes">Gnome Apps Next</property>
+  <template class="BzWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">Bazaar</property>
     <property name="default-width">1500</property>
     <property name="default-height">1200</property>
     <property name="width-request">400</property>
@@ -75,7 +75,7 @@
         <property name="content">
           <object class="GtkOverlay">
             <property name="child">
-              <object class="GaBackground" id="background"/>
+              <object class="BzBackground" id="background"/>
             </property>
             <child type="overlay">
               <object class="AdwToolbarView">
@@ -163,7 +163,7 @@
                           </object>
                         </child>
                         <child>
-                          <object class="GaBrowseWidget" id="browse">
+                          <object class="BzBrowseWidget" id="browse">
                             <property name="visible">FALSE</property>
                             <property name="hexpand">TRUE</property>
                             <property name="vexpand">TRUE</property>
@@ -191,7 +191,7 @@
         <attribute name="action">win.show-help-overlay</attribute>
       </item>
       <item>
-        <attribute name="label" translatable="yes">_About Gnome-apps-next</attribute>
+        <attribute name="label" translatable="yes">_About bazaar</attribute>
         <attribute name="action">app.about</attribute>
       </item>
     </section>

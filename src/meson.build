@@ -1,18 +1,18 @@
-ga_sources = [
+bz_sources = [
   'main.c',
-  'ga-application.c',
-  'ga-window.c',
-  'ga-search-widget.c',
-  'ga-browse-widget.c',
-  'ga-update-page.c',
-  'ga-background.c',
-  'ga-flatpak-instance.c',
-  'ga-entry.c',
-  'ga-flatpak-entry.c',
-  'ga-paintable-model.c',
+  'bz-application.c',
+  'bz-window.c',
+  'bz-search-widget.c',
+  'bz-browse-widget.c',
+  'bz-update-page.c',
+  'bz-background.c',
+  'bz-flatpak-instance.c',
+  'bz-entry.c',
+  'bz-flatpak-entry.c',
+  'bz-paintable-model.c',
 ]
 
-ga_deps = [
+bz_deps = [
   cc.find_library('m', required: false),
   dependency('gtk4'),
   dependency('libadwaita-1', version: '>= 1.4'),
@@ -24,12 +24,12 @@ ga_deps = [
   dependency('glycin-gtk4-1', version : '>= 1.0'),
 ]
 
-ga_sources += gnome.compile_resources('ga-resources',
-  'gnome-apps-next.gresource.xml',
+bz_sources += gnome.compile_resources('bz-resources',
+  'bazaar.gresource.xml',
   c_name: 'ga'
 )
 
-executable('gnome-apps-next', ga_sources,
-  dependencies: ga_deps,
+executable('bazaar', bz_sources,
+  dependencies: bz_deps,
        install: true,
 )

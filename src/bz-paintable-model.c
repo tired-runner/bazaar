@@ -1,4 +1,4 @@
-/* ga-paintable-model.c
+/* bz-paintable-model.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -22,10 +22,10 @@
 
 #include <glycin-gtk4.h>
 
-#include "ga-paintable-model.h"
-#include "ga-util.h"
+#include "bz-paintable-model.h"
+#include "bz-util.h"
 
-struct _GaPaintableModel
+struct _BzPaintableModel
 {
   GObject parent_instance;
 
@@ -42,11 +42,11 @@ items_changed (GListModel       *model,
                guint             position,
                guint             removed,
                guint             added,
-               GaPaintableModel *self);
+               BzPaintableModel *self);
 
 G_DEFINE_TYPE_WITH_CODE (
-    GaPaintableModel,
-    ga_paintable_model,
+    BzPaintableModel,
+    bz_paintable_model,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (G_TYPE_LIST_MODEL, list_model_iface_init))
 
@@ -60,15 +60,15 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
-GA_DEFINE_DATA (
+BZ_DEFINE_DATA (
     load,
     Load,
     {
-      GaPaintableModel *self;
+      BzPaintableModel *self;
       GFile            *file;
     },
-    GA_RELEASE_DATA (self, g_object_unref);
-    GA_RELEASE_DATA (file, g_object_unref));
+    BZ_RELEASE_DATA (self, g_object_unref);
+    BZ_RELEASE_DATA (file, g_object_unref));
 static DexFuture *
 load_fiber (LoadData *data);
 static DexFuture *
@@ -76,29 +76,29 @@ load_finally (DexFuture *future,
               LoadData  *data);
 
 static void
-ga_paintable_model_dispose (GObject *object)
+bz_paintable_model_dispose (GObject *object)
 {
-  GaPaintableModel *self = GA_PAINTABLE_MODEL (object);
+  BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
   g_clear_pointer (&self->scheduler, dex_unref);
   g_clear_object (&self->model);
   g_clear_pointer (&self->tracking, g_hash_table_unref);
 
-  G_OBJECT_CLASS (ga_paintable_model_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_paintable_model_parent_class)->dispose (object);
 }
 
 static void
-ga_paintable_model_get_property (GObject    *object,
+bz_paintable_model_get_property (GObject    *object,
                                  guint       prop_id,
                                  GValue     *value,
                                  GParamSpec *pspec)
 {
-  GaPaintableModel *self = GA_PAINTABLE_MODEL (object);
+  BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      g_value_set_object (value, ga_paintable_model_get_model (self));
+      g_value_set_object (value, bz_paintable_model_get_model (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -106,17 +106,17 @@ ga_paintable_model_get_property (GObject    *object,
 }
 
 static void
-ga_paintable_model_set_property (GObject      *object,
+bz_paintable_model_set_property (GObject      *object,
                                  guint         prop_id,
                                  const GValue *value,
                                  GParamSpec   *pspec)
 {
-  GaPaintableModel *self = GA_PAINTABLE_MODEL (object);
+  BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      ga_paintable_model_set_model (self, g_value_get_object (value));
+      bz_paintable_model_set_model (self, g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -124,13 +124,13 @@ ga_paintable_model_set_property (GObject      *object,
 }
 
 static void
-ga_paintable_model_class_init (GaPaintableModelClass *klass)
+bz_paintable_model_class_init (BzPaintableModelClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->dispose      = ga_paintable_model_dispose;
-  object_class->get_property = ga_paintable_model_get_property;
-  object_class->set_property = ga_paintable_model_set_property;
+  object_class->dispose      = bz_paintable_model_dispose;
+  object_class->get_property = bz_paintable_model_get_property;
+  object_class->set_property = bz_paintable_model_set_property;
 
   props[PROP_MODEL] =
       g_param_spec_object (
@@ -143,7 +143,7 @@ ga_paintable_model_class_init (GaPaintableModelClass *klass)
 }
 
 static void
-ga_paintable_model_init (GaPaintableModel *self)
+bz_paintable_model_init (BzPaintableModel *self)
 {
   self->tracking = g_hash_table_new_full (
       g_direct_hash, g_direct_equal,
@@ -159,7 +159,7 @@ list_model_get_item_type (GListModel *list)
 static guint
 list_model_get_n_items (GListModel *list)
 {
-  GaPaintableModel *self = GA_PAINTABLE_MODEL (list);
+  BzPaintableModel *self = BZ_PAINTABLE_MODEL (list);
 
   return g_list_model_get_n_items (G_LIST_MODEL (self->model));
 }
@@ -168,7 +168,7 @@ static gpointer
 list_model_get_item (GListModel *list,
                      guint       position)
 {
-  GaPaintableModel *self = GA_PAINTABLE_MODEL (list);
+  BzPaintableModel *self = BZ_PAINTABLE_MODEL (list);
   g_autoptr (GFile) file = NULL;
   GdkPaintable *lookup   = NULL;
 
@@ -213,16 +213,16 @@ list_model_iface_init (GListModelInterface *iface)
   iface->get_item      = list_model_get_item;
 }
 
-GaPaintableModel *
-ga_paintable_model_new (DexScheduler *scheduler,
+BzPaintableModel *
+bz_paintable_model_new (DexScheduler *scheduler,
                         GListModel   *model)
 {
-  GaPaintableModel *self = NULL;
+  BzPaintableModel *self = NULL;
 
   g_return_val_if_fail (DEX_IS_SCHEDULER (scheduler), NULL);
 
   self = g_object_new (
-      GA_TYPE_PAINTABLE_MODEL,
+      BZ_TYPE_PAINTABLE_MODEL,
       "model", model,
       NULL);
   self->scheduler = dex_ref (scheduler);
@@ -231,12 +231,12 @@ ga_paintable_model_new (DexScheduler *scheduler,
 }
 
 void
-ga_paintable_model_set_model (GaPaintableModel *self,
+bz_paintable_model_set_model (BzPaintableModel *self,
                               GListModel       *model)
 {
   guint old_length = 0;
 
-  g_return_if_fail (GA_IS_PAINTABLE_MODEL (self));
+  g_return_if_fail (BZ_IS_PAINTABLE_MODEL (self));
   g_return_if_fail (G_IS_LIST_MODEL (model));
   g_return_if_fail (g_list_model_get_item_type (model) == G_TYPE_FILE);
 
@@ -267,9 +267,9 @@ ga_paintable_model_set_model (GaPaintableModel *self,
 }
 
 GListModel *
-ga_paintable_model_get_model (GaPaintableModel *self)
+bz_paintable_model_get_model (BzPaintableModel *self)
 {
-  g_return_val_if_fail (GA_IS_PAINTABLE_MODEL (self), NULL);
+  g_return_val_if_fail (BZ_IS_PAINTABLE_MODEL (self), NULL);
 
   return self->model;
 }
@@ -279,7 +279,7 @@ items_changed (GListModel       *model,
                guint             position,
                guint             removed,
                guint             added,
-               GaPaintableModel *self)
+               BzPaintableModel *self)
 {
   g_list_model_items_changed (
       G_LIST_MODEL (self), position, removed, added);
@@ -311,7 +311,7 @@ static DexFuture *
 load_finally (DexFuture *future,
               LoadData  *data)
 {
-  GaPaintableModel *self  = data->self;
+  BzPaintableModel *self  = data->self;
   const GValue     *value = NULL;
 
   value = dex_future_get_value (future, NULL);

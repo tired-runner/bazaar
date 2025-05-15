@@ -1,4 +1,4 @@
-/* ga-window.h
+/* bz-search-widget.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,16 +24,23 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_WINDOW (ga_window_get_type ())
-G_DECLARE_FINAL_TYPE (GaWindow, ga_window, GA, WINDOW, AdwApplicationWindow)
+#define BZ_TYPE_SEARCH_WIDGET (bz_search_widget_get_type ())
+G_DECLARE_FINAL_TYPE (BzSearchWidget, bz_search_widget, BZ, SEARCH_WIDGET, AdwBin)
+
+GtkWidget *
+bz_search_widget_new (GListModel *model);
 
 void
-ga_window_refresh (GaWindow *self);
+bz_search_widget_set_model (BzSearchWidget *self,
+                            GListModel     *model);
 
-void
-ga_window_browse (GaWindow *self);
+GListModel *
+bz_search_widget_get_model (BzSearchWidget *self);
 
-void
-ga_window_search (GaWindow *self);
+gpointer
+bz_search_widget_get_selected (BzSearchWidget *self);
+
+gpointer
+bz_search_widget_get_previewing (BzSearchWidget *self);
 
 G_END_DECLS

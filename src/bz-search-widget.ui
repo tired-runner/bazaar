@@ -2,7 +2,7 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
-  <template class="GaSearchWidget" parent="AdwBin">
+  <template class="BzSearchWidget" parent="AdwBin">
     <child>
       <object class='GtkShortcutController'>
         <child>
@@ -170,7 +170,7 @@
                                 <property name="content-fit">scale-down</property>
                                 <property name="can-shrink">FALSE</property>
                                 <binding name="paintable">
-                                  <lookup name="icon-paintable" type="GaEntry">
+                                  <lookup name="icon-paintable" type="BzEntry">
                                     <lookup name="selected-item" type="GtkSingleSelection">
                                       <lookup name="model">list_view</lookup>
                                     </lookup>
@@ -195,7 +195,7 @@
                                         <property name="tooltip-text">This application has a FLOSS license, meaning the source code can be audited for safety.</property>
                                         <property name="icon-name">license-symbolic</property>
                                         <binding name="visible">
-                                          <lookup name="is-floss" type="GaEntry">
+                                          <lookup name="is-floss" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
                                               <lookup name="model">list_view</lookup>
                                             </lookup>
@@ -213,7 +213,7 @@
                                         <property name="icon-name">dialog-warning-symbolic</property>
                                         <binding name="visible">
                                           <closure function="invert_boolean" type="gboolean">
-                                            <lookup name="is-floss" type="GaEntry">
+                                            <lookup name="is-floss" type="BzEntry">
                                               <lookup name="selected-item" type="GtkSingleSelection">
                                                 <lookup name="model">list_view</lookup>
                                               </lookup>
@@ -231,14 +231,14 @@
                                         <property name="width-chars">17</property>
                                         <property name="max-width-chars">17</property>
                                         <binding name="tooltip-text">
-                                          <lookup name="project-license" type="GaEntry">
+                                          <lookup name="project-license" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
                                               <lookup name="model">list_view</lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
                                         <binding name="label">
-                                          <lookup name="project-license" type="GaEntry">
+                                          <lookup name="project-license" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
                                               <lookup name="model">list_view</lookup>
                                             </lookup>
@@ -271,14 +271,14 @@
                                         <property name="width-chars">17</property>
                                         <property name="max-width-chars">17</property>
                                         <binding name="tooltip-text">
-                                          <lookup name="remote-repo-name" type="GaEntry">
+                                          <lookup name="remote-repo-name" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
                                               <lookup name="model">list_view</lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
                                         <binding name="label">
-                                          <lookup name="remote-repo-name" type="GaEntry">
+                                          <lookup name="remote-repo-name" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
                                               <lookup name="model">list_view</lookup>
                                             </lookup>
@@ -312,7 +312,7 @@
                                         <property name="max-width-chars">17</property>
                                         <binding name="label">
                                           <closure function="format_as_link" type="gchararray">
-                                            <lookup name="url" type="GaEntry">
+                                            <lookup name="url" type="BzEntry">
                                               <lookup name="selected-item" type="GtkSingleSelection">
                                                 <lookup name="model">list_view</lookup>
                                               </lookup>
@@ -347,7 +347,7 @@
                                         <property name="max-width-chars">17</property>
                                         <binding name="tooltip-text">
                                           <closure function="format_size" type="gchararray">
-                                            <lookup name="size" type="GaEntry">
+                                            <lookup name="size" type="BzEntry">
                                               <lookup name="selected-item" type="GtkSingleSelection">
                                                 <lookup name="model">list_view</lookup>
                                               </lookup>
@@ -356,7 +356,7 @@
                                         </binding>
                                         <binding name="label">
                                           <closure function="format_size" type="gchararray">
-                                            <lookup name="size" type="GaEntry">
+                                            <lookup name="size" type="BzEntry">
                                               <lookup name="selected-item" type="GtkSingleSelection">
                                                 <lookup name="model">list_view</lookup>
                                               </lookup>
@@ -387,7 +387,7 @@
                                 <property name="xalign">0</property>
                                 <property name="selectable">TRUE</property>
                                 <binding name="label">
-                                  <lookup name="title" type="GaEntry">
+                                  <lookup name="title" type="BzEntry">
                                     <lookup name="selected-item" type="GtkSingleSelection">
                                       <lookup name="model">list_view</lookup>
                                     </lookup>
@@ -408,7 +408,7 @@
                                 <property name="xalign">0</property>
                                 <property name="selectable">TRUE</property>
                                 <binding name="label">
-                                  <lookup name="developer" type="GaEntry">
+                                  <lookup name="developer" type="BzEntry">
                                     <lookup name="selected-item" type="GtkSingleSelection">
                                       <lookup name="model">list_view</lookup>
                                     </lookup>
@@ -428,7 +428,7 @@
                                 <property name="xalign">0</property>
                                 <property name="selectable">TRUE</property>
                                 <binding name="label">
-                                  <lookup name="description" type="GaEntry">
+                                  <lookup name="description" type="BzEntry">
                                     <lookup name="selected-item" type="GtkSingleSelection">
                                       <lookup name="model">list_view</lookup>
                                     </lookup>
@@ -456,7 +456,7 @@
                                     <property name="wrap-mode">word-char</property>
                                     <property name="use-markup">TRUE</property>
                                     <binding name="label">
-                                      <lookup name="long-description" type="GaEntry">
+                                      <lookup name="long-description" type="BzEntry">
                                         <lookup name="selected-item" type="GtkSingleSelection">
                                           <lookup name="model">list_view</lookup>
                                         </lookup>
@@ -487,7 +487,7 @@
                                 <property name="height-request">150</property>
                                 <binding name="visible">
                                   <closure function="is_null" type="gboolean">
-                                    <lookup name="previewing">GaSearchWidget</lookup>
+                                    <lookup name="previewing">BzSearchWidget</lookup>
                                   </closure>
                                 </binding>
                               </object>
@@ -502,8 +502,8 @@
                                 <property name="model">
                                   <object class="GtkNoSelection">
                                     <binding name="model">
-                                      <lookup name="screenshot-paintables" type="GaEntry">
-                                        <lookup name="previewing">GaSearchWidget</lookup>
+                                      <lookup name="screenshot-paintables" type="BzEntry">
+                                        <lookup name="previewing">BzSearchWidget</lookup>
                                       </lookup>
                                     </binding>
                                   </object>
@@ -538,7 +538,7 @@
                                 <binding name="visible">
                                   <closure function="invert_boolean" type="gboolean">
                                     <closure function="is_null" type="gboolean">
-                                      <lookup name="previewing">GaSearchWidget</lookup>
+                                      <lookup name="previewing">BzSearchWidget</lookup>
                                     </closure>
                                   </closure>
                                 </binding>
@@ -584,7 +584,7 @@
           <object class="GtkImage">
             <property name="icon-size">large</property>
             <binding name="paintable">
-              <lookup name="icon-paintable" type="GaEntry">
+              <lookup name="icon-paintable" type="BzEntry">
                 <lookup name="item">GtkListItem</lookup>
               </lookup>
             </binding>
@@ -596,7 +596,7 @@
             <property name="ellipsize">end</property>
             <property name="single-line-mode">true</property>
             <binding name="label">
-              <lookup name="title" type="GaEntry">
+              <lookup name="title" type="BzEntry">
                 <lookup name="item">GtkListItem</lookup>
               </lookup>
             </binding>
@@ -612,7 +612,7 @@
             <property name="ellipsize">end</property>
             <property name="single-line-mode">true</property>
             <binding name="label">
-              <lookup name="description" type="GaEntry">
+              <lookup name="description" type="BzEntry">
                 <lookup name="item">GtkListItem</lookup>
               </lookup>
             </binding>

@@ -1,4 +1,4 @@
-/* ga-entry.c
+/* bz-entry.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "ga-entry.h"
+#include "bz-entry.h"
 
 typedef struct
 {
@@ -40,9 +40,9 @@ typedef struct
   char         *developer;
   char         *developer_id;
   GListModel   *screenshot_paintables;
-} GaEntryPrivate;
+} BzEntryPrivate;
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GaEntry, ga_entry, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
 
 enum
 {
@@ -70,10 +70,10 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
-ga_entry_dispose (GObject *object)
+bz_entry_dispose (GObject *object)
 {
-  GaEntry        *self = GA_ENTRY (object);
-  GaEntryPrivate *priv = ga_entry_get_instance_private (self);
+  BzEntry        *self = BZ_ENTRY (object);
+  BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->description, g_free);
@@ -90,17 +90,17 @@ ga_entry_dispose (GObject *object)
   g_clear_pointer (&priv->developer_id, g_free);
   g_clear_object (&priv->screenshot_paintables);
 
-  G_OBJECT_CLASS (ga_entry_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
 
 static void
-ga_entry_get_property (GObject    *object,
+bz_entry_get_property (GObject    *object,
                        guint       prop_id,
                        GValue     *value,
                        GParamSpec *pspec)
 {
-  GaEntry        *self = GA_ENTRY (object);
-  GaEntryPrivate *priv = ga_entry_get_instance_private (self);
+  BzEntry        *self = BZ_ENTRY (object);
+  BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
   switch (prop_id)
     {
@@ -158,13 +158,13 @@ ga_entry_get_property (GObject    *object,
 }
 
 static void
-ga_entry_set_property (GObject      *object,
+bz_entry_set_property (GObject      *object,
                        guint         prop_id,
                        const GValue *value,
                        GParamSpec   *pspec)
 {
-  GaEntry        *self = GA_ENTRY (object);
-  GaEntryPrivate *priv = ga_entry_get_instance_private (self);
+  BzEntry        *self = BZ_ENTRY (object);
+  BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
   switch (prop_id)
     {
@@ -236,13 +236,13 @@ ga_entry_set_property (GObject      *object,
 }
 
 static void
-ga_entry_class_init (GaEntryClass *klass)
+bz_entry_class_init (BzEntryClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->set_property = ga_entry_set_property;
-  object_class->get_property = ga_entry_get_property;
-  object_class->dispose      = ga_entry_dispose;
+  object_class->set_property = bz_entry_set_property;
+  object_class->get_property = bz_entry_get_property;
+  object_class->dispose      = bz_entry_dispose;
 
   props[PROP_TITLE] =
       g_param_spec_string (
@@ -349,83 +349,83 @@ ga_entry_class_init (GaEntryClass *klass)
 }
 
 static void
-ga_entry_init (GaEntry *priv)
+bz_entry_init (BzEntry *priv)
 {
 }
 
 const char *
-ga_entry_get_title (GaEntry *self)
+bz_entry_get_title (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->title;
 }
 
 const char *
-ga_entry_get_description (GaEntry *self)
+bz_entry_get_description (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->description;
 }
 
 const char *
-ga_entry_get_long_description (GaEntry *self)
+bz_entry_get_long_description (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->long_description;
 }
 
 const char *
-ga_entry_get_remote_repo_name (GaEntry *self)
+bz_entry_get_remote_repo_name (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->remote_repo_name;
 }
 
 guint64
-ga_entry_get_size (GaEntry *self)
+bz_entry_get_size (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), 0);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->size;
 }
 
 GdkPaintable *
-ga_entry_get_icon_paintable (GaEntry *self)
+bz_entry_get_icon_paintable (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), 0);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->icon_paintable;
 }
 
 GPtrArray *
-ga_entry_get_search_tokens (GaEntry *self)
+bz_entry_get_search_tokens (BzEntry *self)
 {
-  GaEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (GA_IS_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
-  priv = ga_entry_get_instance_private (self);
+  priv = bz_entry_get_instance_private (self);
   return priv->search_tokens;
 }

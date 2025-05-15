@@ -1,4 +1,4 @@
-/* ga-paintable-model.h
+/* bz-paintable-model.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -25,18 +25,18 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_PAINTABLE_MODEL (ga_paintable_model_get_type ())
-G_DECLARE_FINAL_TYPE (GaPaintableModel, ga_paintable_model, GA, PAINTABLE_MODEL, GObject)
+#define BZ_TYPE_PAINTABLE_MODEL (bz_paintable_model_get_type ())
+G_DECLARE_FINAL_TYPE (BzPaintableModel, bz_paintable_model, BZ, PAINTABLE_MODEL, GObject)
 
-GaPaintableModel *
-ga_paintable_model_new (DexScheduler *scheduler,
+BzPaintableModel *
+bz_paintable_model_new (DexScheduler *scheduler,
                         GListModel   *model);
 
 void
-ga_paintable_model_set_model (GaPaintableModel *self,
+bz_paintable_model_set_model (BzPaintableModel *self,
                               GListModel       *model);
 
 GListModel *
-ga_paintable_model_get_model (GaPaintableModel *self);
+bz_paintable_model_get_model (BzPaintableModel *self);
 
 G_END_DECLS

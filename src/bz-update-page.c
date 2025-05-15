@@ -1,4 +1,4 @@
-/* ga-update-page.c
+/* bz-update-page.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,10 +20,10 @@
 
 #include "config.h"
 
-#include "ga-entry.h"
-#include "ga-update-page.h"
+#include "bz-entry.h"
+#include "bz-update-page.h"
 
-struct _GaUpdatePage
+struct _BzUpdatePage
 {
   AdwBin parent_instance;
 
@@ -36,38 +36,38 @@ struct _GaUpdatePage
   GtkButton          *install;
 };
 
-G_DEFINE_FINAL_TYPE (GaUpdatePage, ga_update_page, ADW_TYPE_BIN)
+G_DEFINE_FINAL_TYPE (BzUpdatePage, bz_update_page, ADW_TYPE_BIN)
 
 static void
 install_clicked (GtkButton    *button,
-                 GaUpdatePage *self);
+                 BzUpdatePage *self);
 
 static void
-ga_update_page_dispose (GObject *object)
+bz_update_page_dispose (GObject *object)
 {
-  GaUpdatePage *self = GA_UPDATE_PAGE (object);
+  BzUpdatePage *self = BZ_UPDATE_PAGE (object);
 
   g_clear_object (&self->updates);
 
-  G_OBJECT_CLASS (ga_update_page_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_update_page_parent_class)->dispose (object);
 }
 
 static void
-ga_update_page_class_init (GaUpdatePageClass *klass)
+bz_update_page_class_init (BzUpdatePageClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose = ga_update_page_dispose;
+  object_class->dispose = bz_update_page_dispose;
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-update-page.ui");
-  gtk_widget_class_bind_template_child (widget_class, GaUpdatePage, list_view);
-  gtk_widget_class_bind_template_child (widget_class, GaUpdatePage, selection_model);
-  gtk_widget_class_bind_template_child (widget_class, GaUpdatePage, install);
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-update-page.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzUpdatePage, list_view);
+  gtk_widget_class_bind_template_child (widget_class, BzUpdatePage, selection_model);
+  gtk_widget_class_bind_template_child (widget_class, BzUpdatePage, install);
 }
 
 static void
-ga_update_page_init (GaUpdatePage *self)
+bz_update_page_init (BzUpdatePage *self)
 {
   gtk_widget_init_template (GTK_WIDGET (self));
 
@@ -75,14 +75,14 @@ ga_update_page_init (GaUpdatePage *self)
 }
 
 GtkWidget *
-ga_update_page_new (GListModel *updates)
+bz_update_page_new (GListModel *updates)
 {
-  GaUpdatePage *update_page = NULL;
+  BzUpdatePage *update_page = NULL;
 
   g_return_val_if_fail (G_IS_LIST_MODEL (updates), NULL);
-  g_return_val_if_fail (g_list_model_get_item_type (updates) == GA_TYPE_ENTRY, NULL);
+  g_return_val_if_fail (g_list_model_get_item_type (updates) == BZ_TYPE_ENTRY, NULL);
 
-  update_page          = g_object_new (GA_TYPE_UPDATE_PAGE, NULL);
+  update_page          = g_object_new (BZ_TYPE_UPDATE_PAGE, NULL);
   update_page->updates = g_object_ref (updates);
 
   gtk_single_selection_set_model (update_page->selection_model, updates);
@@ -91,9 +91,9 @@ ga_update_page_new (GListModel *updates)
 }
 
 GListModel *
-ga_updated_page_was_accepted (GaUpdatePage *self)
+bz_updated_page_was_accepted (BzUpdatePage *self)
 {
-  g_return_val_if_fail (GA_IS_UPDATE_PAGE (self), FALSE);
+  g_return_val_if_fail (BZ_IS_UPDATE_PAGE (self), FALSE);
 
   return self->install_accepted
              ? g_object_ref (self->updates)
@@ -102,7 +102,7 @@ ga_updated_page_was_accepted (GaUpdatePage *self)
 
 static void
 install_clicked (GtkButton    *button,
-                 GaUpdatePage *self)
+                 BzUpdatePage *self)
 {
   self->install_accepted = TRUE;
 }

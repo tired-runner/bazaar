@@ -1,4 +1,4 @@
-/* ga-background.c
+/* bz-background.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -22,11 +22,11 @@
 
 #include <adwaita.h>
 
-#include "ga-background.h"
-#include "ga-entry.h"
-#include "ga-util.h"
+#include "bz-background.h"
+#include "bz-entry.h"
+#include "bz-util.h"
 
-struct _GaBackground
+struct _BzBackground
 {
   GtkWidget parent_instance;
 
@@ -46,7 +46,7 @@ struct _GaBackground
   double                    motion_offset_start_time;
 };
 
-G_DEFINE_FINAL_TYPE (GaBackground, ga_background, GTK_TYPE_WIDGET)
+G_DEFINE_FINAL_TYPE (BzBackground, bz_background, GTK_TYPE_WIDGET)
 
 enum
 {
@@ -59,7 +59,7 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
-GA_DEFINE_DATA (
+BZ_DEFINE_DATA (
     instance,
     Instance,
     {
@@ -80,11 +80,11 @@ GA_DEFINE_DATA (
       } scale;
       gboolean hovering;
     },
-    GA_RELEASE_DATA (node, gsk_render_node_unref);
-    GA_RELEASE_DATA (blurred, g_object_unref))
+    BZ_RELEASE_DATA (node, gsk_render_node_unref);
+    BZ_RELEASE_DATA (blurred, g_object_unref))
 
 static void
-ga_background_measure (GtkWidget     *widget,
+bz_background_measure (GtkWidget     *widget,
                        GtkOrientation orientation,
                        int            for_size,
                        int           *minimum,
@@ -93,7 +93,7 @@ ga_background_measure (GtkWidget     *widget,
                        int           *natural_baseline);
 
 static void
-ga_background_snapshot (GtkWidget   *widget,
+bz_background_snapshot (GtkWidget   *widget,
                         GtkSnapshot *snapshot);
 
 static void
@@ -101,34 +101,34 @@ entries_changed (GListModel   *entries,
                  guint         position,
                  guint         removed,
                  guint         added,
-                 GaBackground *self);
+                 BzBackground *self);
 
 static gboolean
-tick_timeout (GaBackground *self);
+tick_timeout (BzBackground *self);
 
 static gint
 cmp_instance_position (const guint  *a,
                        const guint  *b,
-                       GaBackground *item_area);
+                       BzBackground *item_area);
 
 static void
 move_motion (GtkEventControllerMotion *controller,
              double                    x,
              double                    y,
-             GaBackground             *self);
+             BzBackground             *self);
 
 static void
 enter_motion (GtkEventControllerMotion *controller,
               double                    x,
               double                    y,
-              GaBackground             *self);
+              BzBackground             *self);
 
 static void
 leave_motion (GtkEventControllerMotion *controller,
-              GaBackground             *self);
+              BzBackground             *self);
 
 static void
-update_motion (GaBackground *self,
+update_motion (BzBackground *self,
                double        x,
                double        y,
                gboolean      instant);
@@ -140,9 +140,9 @@ draw_instance (GtkSnapshot  *snapshot,
                double        speedup);
 
 static void
-ga_background_dispose (GObject *object)
+bz_background_dispose (GObject *object)
 {
-  GaBackground *self = GA_BACKGROUND (object);
+  BzBackground *self = BZ_BACKGROUND (object);
 
   if (self->entries != NULL)
     g_signal_handlers_disconnect_by_func (
@@ -166,24 +166,24 @@ ga_background_dispose (GObject *object)
   g_clear_object (&self->motion_controller);
   g_clear_pointer (&self->last_instances, g_ptr_array_unref);
 
-  G_OBJECT_CLASS (ga_background_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_background_parent_class)->dispose (object);
 }
 
 static void
-ga_background_get_property (GObject    *object,
+bz_background_get_property (GObject    *object,
                             guint       prop_id,
                             GValue     *value,
                             GParamSpec *pspec)
 {
-  GaBackground *self = GA_BACKGROUND (object);
+  BzBackground *self = BZ_BACKGROUND (object);
 
   switch (prop_id)
     {
     case PROP_ENTRIES:
-      g_value_set_object (value, ga_background_get_entries (self));
+      g_value_set_object (value, bz_background_get_entries (self));
       break;
     case PROP_MOTION_CONTROLLER:
-      g_value_set_object (value, ga_background_get_entries (self));
+      g_value_set_object (value, bz_background_get_entries (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -191,20 +191,20 @@ ga_background_get_property (GObject    *object,
 }
 
 static void
-ga_background_set_property (GObject      *object,
+bz_background_set_property (GObject      *object,
                             guint         prop_id,
                             const GValue *value,
                             GParamSpec   *pspec)
 {
-  GaBackground *self = GA_BACKGROUND (object);
+  BzBackground *self = BZ_BACKGROUND (object);
 
   switch (prop_id)
     {
     case PROP_ENTRIES:
-      ga_background_set_entries (self, g_value_get_object (value));
+      bz_background_set_entries (self, g_value_get_object (value));
       break;
     case PROP_MOTION_CONTROLLER:
-      ga_background_set_motion_controller (self, g_value_get_object (value));
+      bz_background_set_motion_controller (self, g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -212,14 +212,14 @@ ga_background_set_property (GObject      *object,
 }
 
 static void
-ga_background_class_init (GaBackgroundClass *klass)
+bz_background_class_init (BzBackgroundClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose      = ga_background_dispose;
-  object_class->get_property = ga_background_get_property;
-  object_class->set_property = ga_background_set_property;
+  object_class->dispose      = bz_background_dispose;
+  object_class->get_property = bz_background_get_property;
+  object_class->set_property = bz_background_set_property;
 
   props[PROP_ENTRIES] =
       g_param_spec_object (
@@ -237,19 +237,19 @@ ga_background_class_init (GaBackgroundClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  widget_class->measure  = ga_background_measure;
-  widget_class->snapshot = ga_background_snapshot;
+  widget_class->measure  = bz_background_measure;
+  widget_class->snapshot = bz_background_snapshot;
 }
 
 static void
-ga_background_init (GaBackground *self)
+bz_background_init (BzBackground *self)
 {
   self->timer            = g_timer_new ();
   self->sorted_instances = g_array_new (FALSE, TRUE, sizeof (guint));
 }
 
 static void
-ga_background_measure (GtkWidget     *widget,
+bz_background_measure (GtkWidget     *widget,
                        GtkOrientation orientation,
                        int            for_size,
                        int           *minimum,
@@ -262,10 +262,10 @@ ga_background_measure (GtkWidget     *widget,
 }
 
 static void
-ga_background_snapshot (GtkWidget   *widget,
+bz_background_snapshot (GtkWidget   *widget,
                         GtkSnapshot *snapshot)
 {
-  GaBackground    *self          = GA_BACKGROUND (widget);
+  BzBackground    *self          = BZ_BACKGROUND (widget);
   double           elapsed       = 0.0;
   int              widget_width  = 0;
   int              widget_height = 0;
@@ -326,19 +326,19 @@ ga_background_snapshot (GtkWidget   *widget,
 }
 
 GtkWidget *
-ga_background_new (void)
+bz_background_new (void)
 {
-  return g_object_new (GA_TYPE_BACKGROUND, NULL);
+  return g_object_new (BZ_TYPE_BACKGROUND, NULL);
 }
 
 void
-ga_background_set_entries (GaBackground *self,
+bz_background_set_entries (BzBackground *self,
                            GListModel   *entries)
 {
-  g_return_if_fail (GA_IS_BACKGROUND (self));
+  g_return_if_fail (BZ_IS_BACKGROUND (self));
   g_return_if_fail (entries == NULL ||
                     (G_IS_LIST_MODEL (entries) &&
-                     g_list_model_get_item_type (entries) == GA_TYPE_ENTRY));
+                     g_list_model_get_item_type (entries) == BZ_TYPE_ENTRY));
 
   if (self->entries != NULL)
     {
@@ -405,18 +405,18 @@ ga_background_set_entries (GaBackground *self,
 }
 
 GListModel *
-ga_background_get_entries (GaBackground *self)
+bz_background_get_entries (BzBackground *self)
 {
-  g_return_val_if_fail (GA_IS_BACKGROUND (self), NULL);
+  g_return_val_if_fail (BZ_IS_BACKGROUND (self), NULL);
 
   return self->entries;
 }
 
 void
-ga_background_set_motion_controller (GaBackground             *self,
+bz_background_set_motion_controller (BzBackground             *self,
                                      GtkEventControllerMotion *controller)
 {
-  g_return_if_fail (GA_IS_BACKGROUND (self));
+  g_return_if_fail (BZ_IS_BACKGROUND (self));
   g_return_if_fail (GTK_IS_EVENT_CONTROLLER_MOTION (controller));
 
   if (self->motion_controller != NULL)
@@ -442,9 +442,9 @@ ga_background_set_motion_controller (GaBackground             *self,
 }
 
 GtkEventControllerMotion *
-ga_background_get_motion_controller (GaBackground *self)
+bz_background_get_motion_controller (BzBackground *self)
 {
-  g_return_val_if_fail (GA_IS_BACKGROUND (self), NULL);
+  g_return_val_if_fail (BZ_IS_BACKGROUND (self), NULL);
 
   return self->motion_controller;
 }
@@ -454,7 +454,7 @@ entries_changed (GListModel   *entries,
                  guint         position,
                  guint         removed,
                  guint         added,
-                 GaBackground *self)
+                 BzBackground *self)
 {
   GtkNative   *native   = NULL;
   GskRenderer *renderer = NULL;
@@ -471,7 +471,7 @@ entries_changed (GListModel   *entries,
       g_ptr_array_set_size (self->instances, self->instances->len + added);
       for (guint i = 0; i < added; i++)
         {
-          g_autoptr (GaEntry) entry         = NULL;
+          g_autoptr (BzEntry) entry         = NULL;
           GdkPaintable *paintable           = NULL;
           int           width               = 0;
           int           height              = 0;
@@ -479,7 +479,7 @@ entries_changed (GListModel   *entries,
           g_autoptr (InstanceData) instance = NULL;
 
           entry     = g_list_model_get_item (entries, position + i);
-          paintable = ga_entry_get_icon_paintable (entry);
+          paintable = bz_entry_get_icon_paintable (entry);
           width     = gdk_paintable_get_intrinsic_width (paintable);
           height    = gdk_paintable_get_intrinsic_height (paintable);
 
@@ -555,7 +555,7 @@ entries_changed (GListModel   *entries,
 }
 
 static gboolean
-tick_timeout (GaBackground *self)
+tick_timeout (BzBackground *self)
 {
   if (self->last_instances != NULL)
     {
@@ -583,7 +583,7 @@ tick_timeout (GaBackground *self)
 static gint
 cmp_instance_position (const guint  *a,
                        const guint  *b,
-                       GaBackground *self)
+                       BzBackground *self)
 {
   InstanceData *instance_a = NULL;
   InstanceData *instance_b = NULL;
@@ -598,7 +598,7 @@ static void
 move_motion (GtkEventControllerMotion *controller,
              double                    x,
              double                    y,
-             GaBackground             *self)
+             BzBackground             *self)
 {
   update_motion (self, x, y, TRUE);
 }
@@ -607,14 +607,14 @@ static void
 enter_motion (GtkEventControllerMotion *controller,
               double                    x,
               double                    y,
-              GaBackground             *self)
+              BzBackground             *self)
 {
   update_motion (self, x, y, FALSE);
 }
 
 static void
 leave_motion (GtkEventControllerMotion *controller,
-              GaBackground             *self)
+              BzBackground             *self)
 {
   update_motion (
       self,
@@ -624,7 +624,7 @@ leave_motion (GtkEventControllerMotion *controller,
 }
 
 static void
-update_motion (GaBackground *self,
+update_motion (BzBackground *self,
                double        x,
                double        y,
                gboolean      instant)

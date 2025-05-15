@@ -1,4 +1,4 @@
-/* ga-update-page.h
+/* bz-update-page.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -23,17 +23,17 @@
 #include <adwaita.h>
 
 /* TODO: make interface for backend */
-#include "ga-flatpak-instance.h"
+#include "bz-flatpak-instance.h"
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_UPDATE_PAGE (ga_update_page_get_type ())
-G_DECLARE_FINAL_TYPE (GaUpdatePage, ga_update_page, GA, UPDATE_PAGE, AdwBin)
+#define BZ_TYPE_UPDATE_PAGE (bz_update_page_get_type ())
+G_DECLARE_FINAL_TYPE (BzUpdatePage, bz_update_page, BZ, UPDATE_PAGE, AdwBin)
 
 GtkWidget *
-ga_update_page_new (GListModel *updates);
+bz_update_page_new (GListModel *updates);
 
 GListModel *
-ga_updated_page_was_accepted (GaUpdatePage *self);
+bz_updated_page_was_accepted (BzUpdatePage *self);
 
 G_END_DECLS

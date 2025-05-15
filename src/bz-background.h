@@ -1,4 +1,4 @@
-/* ga-search-widget.h
+/* bz-background.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,27 +20,28 @@
 
 #pragma once
 
-#include <adwaita.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_SEARCH_WIDGET (ga_search_widget_get_type ())
-G_DECLARE_FINAL_TYPE (GaSearchWidget, ga_search_widget, GA, SEARCH_WIDGET, AdwBin)
+#define BZ_TYPE_BACKGROUND (bz_background_get_type ())
+G_DECLARE_FINAL_TYPE (BzBackground, bz_background, BZ, BACKGROUND, GtkWidget)
 
 GtkWidget *
-ga_search_widget_new (GListModel *model);
+bz_background_new (void);
 
 void
-ga_search_widget_set_model (GaSearchWidget *self,
-                            GListModel     *model);
+bz_background_set_entries (BzBackground *self,
+                           GListModel   *entries);
 
 GListModel *
-ga_search_widget_get_model (GaSearchWidget *self);
+bz_background_get_entries (BzBackground *self);
 
-gpointer
-ga_search_widget_get_selected (GaSearchWidget *self);
+void
+bz_background_set_motion_controller (BzBackground             *self,
+                                     GtkEventControllerMotion *controller);
 
-gpointer
-ga_search_widget_get_previewing (GaSearchWidget *self);
+GtkEventControllerMotion *
+bz_background_get_motion_controller (BzBackground *self);
 
 G_END_DECLS

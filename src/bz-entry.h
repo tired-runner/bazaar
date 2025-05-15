@@ -1,4 +1,4 @@
-/* ga-flatpak-entry.h
+/* bz-entry.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,18 +20,38 @@
 
 #pragma once
 
-#include "ga-entry.h"
+#include <gtk/gtk.h>
+#include <libdex.h>
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_FLATPAK_ENTRY (ga_flatpak_entry_get_type ())
-G_DECLARE_FINAL_TYPE (GaFlatpakEntry, ga_flatpak_entry, GA, FLATPAK_ENTRY, GaEntry)
+#define BZ_TYPE_ENTRY (bz_entry_get_type ())
+G_DECLARE_DERIVABLE_TYPE (BzEntry, bz_entry, BZ, ENTRY, GObject)
+
+struct _BzEntryClass
+{
+  GObjectClass parent_class;
+};
 
 const char *
-ga_flatpak_entry_get_name (GaFlatpakEntry *self);
+bz_entry_get_title (BzEntry *self);
 
-gboolean
-ga_flatpak_entry_launch (GaFlatpakEntry *self,
-                         GError        **error);
+const char *
+bz_entry_get_description (BzEntry *self);
+
+const char *
+bz_entry_get_long_description (BzEntry *self);
+
+const char *
+bz_entry_get_remote_repo_name (BzEntry *self);
+
+guint64
+bz_entry_get_size (BzEntry *self);
+
+GdkPaintable *
+bz_entry_get_icon_paintable (BzEntry *self);
+
+GPtrArray *
+bz_entry_get_search_tokens (BzEntry *self);
 
 G_END_DECLS

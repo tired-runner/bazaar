@@ -1,4 +1,4 @@
-# gnome-apps-next
+# bazaar
 
 ![Image](https://github.com/user-attachments/assets/75cb6702-05a0-41d0-9d99-d0ca772ab0d2)
 
@@ -17,6 +17,6 @@ on the cli and type these commands inside the project root:
 ```sh
 meson setup build
 ninja -C build
-./build/src/gnome-apps-next
+./build/src/bazaar
 ```
 

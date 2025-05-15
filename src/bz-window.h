@@ -1,4 +1,4 @@
-/* ga-application.h
+/* bz-window.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,10 +24,16 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_APPLICATION (ga_application_get_type())
-G_DECLARE_FINAL_TYPE (GaApplication, ga_application, GA, APPLICATION, AdwApplication)
+#define BZ_TYPE_WINDOW (bz_window_get_type ())
+G_DECLARE_FINAL_TYPE (BzWindow, bz_window, BZ, WINDOW, AdwApplicationWindow)
 
-GaApplication *ga_application_new (const char        *application_id,
-                                                           GApplicationFlags  flags);
+void
+bz_window_refresh (BzWindow *self);
+
+void
+bz_window_browse (BzWindow *self);
+
+void
+bz_window_search (BzWindow *self);
 
 G_END_DECLS

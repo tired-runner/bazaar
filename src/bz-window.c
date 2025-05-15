@@ -1,4 +1,4 @@
-/* ga-window.c
+/* bz-window.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,27 +20,27 @@
 
 #include "config.h"
 
-#include "ga-background.h"
-#include "ga-browse-widget.h"
-#include "ga-flatpak-instance.h"
-#include "ga-search-widget.h"
-#include "ga-update-page.h"
-#include "ga-window.h"
+#include "bz-background.h"
+#include "bz-browse-widget.h"
+#include "bz-flatpak-instance.h"
+#include "bz-search-widget.h"
+#include "bz-update-page.h"
+#include "bz-window.h"
 
-struct _GaWindow
+struct _BzWindow
 {
   AdwApplicationWindow parent_instance;
 
-  GaFlatpakInstance *flatpak;
+  BzFlatpakInstance *flatpak;
   GListStore        *remote;
   GHashTable        *id_to_entry_hash;
 
   GListStore *bg_entries;
-  GaEntry    *pending_installation;
+  BzEntry    *pending_installation;
 
   /* Template widgets */
-  GaBackground    *background;
-  GaBrowseWidget  *browse;
+  BzBackground    *background;
+  BzBrowseWidget  *browse;
   GtkButton       *refresh;
   GtkButton       *search;
   AdwToastOverlay *toasts;
@@ -51,104 +51,104 @@ struct _GaWindow
   AdwSpinner      *progress_spinner;
 };
 
-G_DEFINE_FINAL_TYPE (GaWindow, ga_window, ADW_TYPE_APPLICATION_WINDOW)
+G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
 
 static void
 refresh_clicked (GtkButton *button,
-                 GaWindow  *self);
+                 BzWindow  *self);
 static void
 search_clicked (GtkButton *button,
-                GaWindow  *self);
+                BzWindow  *self);
 
 static void
-gather_entries_progress (GaEntry  *entry,
-                         GaWindow *self);
+gather_entries_progress (BzEntry  *entry,
+                         BzWindow *self);
 
 static DexFuture *
 refresh_then (DexFuture *future,
-              GaWindow  *self);
+              BzWindow  *self);
 static DexFuture *
 fetch_refs_then (DexFuture *future,
-                 GaWindow  *self);
+                 BzWindow  *self);
 static DexFuture *
 fetch_updates_then (DexFuture *future,
-                    GaWindow  *self);
+                    BzWindow  *self);
 static DexFuture *
 refresh_catch (DexFuture *future,
-               GaWindow  *self);
+               BzWindow  *self);
 static DexFuture *
 refresh_finally (DexFuture *future,
-                 GaWindow  *self);
+                 BzWindow  *self);
 
 static void
-install_progress (GaFlatpakEntry *entry,
+install_progress (BzFlatpakEntry *entry,
                   const char     *status,
                   gboolean        is_estimating,
                   int             progress_num,
                   guint64         bytes_transferred,
                   guint64         start_time,
-                  GaWindow       *self);
+                  BzWindow       *self);
 static DexFuture *
 install_finally (DexFuture *future,
-                 GaWindow  *self);
+                 BzWindow  *self);
 
 static void
-search_selected_changed (GaSearchWidget *search,
+search_selected_changed (BzSearchWidget *search,
                          GParamSpec     *pspec,
-                         GaWindow       *self);
+                         BzWindow       *self);
 
 static void
 install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
-                               GaWindow       *self);
+                               BzWindow       *self);
 
 static void
 install_success_toast_button_clicked (AdwToast *toast,
-                                      GaWindow *self);
+                                      BzWindow *self);
 
 static void
 install_error_toast_button_clicked (AdwToast *toast,
-                                    GaWindow *window);
+                                    BzWindow *window);
 
 static void
 error_alert_response (AdwAlertDialog *alert,
                       gchar          *response,
-                      GaWindow       *self);
+                      BzWindow       *self);
 
 static void
 update_dialog_closed (AdwDialog *dialog,
-                      GaWindow  *self);
+                      BzWindow  *self);
 
 static void
-refresh (GaWindow *self);
+refresh (BzWindow *self);
 
 static void
-browse (GaWindow *self);
+browse (BzWindow *self);
 
 static void
-install (GaWindow *self,
-         GaEntry  *entry);
+install (BzWindow *self,
+         BzEntry  *entry);
 
 static void
-try_install (GaWindow *self,
-             GaEntry  *entry);
+try_install (BzWindow *self,
+             BzEntry  *entry);
 
 static void
-update (GaWindow *self,
-        GaEntry **updates,
+update (BzWindow *self,
+        BzEntry **updates,
         guint     n_updates);
 
 static void
-search (GaWindow *self);
+search (BzWindow *self);
 
 static void
-show_error (GaWindow *self,
+show_error (BzWindow *self,
             char     *error_text);
 
 static void
-ga_window_dispose (GObject *object)
+bz_window_dispose (GObject *object)
 {
-  GaWindow *self = GA_WINDOW (object);
+  BzWindow *self = BZ_WINDOW (object);
 
   g_clear_pointer (&self->id_to_entry_hash, g_hash_table_unref);
   g_clear_object (&self->remote);
@@ -156,49 +156,49 @@ ga_window_dispose (GObject *object)
   g_clear_object (&self->pending_installation);
   g_clear_object (&self->bg_entries);
 
-  G_OBJECT_CLASS (ga_window_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_window_parent_class)->dispose (object);
 }
 
 static void
-ga_window_class_init (GaWindowClass *klass)
+bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose = ga_window_dispose;
+  object_class->dispose = bz_window_dispose;
 
-  g_type_ensure (GA_TYPE_BACKGROUND);
-  g_type_ensure (GA_TYPE_BROWSE_WIDGET);
+  g_type_ensure (BZ_TYPE_BACKGROUND);
+  g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-window.ui");
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, background);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, browse);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, spinner);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, status);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, toasts);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, refresh);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, search);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, progress_label);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, progress_bar);
-  gtk_widget_class_bind_template_child (widget_class, GaWindow, progress_spinner);
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-window.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, background);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, browse);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_label);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_bar);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_spinner);
 }
 
 static void
-ga_window_init (GaWindow *self)
+bz_window_init (BzWindow *self)
 {
   GtkEventController *motion_controller = NULL;
 
-  self->remote = g_list_store_new (GA_TYPE_ENTRY);
+  self->remote = g_list_store_new (BZ_TYPE_ENTRY);
 
   gtk_widget_init_template (GTK_WIDGET (self));
-  // ga_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));
+  // bz_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));
 
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
 
   motion_controller = gtk_event_controller_motion_new ();
   gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
-  ga_background_set_motion_controller (
+  bz_background_set_motion_controller (
       self->background,
       GTK_EVENT_CONTROLLER_MOTION (motion_controller));
   gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
@@ -208,28 +208,28 @@ ga_window_init (GaWindow *self)
 
 static void
 refresh_clicked (GtkButton *button,
-                 GaWindow  *self)
+                 BzWindow  *self)
 {
   refresh (self);
 }
 
 static void
 search_clicked (GtkButton *button,
-                GaWindow  *self)
+                BzWindow  *self)
 {
   search (self);
 }
 
 static void
-gather_entries_progress (GaEntry  *entry,
-                         GaWindow *self)
+gather_entries_progress (BzEntry  *entry,
+                         BzWindow *self)
 {
   g_list_store_append (self->remote, entry);
 }
 
 static DexFuture *
 refresh_then (DexFuture *future,
-              GaWindow  *self)
+              BzWindow  *self)
 {
   g_autoptr (GError) local_error  = NULL;
   const GValue *value             = NULL;
@@ -238,9 +238,9 @@ refresh_then (DexFuture *future,
   value         = dex_future_get_value (future, &local_error);
   self->flatpak = g_value_dup_object (value);
 
-  ref_remote_future = ga_flatpak_instance_ref_remote_apps (
+  ref_remote_future = bz_flatpak_instance_ref_remote_apps (
       self->flatpak,
-      (GaFlatpakGatherEntriesFunc) gather_entries_progress,
+      (BzFlatpakGatherEntriesFunc) gather_entries_progress,
       g_object_ref (self), g_object_unref);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_refs_then,
@@ -254,7 +254,7 @@ refresh_then (DexFuture *future,
 
 static DexFuture *
 fetch_refs_then (DexFuture *future,
-                 GaWindow  *self)
+                 BzWindow  *self)
 {
   guint n_entries            = 0;
   g_autoptr (GHashTable) set = NULL;
@@ -264,11 +264,11 @@ fetch_refs_then (DexFuture *future,
   self->id_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
   for (guint i = 0; i < n_entries; i++)
     {
-      g_autoptr (GaFlatpakEntry) entry = NULL;
+      g_autoptr (BzFlatpakEntry) entry = NULL;
       const char *name                 = NULL;
 
       entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
-      name  = ga_flatpak_entry_get_name (entry);
+      name  = bz_flatpak_entry_get_name (entry);
 
       g_hash_table_replace (
           self->id_to_entry_hash,
@@ -277,7 +277,7 @@ fetch_refs_then (DexFuture *future,
     }
 
   g_clear_object (&self->bg_entries);
-  self->bg_entries = g_list_store_new (GA_TYPE_ENTRY);
+  self->bg_entries = g_list_store_new (BZ_TYPE_ENTRY);
   set              = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   for (guint safe = 0, found = 0;
@@ -285,16 +285,16 @@ fetch_refs_then (DexFuture *future,
        safe++)
     {
       guint i                   = 0;
-      g_autoptr (GaEntry) entry = NULL;
+      g_autoptr (BzEntry) entry = NULL;
 
       i = g_random_int_range (0, n_entries);
       if (g_hash_table_contains (set, GUINT_TO_POINTER (i)))
         continue;
 
       entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
-      if (ga_entry_get_icon_paintable (entry) == NULL)
+      if (bz_entry_get_icon_paintable (entry) == NULL)
         continue;
-      if (!g_str_has_prefix (ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)), "org.gnome."))
+      if (!g_str_has_prefix (bz_flatpak_entry_get_name (BZ_FLATPAK_ENTRY (entry)), "org.gnome."))
         continue;
 
       g_list_store_append (self->bg_entries, entry);
@@ -302,18 +302,18 @@ fetch_refs_then (DexFuture *future,
       found++;
     }
 
-  ga_background_set_entries (self->background, G_LIST_MODEL (self->bg_entries));
+  bz_background_set_entries (self->background, G_LIST_MODEL (self->bg_entries));
 
   adw_toast_overlay_add_toast (
       self->toasts,
       adw_toast_new_format ("Discovered %d Apps", n_entries));
 
-  return ga_flatpak_instance_ref_updates (self->flatpak);
+  return bz_flatpak_instance_ref_updates (self->flatpak);
 }
 
 static DexFuture *
 fetch_updates_then (DexFuture *future,
-                    GaWindow  *self)
+                    BzWindow  *self)
 {
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
@@ -326,11 +326,11 @@ fetch_updates_then (DexFuture *future,
     {
       g_autoptr (GListStore) updates = NULL;
 
-      updates = g_list_store_new (GA_TYPE_ENTRY);
+      updates = g_list_store_new (BZ_TYPE_ENTRY);
       for (guint i = 0; i < names->len; i++)
         {
           const char *name  = NULL;
-          GaEntry    *entry = NULL;
+          BzEntry    *entry = NULL;
 
           name  = g_ptr_array_index (names, i);
           entry = g_hash_table_lookup (self->id_to_entry_hash, name);
@@ -345,7 +345,7 @@ fetch_updates_then (DexFuture *future,
           GtkWidget *update_page = NULL;
           AdwDialog *dialog      = NULL;
 
-          update_page = ga_update_page_new (G_LIST_MODEL (updates));
+          update_page = bz_update_page_new (G_LIST_MODEL (updates));
           dialog      = adw_dialog_new ();
 
           g_signal_connect (dialog, "closed", G_CALLBACK (update_dialog_closed), self);
@@ -363,7 +363,7 @@ fetch_updates_then (DexFuture *future,
 
 static DexFuture *
 refresh_catch (DexFuture *future,
-               GaWindow  *self)
+               BzWindow  *self)
 {
   g_autoptr (GError) local_error = NULL;
 
@@ -377,7 +377,7 @@ refresh_catch (DexFuture *future,
 
 static DexFuture *
 refresh_finally (DexFuture *future,
-                 GaWindow  *self)
+                 BzWindow  *self)
 {
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->status), TRUE);
@@ -390,13 +390,13 @@ refresh_finally (DexFuture *future,
 }
 
 static void
-install_progress (GaFlatpakEntry *entry,
+install_progress (BzFlatpakEntry *entry,
                   const char     *status,
                   gboolean        is_estimating,
                   int             progress_num,
                   guint64         bytes_transferred,
                   guint64         start_time,
-                  GaWindow       *self)
+                  BzWindow       *self)
 {
   gboolean         show_bar = FALSE;
   const char      *title    = NULL;
@@ -411,7 +411,7 @@ install_progress (GaFlatpakEntry *entry,
   else
     gtk_progress_bar_set_fraction (self->progress_bar, (double) progress_num / 100.0);
 
-  title = ga_entry_get_title (GA_ENTRY (entry));
+  title = bz_entry_get_title (BZ_ENTRY (entry));
   text  = g_strdup_printf ("Installing: %s (%s)", title, status);
 
   gtk_label_set_text (self->progress_label, text);
@@ -419,7 +419,7 @@ install_progress (GaFlatpakEntry *entry,
 
 static DexFuture *
 install_finally (DexFuture *future,
-                 GaWindow  *self)
+                 BzWindow  *self)
 {
   if (self->pending_installation != NULL)
     {
@@ -427,7 +427,7 @@ install_finally (DexFuture *future,
       g_autoptr (GError) local_error = NULL;
       const GValue *value            = NULL;
 
-      entry_title = ga_entry_get_title (self->pending_installation);
+      entry_title = bz_entry_get_title (self->pending_installation);
       value       = dex_future_get_value (future, &local_error);
 
       if (value != NULL)
@@ -435,7 +435,7 @@ install_finally (DexFuture *future,
           AdwToast *toast = NULL;
 
           toast = adw_toast_new_format ("Successfully installed %s", entry_title);
-          if (GA_IS_FLATPAK_ENTRY (self->pending_installation))
+          if (BZ_IS_FLATPAK_ENTRY (self->pending_installation))
             {
               adw_toast_set_button_label (toast, "Launch");
 
@@ -486,15 +486,15 @@ install_finally (DexFuture *future,
 }
 
 static void
-search_selected_changed (GaSearchWidget *search,
+search_selected_changed (BzSearchWidget *search,
                          GParamSpec     *pspec,
-                         GaWindow       *self)
+                         BzWindow       *self)
 {
-  GaEntry   *entry  = NULL;
+  BzEntry   *entry  = NULL;
   GtkWidget *dialog = NULL;
 
-  entry = ga_search_widget_get_selected (search);
-  if (entry != NULL && GA_IS_FLATPAK_ENTRY (entry))
+  entry = bz_search_widget_get_selected (search);
+  if (entry != NULL && BZ_IS_FLATPAK_ENTRY (entry))
     try_install (self, entry);
 
   dialog = gtk_widget_get_ancestor (GTK_WIDGET (search), ADW_TYPE_DIALOG);
@@ -505,7 +505,7 @@ search_selected_changed (GaSearchWidget *search,
 static void
 install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
-                               GaWindow       *self)
+                               BzWindow       *self)
 {
   if (self->pending_installation != NULL &&
       g_strcmp0 (response, "install") == 0)
@@ -516,23 +516,23 @@ install_confirmation_response (AdwAlertDialog *alert,
 
 static void
 install_success_toast_button_clicked (AdwToast *toast,
-                                      GaWindow *self)
+                                      BzWindow *self)
 {
-  g_autoptr (GaFlatpakEntry) entry = NULL;
+  g_autoptr (BzFlatpakEntry) entry = NULL;
   g_autoptr (GError) local_error   = NULL;
   gboolean result                  = FALSE;
 
   entry = g_object_steal_data (G_OBJECT (toast), "to-launch");
   g_assert (entry != NULL);
 
-  result = ga_flatpak_entry_launch (entry, &local_error);
+  result = bz_flatpak_entry_launch (entry, &local_error);
   if (!result)
     show_error (self, g_strdup (local_error->message));
 }
 
 static void
 install_error_toast_button_clicked (AdwToast *toast,
-                                    GaWindow *self)
+                                    BzWindow *self)
 {
   g_autofree char *error_text = NULL;
 
@@ -545,7 +545,7 @@ install_error_toast_button_clicked (AdwToast *toast,
 static void
 error_alert_response (AdwAlertDialog *alert,
                       gchar          *response,
-                      GaWindow       *self)
+                      BzWindow       *self)
 {
   if (g_strcmp0 (response, "copy") == 0)
     {
@@ -565,18 +565,18 @@ error_alert_response (AdwAlertDialog *alert,
 
 static void
 update_dialog_closed (AdwDialog *dialog,
-                      GaWindow  *self)
+                      BzWindow  *self)
 {
   GtkWidget *page                = NULL;
   g_autoptr (GListModel) updates = NULL;
 
   page    = adw_dialog_get_child (dialog);
-  updates = ga_updated_page_was_accepted (GA_UPDATE_PAGE (page));
+  updates = bz_updated_page_was_accepted (BZ_UPDATE_PAGE (page));
 
   if (updates != NULL)
     {
       guint                n_updates   = 0;
-      g_autofree GaEntry **updates_buf = NULL;
+      g_autofree BzEntry **updates_buf = NULL;
 
       n_updates   = g_list_model_get_n_items (updates);
       updates_buf = g_malloc_n (n_updates, sizeof (*updates_buf));
@@ -592,9 +592,9 @@ update_dialog_closed (AdwDialog *dialog,
 }
 
 void
-ga_window_refresh (GaWindow *self)
+bz_window_refresh (BzWindow *self)
 {
-  g_return_if_fail (GA_IS_WINDOW (self));
+  g_return_if_fail (BZ_IS_WINDOW (self));
 
   if (gtk_widget_get_sensitive (GTK_WIDGET (self->refresh)))
     refresh (self);
@@ -605,17 +605,17 @@ ga_window_refresh (GaWindow *self)
 }
 
 void
-ga_window_browse (GaWindow *self)
+bz_window_browse (BzWindow *self)
 {
-  g_return_if_fail (GA_IS_WINDOW (self));
+  g_return_if_fail (BZ_IS_WINDOW (self));
 
   browse (self);
 }
 
 void
-ga_window_search (GaWindow *self)
+bz_window_search (BzWindow *self)
 {
-  g_return_if_fail (GA_IS_WINDOW (self));
+  g_return_if_fail (BZ_IS_WINDOW (self));
 
   if (gtk_widget_get_sensitive (GTK_WIDGET (self->search)))
     search (self);
@@ -626,7 +626,7 @@ ga_window_search (GaWindow *self)
 }
 
 static void
-refresh (GaWindow *self)
+refresh (BzWindow *self)
 {
   DexFuture *future = NULL;
 
@@ -641,7 +641,7 @@ refresh (GaWindow *self)
   g_list_store_remove_all (self->remote);
   g_clear_object (&self->flatpak);
 
-  future = ga_flatpak_instance_new ();
+  future = bz_flatpak_instance_new ();
   future = dex_future_then (
       future, (DexFutureCallback) refresh_then,
       g_object_ref (self), g_object_unref);
@@ -655,9 +655,9 @@ refresh (GaWindow *self)
 }
 
 static void
-browse (GaWindow *self)
+browse (BzWindow *self)
 {
-  ga_background_set_entries (self->background, NULL);
+  bz_background_set_entries (self->background, NULL);
 
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);
@@ -665,8 +665,8 @@ browse (GaWindow *self)
 }
 
 static void
-install (GaWindow *self,
-         GaEntry  *entry)
+install (BzWindow *self,
+         BzEntry  *entry)
 {
   DexFuture *future = NULL;
 
@@ -677,13 +677,13 @@ install (GaWindow *self,
   gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
 
-  future = ga_flatpak_instance_schedule_transaction (
+  future = bz_flatpak_instance_schedule_transaction (
       self->flatpak,
-      (GaFlatpakEntry **) &entry,
+      (BzFlatpakEntry **) &entry,
       1,
       NULL,
       0,
-      (GaFlatpakTransactionProgressFunc) install_progress,
+      (BzFlatpakTransactionProgressFunc) install_progress,
       g_object_ref (self),
       g_object_unref);
   future = dex_future_finally (
@@ -693,8 +693,8 @@ install (GaWindow *self,
 }
 
 static void
-try_install (GaWindow *self,
-             GaEntry  *entry)
+try_install (BzWindow *self,
+             BzEntry  *entry)
 {
   AdwDialog *alert = NULL;
 
@@ -707,8 +707,8 @@ try_install (GaWindow *self,
   adw_alert_dialog_format_body_markup (
       ADW_ALERT_DIALOG (alert),
       "You are about to install the following Flatpak:\n\n<b>%s</b>\n<tt>%s</tt>\n\nAre you sure?",
-      ga_entry_get_title (entry),
-      ga_flatpak_entry_get_name (GA_FLATPAK_ENTRY (entry)));
+      bz_entry_get_title (entry),
+      bz_flatpak_entry_get_name (BZ_FLATPAK_ENTRY (entry)));
   adw_alert_dialog_add_responses (
       ADW_ALERT_DIALOG (alert),
       "cancel", "Cancel",
@@ -724,8 +724,8 @@ try_install (GaWindow *self,
 }
 
 static void
-update (GaWindow *self,
-        GaEntry **updates,
+update (BzWindow *self,
+        BzEntry **updates,
         guint     n_updates)
 {
   DexFuture *future = NULL;
@@ -737,13 +737,13 @@ update (GaWindow *self,
   gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
 
-  future = ga_flatpak_instance_schedule_transaction (
+  future = bz_flatpak_instance_schedule_transaction (
       self->flatpak,
       NULL,
       0,
-      (GaFlatpakEntry **) updates,
+      (BzFlatpakEntry **) updates,
       n_updates,
-      (GaFlatpakTransactionProgressFunc) install_progress,
+      (BzFlatpakTransactionProgressFunc) install_progress,
       g_object_ref (self),
       g_object_unref);
   future = dex_future_finally (
@@ -753,12 +753,12 @@ update (GaWindow *self,
 }
 
 static void
-search (GaWindow *self)
+search (BzWindow *self)
 {
   GtkWidget *search_widget = NULL;
   AdwDialog *dialog        = NULL;
 
-  search_widget = ga_search_widget_new (G_LIST_MODEL (self->remote));
+  search_widget = bz_search_widget_new (G_LIST_MODEL (self->remote));
   dialog        = adw_dialog_new ();
 
   g_signal_connect (search_widget, "notify::selected",
@@ -772,7 +772,7 @@ search (GaWindow *self)
 }
 
 static void
-show_error (GaWindow *self,
+show_error (BzWindow *self,
             char     *error_text)
 {
   AdwDialog *alert = NULL;

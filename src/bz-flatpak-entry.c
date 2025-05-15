@@ -1,4 +1,4 @@
-/* ga-flatpak-entry.c
+/* bz-flatpak-entry.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,8 +24,8 @@
 #include <glycin-gtk4.h>
 #include <xmlb.h>
 
-#include "ga-flatpak-private.h"
-#include "ga-paintable-model.h"
+#include "bz-flatpak-private.h"
+#include "bz-paintable-model.h"
 
 enum
 {
@@ -38,11 +38,11 @@ enum
   EMPHASIS,
 };
 
-struct _GaFlatpakEntry
+struct _BzFlatpakEntry
 {
-  GaEntry parent_instance;
+  BzEntry parent_instance;
 
-  GaFlatpakInstance *flatpak;
+  BzFlatpakInstance *flatpak;
   FlatpakRemoteRef  *rref;
 
   char *name;
@@ -50,7 +50,7 @@ struct _GaFlatpakEntry
   char *command;
 };
 
-G_DEFINE_FINAL_TYPE (GaFlatpakEntry, ga_flatpak_entry, GA_TYPE_ENTRY)
+G_DEFINE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ_TYPE_ENTRY)
 
 enum
 {
@@ -76,9 +76,9 @@ append_markup_escaped (GString    *string,
                        const char *append);
 
 static void
-ga_flatpak_entry_dispose (GObject *object)
+bz_flatpak_entry_dispose (GObject *object)
 {
-  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+  BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
 
   g_clear_object (&self->flatpak);
   g_clear_object (&self->rref);
@@ -87,16 +87,16 @@ ga_flatpak_entry_dispose (GObject *object)
   g_clear_pointer (&self->runtime, g_free);
   g_clear_pointer (&self->command, g_free);
 
-  G_OBJECT_CLASS (ga_flatpak_entry_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_flatpak_entry_parent_class)->dispose (object);
 }
 
 static void
-ga_flatpak_entry_get_property (GObject    *object,
+bz_flatpak_entry_get_property (GObject    *object,
                                guint       prop_id,
                                GValue     *value,
                                GParamSpec *pspec)
 {
-  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+  BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
 
   switch (prop_id)
     {
@@ -118,12 +118,12 @@ ga_flatpak_entry_get_property (GObject    *object,
 }
 
 static void
-ga_flatpak_entry_set_property (GObject      *object,
+bz_flatpak_entry_set_property (GObject      *object,
                                guint         prop_id,
                                const GValue *value,
                                GParamSpec   *pspec)
 {
-  GaFlatpakEntry *self = GA_FLATPAK_ENTRY (object);
+  BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
 
   switch (prop_id)
     {
@@ -137,19 +137,19 @@ ga_flatpak_entry_set_property (GObject      *object,
 }
 
 static void
-ga_flatpak_entry_class_init (GaFlatpakEntryClass *klass)
+bz_flatpak_entry_class_init (BzFlatpakEntryClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->set_property = ga_flatpak_entry_set_property;
-  object_class->get_property = ga_flatpak_entry_get_property;
-  object_class->dispose      = ga_flatpak_entry_dispose;
+  object_class->set_property = bz_flatpak_entry_set_property;
+  object_class->get_property = bz_flatpak_entry_get_property;
+  object_class->dispose      = bz_flatpak_entry_dispose;
 
   props[PROP_INSTANCE] =
       g_param_spec_object (
           "instance",
           NULL, NULL,
-          GA_TYPE_FLATPAK_INSTANCE,
+          BZ_TYPE_FLATPAK_INSTANCE,
           G_PARAM_READABLE);
 
   props[PROP_NAME] =
@@ -174,12 +174,12 @@ ga_flatpak_entry_class_init (GaFlatpakEntryClass *klass)
 }
 
 static void
-ga_flatpak_entry_init (GaFlatpakEntry *self)
+bz_flatpak_entry_init (BzFlatpakEntry *self)
 {
 }
 
-GaFlatpakEntry *
-ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
+BzFlatpakEntry *
+bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
@@ -187,7 +187,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                                      GdkPaintable      *remote_icon,
                                      GError           **error)
 {
-  g_autoptr (GaFlatpakEntry) self         = NULL;
+  g_autoptr (BzFlatpakEntry) self         = NULL;
   GBytes *bytes                           = NULL;
   g_autoptr (GKeyFile) key_file           = NULL;
   gboolean         result                 = FALSE;
@@ -205,13 +205,13 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
   g_autoptr (GPtrArray) as_search_tokens  = NULL;
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
-  g_autoptr (GaPaintableModel) paintables = NULL;
+  g_autoptr (BzPaintableModel) paintables = NULL;
 
-  g_return_val_if_fail (GA_IS_FLATPAK_INSTANCE (instance), NULL);
+  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
   g_return_val_if_fail (appstream_dir != NULL, NULL);
 
-  self          = g_object_new (GA_TYPE_FLATPAK_ENTRY, NULL);
+  self          = g_object_new (BZ_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
   self->rref    = g_object_ref (rref);
 
@@ -375,7 +375,7 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
             }
 
           if (g_list_model_get_n_items (G_LIST_MODEL (files)) > 0)
-            paintables = ga_paintable_model_new (
+            paintables = bz_paintable_model_new (
                 dex_scheduler_get_thread_default (),
                 G_LIST_MODEL (files));
         }
@@ -445,30 +445,30 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
 }
 
 FlatpakRef *
-ga_flatpak_entry_get_ref (GaFlatpakEntry *self)
+bz_flatpak_entry_get_ref (BzFlatpakEntry *self)
 {
-  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
 
   return FLATPAK_REF (self->rref);
 }
 
 const char *
-ga_flatpak_entry_get_name (GaFlatpakEntry *self)
+bz_flatpak_entry_get_name (BzFlatpakEntry *self)
 {
-  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), NULL);
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
 
   return self->name;
 }
 
 gboolean
-ga_flatpak_entry_launch (GaFlatpakEntry *self,
+bz_flatpak_entry_launch (BzFlatpakEntry *self,
                          GError        **error)
 {
   FlatpakInstallation *installation = NULL;
 
-  g_return_val_if_fail (GA_IS_FLATPAK_ENTRY (self), FALSE);
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), FALSE);
 
-  installation = ga_flatpak_instance_get_installation (self->flatpak);
+  installation = bz_flatpak_instance_get_installation (self->flatpak);
 
   /* async? */
   return flatpak_installation_launch (

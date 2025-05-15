@@ -1,4 +1,4 @@
-/* ga-background.h
+/* bz-flatpak-entry.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,28 +20,18 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
+#include "bz-entry.h"
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_BACKGROUND (ga_background_get_type ())
-G_DECLARE_FINAL_TYPE (GaBackground, ga_background, GA, BACKGROUND, GtkWidget)
+#define BZ_TYPE_FLATPAK_ENTRY (bz_flatpak_entry_get_type ())
+G_DECLARE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ, FLATPAK_ENTRY, BzEntry)
 
-GtkWidget *
-ga_background_new (void);
+const char *
+bz_flatpak_entry_get_name (BzFlatpakEntry *self);
 
-void
-ga_background_set_entries (GaBackground *self,
-                           GListModel   *entries);
-
-GListModel *
-ga_background_get_entries (GaBackground *self);
-
-void
-ga_background_set_motion_controller (GaBackground             *self,
-                                     GtkEventControllerMotion *controller);
-
-GtkEventControllerMotion *
-ga_background_get_motion_controller (GaBackground *self);
+gboolean
+bz_flatpak_entry_launch (BzFlatpakEntry *self,
+                         GError        **error);
 
 G_END_DECLS

@@ -1,4 +1,4 @@
-/* ga-browse-widget.h
+/* bz-browse-widget.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,17 +24,17 @@
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_BROWSE_WIDGET (ga_browse_widget_get_type ())
-G_DECLARE_FINAL_TYPE (GaBrowseWidget, ga_browse_widget, GA, BROWSE_WIDGET, AdwBin)
+#define BZ_TYPE_BROWSE_WIDGET (bz_browse_widget_get_type ())
+G_DECLARE_FINAL_TYPE (BzBrowseWidget, bz_browse_widget, BZ, BROWSE_WIDGET, AdwBin)
 
 GtkWidget *
-ga_browse_widget_new (GListModel *model);
+bz_browse_widget_new (GListModel *model);
 
 void
-ga_browse_widget_set_model (GaBrowseWidget *self,
+bz_browse_widget_set_model (BzBrowseWidget *self,
                             GListModel     *model);
 
 GListModel *
-ga_browse_widget_get_model (GaBrowseWidget *self);
+bz_browse_widget_get_model (BzBrowseWidget *self);
 
 G_END_DECLS

@@ -1,4 +1,4 @@
-/* ga-flatpak-instance.h
+/* bz-flatpak-instance.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -22,31 +22,31 @@
 
 #include <libdex.h>
 
-#include "ga-flatpak-entry.h"
+#include "bz-flatpak-entry.h"
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_FLATPAK_INSTANCE (ga_flatpak_instance_get_type ())
-G_DECLARE_FINAL_TYPE (GaFlatpakInstance, ga_flatpak_instance, GA, FLATPAK_INSTANCE, GObject)
+#define BZ_TYPE_FLATPAK_INSTANCE (bz_flatpak_instance_get_type ())
+G_DECLARE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, BZ, FLATPAK_INSTANCE, GObject)
 
 DexFuture *
-ga_flatpak_instance_new (void);
+bz_flatpak_instance_new (void);
 
-typedef void (*GaFlatpakGatherEntriesFunc) (
-    GaEntry *entry,
+typedef void (*BzFlatpakGatherEntriesFunc) (
+    BzEntry *entry,
     gpointer user_data);
 
 DexFuture *
-ga_flatpak_instance_ref_remote_apps (GaFlatpakInstance         *self,
-                                     GaFlatpakGatherEntriesFunc progress_func,
+bz_flatpak_instance_ref_remote_apps (BzFlatpakInstance         *self,
+                                     BzFlatpakGatherEntriesFunc progress_func,
                                      gpointer                   user_data,
                                      GDestroyNotify             destroy_user_data);
 
 DexFuture *
-ga_flatpak_instance_ref_updates (GaFlatpakInstance *self);
+bz_flatpak_instance_ref_updates (BzFlatpakInstance *self);
 
-typedef void (*GaFlatpakTransactionProgressFunc) (
-    GaFlatpakEntry *entry,
+typedef void (*BzFlatpakTransactionProgressFunc) (
+    BzFlatpakEntry *entry,
     const char     *status,
     gboolean        is_estimating,
     int             progress_num,
@@ -55,12 +55,12 @@ typedef void (*GaFlatpakTransactionProgressFunc) (
     gpointer        user_data);
 
 DexFuture *
-ga_flatpak_instance_schedule_transaction (GaFlatpakInstance               *self,
-                                          GaFlatpakEntry                 **installs,
+bz_flatpak_instance_schedule_transaction (BzFlatpakInstance               *self,
+                                          BzFlatpakEntry                 **installs,
                                           guint                            n_installs,
-                                          GaFlatpakEntry                 **updates,
+                                          BzFlatpakEntry                 **updates,
                                           guint                            n_updates,
-                                          GaFlatpakTransactionProgressFunc progress_func,
+                                          BzFlatpakTransactionProgressFunc progress_func,
                                           gpointer                         user_data,
                                           GDestroyNotify                   destroy_user_data);
 

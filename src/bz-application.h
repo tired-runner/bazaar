@@ -1,4 +1,4 @@
-/* ga-entry.h
+/* bz-application.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,38 +20,14 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
-#include <libdex.h>
+#include <adwaita.h>
 
 G_BEGIN_DECLS
 
-#define GA_TYPE_ENTRY (ga_entry_get_type ())
-G_DECLARE_DERIVABLE_TYPE (GaEntry, ga_entry, GA, ENTRY, GObject)
+#define BZ_TYPE_APPLICATION (bz_application_get_type())
+G_DECLARE_FINAL_TYPE (BzApplication, bz_application, BZ, APPLICATION, AdwApplication)
 
-struct _GaEntryClass
-{
-  GObjectClass parent_class;
-};
-
-const char *
-ga_entry_get_title (GaEntry *self);
-
-const char *
-ga_entry_get_description (GaEntry *self);
-
-const char *
-ga_entry_get_long_description (GaEntry *self);
-
-const char *
-ga_entry_get_remote_repo_name (GaEntry *self);
-
-guint64
-ga_entry_get_size (GaEntry *self);
-
-GdkPaintable *
-ga_entry_get_icon_paintable (GaEntry *self);
-
-GPtrArray *
-ga_entry_get_search_tokens (GaEntry *self);
+BzApplication *bz_application_new (const char        *application_id,
+                                                           GApplicationFlags  flags);
 
 G_END_DECLS

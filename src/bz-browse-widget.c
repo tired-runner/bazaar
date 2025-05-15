@@ -1,4 +1,4 @@
-/* ga-browse-widget.c
+/* bz-browse-widget.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,10 +20,10 @@
 
 #include "config.h"
 
-#include "ga-browse-widget.h"
-#include "ga-entry.h"
+#include "bz-browse-widget.h"
+#include "bz-entry.h"
 
-struct _GaBrowseWidget
+struct _BzBrowseWidget
 {
   AdwBin parent_instance;
 
@@ -32,7 +32,7 @@ struct _GaBrowseWidget
   /* Template widgets */
 };
 
-G_DEFINE_FINAL_TYPE (GaBrowseWidget, ga_browse_widget, ADW_TYPE_BIN)
+G_DEFINE_FINAL_TYPE (BzBrowseWidget, bz_browse_widget, ADW_TYPE_BIN)
 
 enum
 {
@@ -45,27 +45,27 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
-ga_browse_widget_dispose (GObject *object)
+bz_browse_widget_dispose (GObject *object)
 {
-  GaBrowseWidget *self = GA_BROWSE_WIDGET (object);
+  BzBrowseWidget *self = BZ_BROWSE_WIDGET (object);
 
   g_clear_object (&self->model);
 
-  G_OBJECT_CLASS (ga_browse_widget_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_browse_widget_parent_class)->dispose (object);
 }
 
 static void
-ga_browse_widget_get_property (GObject    *object,
+bz_browse_widget_get_property (GObject    *object,
                                guint       prop_id,
                                GValue     *value,
                                GParamSpec *pspec)
 {
-  GaBrowseWidget *self = GA_BROWSE_WIDGET (object);
+  BzBrowseWidget *self = BZ_BROWSE_WIDGET (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      g_value_set_object (value, ga_browse_widget_get_model (self));
+      g_value_set_object (value, bz_browse_widget_get_model (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -73,17 +73,17 @@ ga_browse_widget_get_property (GObject    *object,
 }
 
 static void
-ga_browse_widget_set_property (GObject      *object,
+bz_browse_widget_set_property (GObject      *object,
                                guint         prop_id,
                                const GValue *value,
                                GParamSpec   *pspec)
 {
-  GaBrowseWidget *self = GA_BROWSE_WIDGET (object);
+  BzBrowseWidget *self = BZ_BROWSE_WIDGET (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      ga_browse_widget_set_model (self, g_value_get_object (value));
+      bz_browse_widget_set_model (self, g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -91,14 +91,14 @@ ga_browse_widget_set_property (GObject      *object,
 }
 
 static void
-ga_browse_widget_class_init (GaBrowseWidgetClass *klass)
+bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose      = ga_browse_widget_dispose;
-  object_class->get_property = ga_browse_widget_get_property;
-  object_class->set_property = ga_browse_widget_set_property;
+  object_class->dispose      = bz_browse_widget_dispose;
+  object_class->get_property = bz_browse_widget_get_property;
+  object_class->set_property = bz_browse_widget_set_property;
 
   props[PROP_MODEL] =
       g_param_spec_object (
@@ -109,33 +109,33 @@ ga_browse_widget_class_init (GaBrowseWidgetClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-browse-widget.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-browse-widget.ui");
 }
 
 static void
-ga_browse_widget_init (GaBrowseWidget *self)
+bz_browse_widget_init (BzBrowseWidget *self)
 {
 
   gtk_widget_init_template (GTK_WIDGET (self));
 }
 
 GtkWidget *
-ga_browse_widget_new (GListModel *model)
+bz_browse_widget_new (GListModel *model)
 {
   return g_object_new (
-      GA_TYPE_BROWSE_WIDGET,
+      BZ_TYPE_BROWSE_WIDGET,
       "model", model,
       NULL);
 }
 
 void
-ga_browse_widget_set_model (GaBrowseWidget *self,
+bz_browse_widget_set_model (BzBrowseWidget *self,
                             GListModel     *model)
 {
-  g_return_if_fail (GA_IS_BROWSE_WIDGET (self));
+  g_return_if_fail (BZ_IS_BROWSE_WIDGET (self));
   g_return_if_fail (model == NULL ||
                     (G_IS_LIST_MODEL (model) &&
-                     g_list_model_get_item_type (model) == GA_TYPE_ENTRY));
+                     g_list_model_get_item_type (model) == BZ_TYPE_ENTRY));
 
   g_clear_object (&self->model);
   if (model != NULL)
@@ -145,8 +145,8 @@ ga_browse_widget_set_model (GaBrowseWidget *self,
 }
 
 GListModel *
-ga_browse_widget_get_model (GaBrowseWidget *self)
+bz_browse_widget_get_model (BzBrowseWidget *self)
 {
-  g_return_val_if_fail (GA_IS_BROWSE_WIDGET (self), NULL);
+  g_return_val_if_fail (BZ_IS_BROWSE_WIDGET (self), NULL);
   return self->model;
 }

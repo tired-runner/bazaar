@@ -1,4 +1,4 @@
-/* ga-flatpak-private.h
+/* bz-flatpak-private.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -23,20 +23,20 @@
 #include <appstream.h>
 #include <flatpak.h>
 
-#include "ga-flatpak-entry.h"
-#include "ga-flatpak-instance.h"
+#include "bz-flatpak-entry.h"
+#include "bz-flatpak-instance.h"
 
 G_BEGIN_DECLS
 
-/* GaFlatpakInstance */
+/* BzFlatpakInstance */
 
 FlatpakInstallation *
-ga_flatpak_instance_get_installation (GaFlatpakInstance *self);
+bz_flatpak_instance_get_installation (BzFlatpakInstance *self);
 
-/* GaFlatpakEntry */
+/* BzFlatpakEntry */
 
-GaFlatpakEntry *
-ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
+BzFlatpakEntry *
+bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
@@ -45,6 +45,6 @@ ga_flatpak_entry_new_for_remote_ref (GaFlatpakInstance *instance,
                                      GError           **error);
 
 FlatpakRef *
-ga_flatpak_entry_get_ref (GaFlatpakEntry *self);
+bz_flatpak_entry_get_ref (BzFlatpakEntry *self);
 
 G_END_DECLS

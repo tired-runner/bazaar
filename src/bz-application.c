@@ -1,4 +1,4 @@
-/* ga-application.c
+/* bz-application.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -21,24 +21,24 @@
 #include "config.h"
 #include <glib/gi18n.h>
 
-#include "ga-application.h"
-#include "ga-window.h"
+#include "bz-application.h"
+#include "bz-window.h"
 
-struct _GaApplication
+struct _BzApplication
 {
   AdwApplication parent_instance;
 };
 
-G_DEFINE_FINAL_TYPE (GaApplication, ga_application, ADW_TYPE_APPLICATION)
+G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
 
-GaApplication *
-ga_application_new (const char       *application_id,
+BzApplication *
+bz_application_new (const char       *application_id,
                     GApplicationFlags flags)
 {
   g_return_val_if_fail (application_id != NULL, NULL);
 
   return g_object_new (
-      GA_TYPE_APPLICATION,
+      BZ_TYPE_APPLICATION,
       "application-id", application_id,
       "flags", flags,
       "resource-base-path", "/org/gnome/Example",
@@ -46,11 +46,11 @@ ga_application_new (const char       *application_id,
 }
 
 static void
-ga_application_activate (GApplication *app)
+bz_application_activate (GApplication *app)
 {
   GtkWindow *window;
 
-  g_assert (GA_IS_APPLICATION (app));
+  g_assert (BZ_IS_APPLICATION (app));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
 
@@ -67,7 +67,7 @@ ga_application_activate (GApplication *app)
           GTK_STYLE_PROVIDER_PRIORITY_USER);
 
       window = g_object_new (
-          GA_TYPE_WINDOW,
+          BZ_TYPE_WINDOW,
           "application", app,
           NULL);
     }
@@ -76,74 +76,74 @@ ga_application_activate (GApplication *app)
 }
 
 static void
-ga_application_class_init (GaApplicationClass *klass)
+bz_application_class_init (BzApplicationClass *klass)
 {
   GApplicationClass *app_class = G_APPLICATION_CLASS (klass);
 
-  app_class->activate = ga_application_activate;
+  app_class->activate = bz_application_activate;
 }
 
 static void
-ga_application_refresh_action (GSimpleAction *action,
+bz_application_refresh_action (GSimpleAction *action,
                                GVariant      *parameter,
                                gpointer       user_data)
 {
-  GaApplication *self   = user_data;
+  BzApplication *self   = user_data;
   GtkWindow     *window = NULL;
 
-  g_assert (GA_IS_APPLICATION (self));
+  g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  ga_window_refresh (GA_WINDOW (window));
+  bz_window_refresh (BZ_WINDOW (window));
 }
 
 static void
-ga_application_browse_action (GSimpleAction *action,
+bz_application_browse_action (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)
 {
-  GaApplication *self   = user_data;
+  BzApplication *self   = user_data;
   GtkWindow     *window = NULL;
 
-  g_assert (GA_IS_APPLICATION (self));
+  g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  ga_window_browse (GA_WINDOW (window));
+  bz_window_browse (BZ_WINDOW (window));
 }
 
 static void
-ga_application_search_action (GSimpleAction *action,
+bz_application_search_action (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)
 {
-  GaApplication *self   = user_data;
+  BzApplication *self   = user_data;
   GtkWindow     *window = NULL;
 
-  g_assert (GA_IS_APPLICATION (self));
+  g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  ga_window_search (GA_WINDOW (window));
+  bz_window_search (BZ_WINDOW (window));
 }
 
 static void
-ga_application_about_action (GSimpleAction *action,
+bz_application_about_action (GSimpleAction *action,
                              GVariant      *parameter,
                              gpointer       user_data)
 {
   static const char *developers[] = { "Adam Masciola", NULL };
-  GaApplication     *self         = user_data;
+  BzApplication     *self         = user_data;
   GtkWindow         *window       = NULL;
 
-  g_assert (GA_IS_APPLICATION (self));
+  g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
   adw_show_about_dialog (
       GTK_WIDGET (window),
-      "application-name", "gnome-apps-next",
+      "application-name", "bazaar",
       "application-icon", "org.gnome.Example",
       "developer-name", "Adam Masciola",
       "translator-credits", _ ("translator-credits"),
@@ -154,27 +154,27 @@ ga_application_about_action (GSimpleAction *action,
 }
 
 static void
-ga_application_quit_action (GSimpleAction *action,
+bz_application_quit_action (GSimpleAction *action,
                             GVariant      *parameter,
                             gpointer       user_data)
 {
-  GaApplication *self = user_data;
+  BzApplication *self = user_data;
 
-  g_assert (GA_IS_APPLICATION (self));
+  g_assert (BZ_IS_APPLICATION (self));
 
   g_application_quit (G_APPLICATION (self));
 }
 
 static const GActionEntry app_actions[] = {
-  {    "quit",    ga_application_quit_action },
-  {   "about",   ga_application_about_action },
-  {  "search",  ga_application_search_action },
-  {  "browse",  ga_application_browse_action },
-  { "refresh", ga_application_refresh_action },
+  {    "quit",    bz_application_quit_action },
+  {   "about",   bz_application_about_action },
+  {  "search",  bz_application_search_action },
+  {  "browse",  bz_application_browse_action },
+  { "refresh", bz_application_refresh_action },
 };
 
 static void
-ga_application_init (GaApplication *self)
+bz_application_init (BzApplication *self)
 {
   g_action_map_add_action_entries (
       G_ACTION_MAP (self),

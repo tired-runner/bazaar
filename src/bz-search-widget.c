@@ -1,4 +1,4 @@
-/* ga-search-widget.c
+/* bz-search-widget.c
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,16 @@
 
 #include "config.h"
 
-#include "ga-entry.h"
-#include "ga-search-widget.h"
+#include "bz-entry.h"
+#include "bz-search-widget.h"
 
-struct _GaSearchWidget
+struct _BzSearchWidget
 {
   AdwBin parent_instance;
 
   GListModel *model;
-  GaEntry    *selected;
-  GaEntry    *previewing;
+  BzEntry    *selected;
+  BzEntry    *previewing;
 
   guint previewing_timeout;
 
@@ -46,7 +46,7 @@ struct _GaSearchWidget
   GtkListView     *list_view;
 };
 
-G_DEFINE_FINAL_TYPE (GaSearchWidget, ga_search_widget, ADW_TYPE_BIN)
+G_DEFINE_FINAL_TYPE (BzSearchWidget, bz_search_widget, ADW_TYPE_BIN)
 
 enum
 {
@@ -62,50 +62,50 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
 search_changed (GtkEditable    *editable,
-                GaSearchWidget *self);
+                BzSearchWidget *self);
 
 static void
 regex_toggled (GtkToggleButton *toggle,
-               GaSearchWidget  *self);
+               BzSearchWidget  *self);
 
 static void
 search_activate (GtkText        *text,
-                 GaSearchWidget *self);
+                 BzSearchWidget *self);
 
 static gint
-cmp_item (GaEntry        *a,
-          GaEntry        *b,
-          GaSearchWidget *self);
+cmp_item (BzEntry        *a,
+          BzEntry        *b,
+          BzSearchWidget *self);
 
 static int
-match (GaEntry        *item,
-       GaSearchWidget *self);
+match (BzEntry        *item,
+       BzSearchWidget *self);
 
 static void
 pending_changed (GtkFilterListModel *model,
                  GParamSpec         *pspec,
-                 GaSearchWidget     *self);
+                 BzSearchWidget     *self);
 
 static void
 selected_item_changed (GtkSingleSelection *model,
                        GParamSpec         *pspec,
-                       GaSearchWidget     *self);
+                       BzSearchWidget     *self);
 
 static void
-previewing_property_timeout (GaSearchWidget *self);
+previewing_property_timeout (BzSearchWidget *self);
 
 static void
 activate (GtkListView    *list_view,
           guint           position,
-          GaSearchWidget *self);
+          BzSearchWidget *self);
 
 static void
-update_filter (GaSearchWidget *self);
+update_filter (BzSearchWidget *self);
 
 static void
-ga_search_widget_dispose (GObject *object)
+bz_search_widget_dispose (GObject *object)
 {
-  GaSearchWidget *self = GA_SEARCH_WIDGET (object);
+  BzSearchWidget *self = BZ_SEARCH_WIDGET (object);
 
   g_clear_object (&self->model);
   g_clear_object (&self->selected);
@@ -115,27 +115,27 @@ ga_search_widget_dispose (GObject *object)
   g_clear_pointer (&self->match_regex, g_regex_unref);
   g_clear_pointer (&self->match_scores, g_hash_table_unref);
 
-  G_OBJECT_CLASS (ga_search_widget_parent_class)->dispose (object);
+  G_OBJECT_CLASS (bz_search_widget_parent_class)->dispose (object);
 }
 
 static void
-ga_search_widget_get_property (GObject    *object,
+bz_search_widget_get_property (GObject    *object,
                                guint       prop_id,
                                GValue     *value,
                                GParamSpec *pspec)
 {
-  GaSearchWidget *self = GA_SEARCH_WIDGET (object);
+  BzSearchWidget *self = BZ_SEARCH_WIDGET (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      g_value_set_object (value, ga_search_widget_get_model (self));
+      g_value_set_object (value, bz_search_widget_get_model (self));
       break;
     case PROP_SELECTED:
-      g_value_set_object (value, ga_search_widget_get_selected (self));
+      g_value_set_object (value, bz_search_widget_get_selected (self));
       break;
     case PROP_PREVIEWING:
-      g_value_set_object (value, ga_search_widget_get_previewing (self));
+      g_value_set_object (value, bz_search_widget_get_previewing (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -143,17 +143,17 @@ ga_search_widget_get_property (GObject    *object,
 }
 
 static void
-ga_search_widget_set_property (GObject      *object,
+bz_search_widget_set_property (GObject      *object,
                                guint         prop_id,
                                const GValue *value,
                                GParamSpec   *pspec)
 {
-  GaSearchWidget *self = GA_SEARCH_WIDGET (object);
+  BzSearchWidget *self = BZ_SEARCH_WIDGET (object);
 
   switch (prop_id)
     {
     case PROP_MODEL:
-      ga_search_widget_set_model (self, g_value_get_object (value));
+      bz_search_widget_set_model (self, g_value_get_object (value));
       break;
     case PROP_SELECTED:
     case PROP_PREVIEWING:
@@ -196,7 +196,7 @@ action_move (GtkWidget  *widget,
              const char *action_name,
              GVariant   *parameter)
 {
-  GaSearchWidget    *self     = GA_SEARCH_WIDGET (widget);
+  BzSearchWidget    *self     = BZ_SEARCH_WIDGET (widget);
   GtkSelectionModel *model    = NULL;
   guint              selected = 0;
   guint              n_items  = 0;
@@ -228,14 +228,14 @@ action_move (GtkWidget  *widget,
 }
 
 static void
-ga_search_widget_class_init (GaSearchWidgetClass *klass)
+bz_search_widget_class_init (BzSearchWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose      = ga_search_widget_dispose;
-  object_class->get_property = ga_search_widget_get_property;
-  object_class->set_property = ga_search_widget_set_property;
+  object_class->dispose      = bz_search_widget_dispose;
+  object_class->get_property = bz_search_widget_get_property;
+  object_class->set_property = bz_search_widget_set_property;
 
   props[PROP_MODEL] =
       g_param_spec_object (
@@ -248,25 +248,25 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
       g_param_spec_object (
           "selected",
           NULL, NULL,
-          GA_TYPE_ENTRY,
+          BZ_TYPE_ENTRY,
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_PREVIEWING] =
       g_param_spec_object (
           "previewing",
           NULL, NULL,
-          GA_TYPE_ENTRY,
+          BZ_TYPE_ENTRY,
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/ga-search-widget.ui");
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_bar);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_text);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, search_spinner);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, regex_toggle);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, regex_error);
-  gtk_widget_class_bind_template_child (widget_class, GaSearchWidget, list_view);
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-search-widget.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_bar);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_text);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_spinner);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_toggle);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, format_size);
@@ -276,7 +276,7 @@ ga_search_widget_class_init (GaSearchWidgetClass *klass)
 }
 
 static void
-ga_search_widget_init (GaSearchWidget *self)
+bz_search_widget_init (BzSearchWidget *self)
 {
   GtkCustomFilter    *custom_filter             = NULL;
   GtkFilterListModel *filter_model              = NULL;
@@ -309,23 +309,23 @@ ga_search_widget_init (GaSearchWidget *self)
 }
 
 GtkWidget *
-ga_search_widget_new (GListModel *model)
+bz_search_widget_new (GListModel *model)
 {
   return g_object_new (
-      GA_TYPE_SEARCH_WIDGET,
+      BZ_TYPE_SEARCH_WIDGET,
       "model", model,
       NULL);
 }
 
 void
-ga_search_widget_set_model (GaSearchWidget *self,
+bz_search_widget_set_model (BzSearchWidget *self,
                             GListModel     *model)
 {
   GtkSingleSelection *selection_model   = NULL;
   GtkSortListModel   *sort_list_model   = NULL;
   GtkFilterListModel *filter_list_model = NULL;
 
-  g_return_if_fail (GA_IS_SEARCH_WIDGET (self));
+  g_return_if_fail (BZ_IS_SEARCH_WIDGET (self));
 
   g_clear_object (&self->model);
   self->model = model != NULL ? g_object_ref (model) : NULL;
@@ -342,43 +342,43 @@ ga_search_widget_set_model (GaSearchWidget *self,
 }
 
 GListModel *
-ga_search_widget_get_model (GaSearchWidget *self)
+bz_search_widget_get_model (BzSearchWidget *self)
 {
-  g_return_val_if_fail (GA_IS_SEARCH_WIDGET (self), NULL);
+  g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
   return self->model;
 }
 
 gpointer
-ga_search_widget_get_selected (GaSearchWidget *self)
+bz_search_widget_get_selected (BzSearchWidget *self)
 {
-  g_return_val_if_fail (GA_IS_SEARCH_WIDGET (self), NULL);
+  g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
   return self->selected;
 }
 
 gpointer
-ga_search_widget_get_previewing (GaSearchWidget *self)
+bz_search_widget_get_previewing (BzSearchWidget *self)
 {
-  g_return_val_if_fail (GA_IS_SEARCH_WIDGET (self), NULL);
+  g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
   return self->previewing;
 }
 
 static void
 search_changed (GtkEditable    *editable,
-                GaSearchWidget *self)
+                BzSearchWidget *self)
 {
   update_filter (self);
 }
 
 static void
 regex_toggled (GtkToggleButton *toggle,
-               GaSearchWidget  *self)
+               BzSearchWidget  *self)
 {
   update_filter (self);
 }
 
 static void
 search_activate (GtkText        *text,
-                 GaSearchWidget *self)
+                 BzSearchWidget *self)
 {
   GtkSelectionModel *model        = NULL;
   guint              selected_idx = 0;
@@ -396,9 +396,9 @@ search_activate (GtkText        *text,
 }
 
 static gint
-cmp_item (GaEntry        *a,
-          GaEntry        *b,
-          GaSearchWidget *self)
+cmp_item (BzEntry        *a,
+          BzEntry        *b,
+          BzSearchWidget *self)
 {
   int a_score = 0;
   int b_score = 0;
@@ -409,15 +409,15 @@ cmp_item (GaEntry        *a,
   if (a_score == b_score)
     {
       /* slightly favor entries with a description */
-      if (ga_entry_get_description (a) != NULL)
+      if (bz_entry_get_description (a) != NULL)
         a_score++;
-      if (ga_entry_get_description (b) != NULL)
+      if (bz_entry_get_description (b) != NULL)
         b_score++;
 
       /* slightly favor entries with an icon */
-      if (ga_entry_get_icon_paintable (a) != NULL)
+      if (bz_entry_get_icon_paintable (a) != NULL)
         a_score++;
-      if (ga_entry_get_icon_paintable (b) != NULL)
+      if (bz_entry_get_icon_paintable (b) != NULL)
         b_score++;
     }
   if (a_score == b_score)
@@ -426,8 +426,8 @@ cmp_item (GaEntry        *a,
       const char *b_title = NULL;
       int         cmp_res = 0;
 
-      a_title = ga_entry_get_title (a);
-      b_title = ga_entry_get_title (b);
+      a_title = bz_entry_get_title (a);
+      b_title = bz_entry_get_title (b);
       cmp_res = g_strcmp0 (a_title, b_title);
 
       if (cmp_res < 0)
@@ -442,13 +442,13 @@ cmp_item (GaEntry        *a,
 }
 
 static gboolean
-match (GaEntry        *item,
-       GaSearchWidget *self)
+match (BzEntry        *item,
+       BzSearchWidget *self)
 {
   int        score         = 0;
   GPtrArray *search_tokens = NULL;
 
-  search_tokens = ga_entry_get_search_tokens (item);
+  search_tokens = bz_entry_get_search_tokens (item);
 
   if (self->match_regex != NULL)
     {
@@ -510,7 +510,7 @@ done:
 static void
 pending_changed (GtkFilterListModel *model,
                  GParamSpec         *pspec,
-                 GaSearchWidget     *self)
+                 BzSearchWidget     *self)
 {
   guint pending = 0;
   guint n_items = 0;
@@ -531,7 +531,7 @@ pending_changed (GtkFilterListModel *model,
 static void
 selected_item_changed (GtkSingleSelection *model,
                        GParamSpec         *pspec,
-                       GaSearchWidget     *self)
+                       BzSearchWidget     *self)
 {
   g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_object (&self->previewing);
@@ -542,7 +542,7 @@ selected_item_changed (GtkSingleSelection *model,
 }
 
 static void
-previewing_property_timeout (GaSearchWidget *self)
+previewing_property_timeout (BzSearchWidget *self)
 {
   GtkSelectionModel *model    = NULL;
   guint              selected = 0;
@@ -562,7 +562,7 @@ previewing_property_timeout (GaSearchWidget *self)
 static void
 activate (GtkListView    *list_view,
           guint           position,
-          GaSearchWidget *self)
+          BzSearchWidget *self)
 {
   GtkSelectionModel *model = NULL;
 
@@ -575,7 +575,7 @@ activate (GtkListView    *list_view,
 }
 
 static void
-update_filter (GaSearchWidget *self)
+update_filter (BzSearchWidget *self)
 {
   const char         *search_text       = NULL;
   gboolean            reset_regex       = FALSE;
