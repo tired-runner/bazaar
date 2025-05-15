@@ -493,12 +493,43 @@
                               </object>
                             </child>
                             <child>
+                              <object class="GtkBox">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">5</property>
+                                <property name="hexpand">TRUE</property>
+                                <property name="halign">center</property>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <style>
+                                      <class name="dimmed"/>
+                                    </style>
+                                    <property name="margin-top">5</property>
+                                    <property name="margin-bottom">5</property>
+                                    <property name="label">Click on an image to open the screenshots externally.</property>
+                                    <binding name="visible">
+                                      <closure function="invert_boolean" type="gboolean">
+                                        <closure function="is_null" type="gboolean">
+                                          <lookup name="previewing">BzSearchWidget</lookup>
+                                        </closure>
+                                      </closure>
+                                    </binding>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwSpinner" id="loading_screenshots_external">
+                                    <property name="visible">FALSE</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
                               <object class="GtkListView" id="screenshots">
                                 <style>
                                   <class name="navigation-sidebar"/>
                                 </style>
                                 <property name="margin-start">5</property>
                                 <property name="margin-end">5</property>
+                                <property name="single-click-activate">TRUE</property>
                                 <property name="model">
                                   <object class="GtkNoSelection">
                                     <binding name="model">
@@ -514,7 +545,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
-    <property name="activatable">FALSE</property>
     <property name="child">
       <object class="GtkPicture">
         <style>
