@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="BzUpdateDialog" parent="AdwAlertDialog">
+    <responses>
+      <response id="ignore">Later</response>
+      <response id="install" appearance="suggested">Install Now</response>
+    </responses>
+    <property name="heading">Updates Are Available</property>
+    <property name="body">The following applications are eligible for updates. Would you like to install them?</property>
+    <property name="extra-child">
+      <object class="GtkScrolledWindow">
+        <property name="width-request">300</property>
+        <property name="propagate-natural-height">TRUE</property>
+        <property name="overflow">hidden</property>
+        <property name="vexpand">TRUE</property>
+        <property name="hscrollbar-policy">never</property>
+        <property name="child">
+          <object class="GtkListView" id="list_view">
+            <style>
+              <class name="navigation-sidebar"/>
+            </style>
+            <property name="model">
+              <object class="GtkNoSelection" id="selection_model"/>
+            </property>
+            <property name="factory">
+              <object class="GtkBuilderListItemFactory">
+                <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="child">
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="margin-top">5</property>
+        <property name="margin-bottom">5</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel">
+            <style>
+              <class name="heading"/>
+            </style>
+            <property name="hexpand">TRUE</property>
+            <property name="xalign">0</property>
+            <property name="ellipsize">end</property>
+            <property name="single-line-mode">true</property>
+            <binding name="label">
+              <lookup name="title" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
+          </object>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="icon-size">large</property>
+            <binding name="paintable">
+              <lookup name="icon-paintable" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
+          </object>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                </property>
+              </object>
+            </property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

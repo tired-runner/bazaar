@@ -4,7 +4,7 @@ bz_sources = [
   'bz-window.c',
   'bz-search-widget.c',
   'bz-browse-widget.c',
-  'bz-update-page.c',
+  'bz-update-dialog.c',
   'bz-background.c',
   'bz-flatpak-instance.c',
   'bz-entry.c',

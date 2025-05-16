@@ -1,4 +1,4 @@
-/* bz-update-page.h
+/* bz-update-dialog.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -22,18 +22,15 @@
 
 #include <adwaita.h>
 
-/* TODO: make interface for backend */
-#include "bz-flatpak-instance.h"
-
 G_BEGIN_DECLS
 
-#define BZ_TYPE_UPDATE_PAGE (bz_update_page_get_type ())
-G_DECLARE_FINAL_TYPE (BzUpdatePage, bz_update_page, BZ, UPDATE_PAGE, AdwBin)
+#define BZ_TYPE_UPDATE_DIALOG (bz_update_dialog_get_type ())
+G_DECLARE_FINAL_TYPE (BzUpdateDialog, bz_update_dialog, BZ, UPDATE_DIALOG, AdwAlertDialog)
 
-GtkWidget *
-bz_update_page_new (GListModel *updates);
+AdwDialog *
+bz_update_dialog_new (GListModel *updates);
 
 GListModel *
-bz_updated_page_was_accepted (BzUpdatePage *self);
+bz_updated_dialog_was_accepted (BzUpdateDialog *self);
 
 G_END_DECLS

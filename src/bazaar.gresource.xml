@@ -5,7 +5,7 @@
     <file preprocess="xml-stripblanks">bz-window.ui</file>
     <file preprocess="xml-stripblanks">bz-search-widget.ui</file>
     <file preprocess="xml-stripblanks">bz-browse-widget.ui</file>
-    <file preprocess="xml-stripblanks">bz-update-page.ui</file>
+    <file preprocess="xml-stripblanks">bz-update-dialog.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
     
     <file preprocess="xml-stripblanks">icons/scalable/actions/regex-symbolic.svg</file>

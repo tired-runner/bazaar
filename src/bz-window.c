@@ -24,7 +24,7 @@
 #include "bz-browse-widget.h"
 #include "bz-flatpak-instance.h"
 #include "bz-search-widget.h"
-#include "bz-update-page.h"
+#include "bz-update-dialog.h"
 #include "bz-window.h"
 
 struct _BzWindow
@@ -116,8 +116,9 @@ error_alert_response (AdwAlertDialog *alert,
                       BzWindow       *self);
 
 static void
-update_dialog_closed (AdwDialog *dialog,
-                      BzWindow  *self);
+update_dialog_response (BzUpdateDialog *dialog,
+                        const char     *response,
+                        BzWindow       *self);
 
 static void
 refresh (BzWindow *self);
@@ -342,19 +343,12 @@ fetch_updates_then (DexFuture *future,
 
       if (g_list_model_get_n_items (G_LIST_MODEL (updates)) > 0)
         {
-          GtkWidget *update_page = NULL;
-          AdwDialog *dialog      = NULL;
+          AdwDialog *update_dialog = NULL;
 
-          update_page = bz_update_page_new (G_LIST_MODEL (updates));
-          dialog      = adw_dialog_new ();
+          update_dialog = bz_update_dialog_new (G_LIST_MODEL (updates));
+          g_signal_connect (update_dialog, "response", G_CALLBACK (update_dialog_response), self);
 
-          g_signal_connect (dialog, "closed", G_CALLBACK (update_dialog_closed), self);
-
-          adw_dialog_set_child (dialog, update_page);
-          adw_dialog_set_content_width (dialog, 500);
-          adw_dialog_set_content_height (dialog, 300);
-
-          adw_dialog_present (dialog, GTK_WIDGET (self));
+          adw_dialog_present (update_dialog, GTK_WIDGET (self));
         }
     }
 
@@ -564,14 +558,13 @@ error_alert_response (AdwAlertDialog *alert,
 }
 
 static void
-update_dialog_closed (AdwDialog *dialog,
-                      BzWindow  *self)
+update_dialog_response (BzUpdateDialog *dialog,
+                        const char     *response,
+                        BzWindow       *self)
 {
-  GtkWidget *page                = NULL;
   g_autoptr (GListModel) updates = NULL;
 
-  page    = adw_dialog_get_child (dialog);
-  updates = bz_updated_page_was_accepted (BZ_UPDATE_PAGE (page));
+  updates = bz_updated_dialog_was_accepted (dialog);
 
   if (updates != NULL)
     {
