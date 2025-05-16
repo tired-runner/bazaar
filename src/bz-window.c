@@ -564,7 +564,7 @@ update_dialog_response (BzUpdateDialog *dialog,
 {
   g_autoptr (GListModel) updates = NULL;
 
-  updates = bz_updated_dialog_was_accepted (dialog);
+  updates = bz_update_dialog_was_accepted (dialog);
 
   if (updates != NULL)
     {

@@ -97,7 +97,7 @@ bz_update_dialog_new (GListModel *updates)
 }
 
 GListModel *
-bz_updated_dialog_was_accepted (BzUpdateDialog *self)
+bz_update_dialog_was_accepted (BzUpdateDialog *self)
 {
   g_return_val_if_fail (BZ_IS_UPDATE_DIALOG (self), FALSE);
 

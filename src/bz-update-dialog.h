@@ -31,6 +31,6 @@ AdwDialog *
 bz_update_dialog_new (GListModel *updates);
 
 GListModel *
-bz_updated_dialog_was_accepted (BzUpdateDialog *self);
+bz_update_dialog_was_accepted (BzUpdateDialog *self);
 
 G_END_DECLS
