@@ -319,7 +319,7 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel">
+                                          <object class="GtkLabel" id="license_label">
                                             <property name="has-tooltip">TRUE</property>
                                             <property name="xalign">0</property>
                                             <property name="selectable">TRUE</property>
@@ -359,7 +359,7 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel">
+                                          <object class="GtkLabel" id="remote_repo_label">
                                             <property name="has-tooltip">TRUE</property>
                                             <property name="xalign">0</property>
                                             <property name="selectable">TRUE</property>
@@ -399,7 +399,7 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel">
+                                          <object class="GtkLabel" id="url_label">
                                             <property name="has-tooltip">TRUE</property>
                                             <property name="xalign">0</property>
                                             <property name="use-markup">TRUE</property>
@@ -434,7 +434,7 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel">
+                                          <object class="GtkLabel" id="size_label">
                                             <property name="has-tooltip">TRUE</property>
                                             <property name="xalign">0</property>
                                             <property name="selectable">TRUE</property>
@@ -733,12 +733,18 @@
                     
                     <setter object="title_label" property="width-chars">-1</setter>
                     <setter object="title_label" property="max-width-chars">-1</setter>
-                    
                     <setter object="developer_label" property="width-chars">-1</setter>
                     <setter object="developer_label" property="max-width-chars">-1</setter>
-                    
                     <setter object="description_label" property="width-chars">-1</setter>
                     <setter object="description_label" property="max-width-chars">-1</setter>
+                    <setter object="license_label" property="width-chars">13</setter>
+                    <setter object="license_label" property="max-width-chars">13</setter>
+                    <setter object="remote_repo_label" property="width-chars">13</setter>
+                    <setter object="remote_repo_label" property="max-width-chars">13</setter>
+                    <setter object="url_label" property="width-chars">13</setter>
+                    <setter object="url_label" property="max-width-chars">13</setter>
+                    <setter object="size_label" property="width-chars">13</setter>
+                    <setter object="size_label" property="max-width-chars">13</setter>
                     
                     <setter object="screenshot_scroll" property="height-request">150</setter>
                     <setter object="screenshot_scroll" property="propagate-natural-height">TRUE</setter>
