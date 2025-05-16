@@ -43,12 +43,20 @@ struct _BzSearchWidget
   DexFuture *loading_image_viewer;
 
   /* Template widgets */
+  AdwBottomSheet  *sheet;
+  AdwBreakpoint   *breakpoint;
   GtkText         *search_bar;
   GtkLabel        *search_text;
   AdwSpinner      *search_spinner;
   GtkToggleButton *regex_toggle;
   GtkLabel        *regex_error;
+  GtkBox          *content_box;
   GtkListView     *list_view;
+  GtkWidget       *entry_view;
+  GtkLabel        *title_label;
+  GtkLabel        *description_label;
+  GtkButton       *download_button;
+  GtkButton       *remove_button;
   GtkListView     *screenshots;
   AdwSpinner      *loading_screenshots_external;
   GtkLabel        *open_screenshot_error;
@@ -95,6 +103,14 @@ static DexFuture *
 save_single_screenshot_fiber (SaveSingleScreenshotData *data);
 
 static void
+sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
+                        BzSearchWidget *self);
+
+static void
+sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
+                          BzSearchWidget *self);
+
+static void
 search_changed (GtkEditable    *editable,
                 BzSearchWidget *self);
 
@@ -132,6 +148,14 @@ static void
 activate (GtkListView    *list_view,
           guint           position,
           BzSearchWidget *self);
+
+static void
+download_clicked (GtkButton      *button,
+                  BzSearchWidget *self);
+
+static void
+remove_clicked (GtkButton      *button,
+                BzSearchWidget *self);
 
 static void
 screenshot_activate (GtkListView    *list_view,
@@ -304,12 +328,20 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-search-widget.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, sheet);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, breakpoint);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_bar);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_text);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_spinner);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_toggle);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, content_box);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_view);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, description_label);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, download_button);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, remove_button);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, screenshots);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, loading_screenshots_external);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
@@ -346,6 +378,8 @@ bz_search_widget_init (BzSearchWidget *self)
   selection_model = GTK_SELECTION_MODEL (gtk_single_selection_new (G_LIST_MODEL (sort_model)));
   gtk_list_view_set_model (self->list_view, selection_model);
 
+  g_signal_connect (self->breakpoint, "apply", G_CALLBACK (sheet_breakpoint_apply), self);
+  g_signal_connect (self->breakpoint, "unapply", G_CALLBACK (sheet_breakpoint_unapply), self);
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
   g_signal_connect (self->search_bar, "activate", G_CALLBACK (search_activate), self);
   g_signal_connect (self->regex_toggle, "toggled", G_CALLBACK (regex_toggled), self);
@@ -353,6 +387,8 @@ bz_search_widget_init (BzSearchWidget *self)
   g_signal_connect (selection_model, "notify::selected-item", G_CALLBACK (selected_item_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
   g_signal_connect (self->screenshots, "activate", G_CALLBACK (screenshot_activate), self);
+  g_signal_connect (self->download_button, "clicked", G_CALLBACK (download_clicked), self);
+  g_signal_connect (self->remove_button, "clicked", G_CALLBACK (remove_clicked), self);
 }
 
 GtkWidget *
@@ -407,6 +443,35 @@ bz_search_widget_get_previewing (BzSearchWidget *self)
 {
   g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
   return self->previewing;
+}
+
+static void
+sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
+                        BzSearchWidget *self)
+{
+  gtk_box_remove (self->content_box, self->entry_view);
+  adw_bottom_sheet_set_sheet (self->sheet, self->entry_view);
+
+  gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-1");
+  gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-2");
+
+  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "title-3");
+  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "title-4");
+}
+
+static void
+sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
+                          BzSearchWidget *self)
+{
+  adw_bottom_sheet_set_open (self->sheet, FALSE);
+  adw_bottom_sheet_set_sheet (self->sheet, NULL);
+  gtk_box_append (self->content_box, self->entry_view);
+
+  gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-2");
+  gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-1");
+
+  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "title-4");
+  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "title-3");
 }
 
 static void
@@ -622,6 +687,32 @@ activate (GtkListView    *list_view,
   self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+}
+
+static void
+download_clicked (GtkButton      *button,
+                  BzSearchWidget *self)
+{
+  GtkSelectionModel *model    = NULL;
+  guint              position = 0;
+
+  g_clear_object (&self->selected);
+
+  model    = gtk_list_view_get_model (self->list_view);
+  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+  /* if the download button is visible, something must be selected */
+  g_assert (position != GTK_INVALID_LIST_POSITION);
+
+  self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+}
+
+static void
+remove_clicked (GtkButton      *button,
+                BzSearchWidget *self)
+{
+  /* Implement Me! */
 }
 
 static void
