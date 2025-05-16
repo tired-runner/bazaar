@@ -227,8 +227,11 @@ static char *
 format_as_link (gpointer    object,
                 const char *value)
 {
-  return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
-                          value, value, value);
+  if (value != NULL)
+    return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
+                            value, value, value);
+  else
+    return g_strdup ("N/A");
 }
 
 static void
