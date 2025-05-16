@@ -505,6 +505,8 @@
                                     </style>
                                     <property name="margin-top">5</property>
                                     <property name="label">Click on an image to open the screenshots externally.</property>
+                                    <property name="wrap">TRUE</property>
+                                    <property name="wrap-mode">word-char</property>
                                     <binding name="visible">
                                       <closure function="invert_boolean" type="gboolean">
                                         <closure function="is_null" type="gboolean">
