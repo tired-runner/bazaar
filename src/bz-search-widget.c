@@ -51,6 +51,7 @@ struct _BzSearchWidget
   GtkListView     *list_view;
   GtkListView     *screenshots;
   AdwSpinner      *loading_screenshots_external;
+  GtkLabel        *open_screenshot_error;
 };
 
 G_DEFINE_FINAL_TYPE (BzSearchWidget, bz_search_widget, ADW_TYPE_BIN)
@@ -80,6 +81,18 @@ open_screenshots_external_fiber (OpenScreenshotsExternalData *data);
 static DexFuture *
 open_screenshots_external_finally (DexFuture      *future,
                                    BzSearchWidget *self);
+
+BZ_DEFINE_DATA (
+    save_single_screenshot,
+    SaveSingleScreenshot,
+    {
+      GdkTexture *texture;
+      GFile      *output;
+    },
+    BZ_RELEASE_DATA (texture, g_object_unref);
+    BZ_RELEASE_DATA (output, g_object_unref));
+static DexFuture *
+save_single_screenshot_fiber (SaveSingleScreenshotData *data);
 
 static void
 search_changed (GtkEditable    *editable,
@@ -296,6 +309,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, screenshots);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, loading_screenshots_external);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, format_size);
@@ -563,6 +577,9 @@ selected_item_changed (GtkSingleSelection *model,
                        GParamSpec         *pspec,
                        BzSearchWidget     *self)
 {
+  gtk_widget_set_visible (GTK_WIDGET (self->open_screenshot_error), FALSE);
+  gtk_label_set_label (self->open_screenshot_error, NULL);
+
   g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_object (&self->previewing);
 
@@ -733,14 +750,14 @@ update_filter (BzSearchWidget *self)
 static DexFuture *
 open_screenshots_external_fiber (OpenScreenshotsExternalData *data)
 {
-  g_autoptr (GAppInfo) appinfo   = NULL;
-  GPtrArray *textures            = data->textures;
-  guint      initial             = data->initial;
-  g_autoptr (GError) local_error = NULL;
-  g_autofree char *tmp_dir       = NULL;
-  GList           *image_uris    = NULL;
-  gboolean         error_out     = FALSE;
-  gboolean         result        = FALSE;
+  GPtrArray *textures               = data->textures;
+  guint      initial                = data->initial;
+  g_autoptr (GError) local_error    = NULL;
+  g_autoptr (GAppInfo) appinfo      = NULL;
+  g_autofree char       *tmp_dir    = NULL;
+  g_autofree DexFuture **jobs       = NULL;
+  GList                 *image_uris = NULL;
+  gboolean               result     = FALSE;
 
   appinfo = g_app_info_get_default_for_type ("image/png", TRUE);
   /* early check that an image viewer even exists */
@@ -751,62 +768,82 @@ open_screenshots_external_fiber (OpenScreenshotsExternalData *data)
   if (tmp_dir == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  /* TODO: perhaps do this in parallel */
+  jobs = g_malloc0_n (data->textures->len, sizeof (*jobs));
+
   for (guint i = 0; i < textures->len; i++)
     {
-      GdkTexture *texture             = NULL;
-      g_autoptr (GBytes) png_bytes    = NULL;
-      char basename[32]               = { 0 };
-      g_autoptr (GFile) download_file = NULL;
-      g_autoptr (GFileIOStream) io    = NULL;
-      GOutputStream *output           = NULL;
+      GdkTexture *texture                            = NULL;
+      char        basename[32]                       = { 0 };
+      g_autoptr (GFile) download_file                = NULL;
+      g_autoptr (SaveSingleScreenshotData) save_data = NULL;
 
-      texture   = g_ptr_array_index (textures, i);
-      png_bytes = gdk_texture_save_to_png_bytes (texture);
+      texture = g_ptr_array_index (textures, i);
 
       g_snprintf (basename, sizeof (basename), "%d.png", i);
       download_file = g_file_new_build_filename (tmp_dir, basename, NULL);
 
-      io = g_file_create_readwrite (
-          download_file,
-          G_FILE_CREATE_REPLACE_DESTINATION,
-          NULL,
-          &local_error);
-      if (io == NULL)
-        {
-          error_out = TRUE;
-          break;
-        }
-      output = g_io_stream_get_output_stream (G_IO_STREAM (io));
+      save_data          = save_single_screenshot_data_new ();
+      save_data->texture = g_object_ref (texture);
+      save_data->output  = g_object_ref (download_file);
 
-      g_output_stream_write_bytes (output, png_bytes, NULL, &local_error);
-      if (local_error != NULL)
-        {
-          error_out = TRUE;
-          break;
-        }
-
-      result = g_io_stream_close (G_IO_STREAM (io), NULL, &local_error);
-      if (!result)
-        {
-          error_out = TRUE;
-          break;
-        }
+      jobs[i] = dex_scheduler_spawn (
+          dex_scheduler_get_thread_default (), 0,
+          (DexFiberFunc) save_single_screenshot_fiber,
+          save_single_screenshot_data_ref (save_data),
+          save_single_screenshot_data_unref);
 
       if (i == initial)
         image_uris = g_list_prepend (image_uris, g_file_get_uri (download_file));
       else
         image_uris = g_list_append (image_uris, g_file_get_uri (download_file));
     }
-  if (error_out)
+
+  for (guint i = 0; i < textures->len; i++)
     {
-      if (image_uris != NULL)
-        g_list_free_full (image_uris, g_free);
-      return dex_future_new_for_error (g_steal_pointer (&local_error));
+      if (!dex_await (jobs[i], &local_error))
+        {
+          g_list_free_full (image_uris, g_free);
+          return dex_future_new_for_error (g_steal_pointer (&local_error));
+        }
     }
 
   result = g_app_info_launch_uris (appinfo, image_uris, NULL, &local_error);
   g_list_free_full (image_uris, g_free);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  return dex_future_new_true ();
+}
+
+static DexFuture *
+save_single_screenshot_fiber (SaveSingleScreenshotData *data)
+{
+  GdkTexture *texture            = data->texture;
+  GFile      *output_file        = data->output;
+  g_autoptr (GError) local_error = NULL;
+  g_autoptr (GBytes) png_bytes   = NULL;
+  g_autoptr (GFileIOStream) io   = NULL;
+  GOutputStream *output          = NULL;
+  gboolean       result          = FALSE;
+
+  png_bytes = gdk_texture_save_to_png_bytes (texture);
+
+  io = g_file_create_readwrite (
+      output_file,
+      G_FILE_CREATE_REPLACE_DESTINATION,
+      NULL,
+      &local_error);
+  if (io == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+  output = g_io_stream_get_output_stream (G_IO_STREAM (io));
+
+  g_output_stream_write_bytes (output, png_bytes, NULL, &local_error);
+  if (local_error != NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  result = g_io_stream_close (G_IO_STREAM (io), NULL, &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   return dex_future_new_true ();
 }
@@ -815,13 +852,14 @@ static DexFuture *
 open_screenshots_external_finally (DexFuture      *future,
                                    BzSearchWidget *self)
 {
-  // g_autoptr (GError) local_error = NULL;
+  g_autoptr (GError) local_error = NULL;
 
-  /* TODO: add error toast or something */
-  // dex_future_get_value (future, &local_error);
-  // if (local_error != NULL)
-  //   {
-  //   }
+  dex_future_get_value (future, &local_error);
+  if (local_error != NULL)
+    {
+      gtk_widget_set_visible (GTK_WIDGET (self->open_screenshot_error), TRUE);
+      gtk_label_set_label (self->open_screenshot_error, local_error->message);
+    }
 
   gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
   dex_clear (&self->loading_image_viewer);
