@@ -28,6 +28,7 @@ typedef struct
   GListModel *updates;
   GListModel *removals;
 
+  char    *name;
   gboolean pending;
   char    *status;
   double   progress;
@@ -42,10 +43,10 @@ enum
 {
   PROP_0,
 
+  PROP_NAME,
   PROP_INSTALLS,
   PROP_UPDATES,
   PROP_REMOVALS,
-
   PROP_PENDING,
   PROP_STATUS,
   PROP_PROGRESS,
@@ -63,10 +64,10 @@ bz_transaction_dispose (GObject *object)
   BzTransaction        *self = BZ_TRANSACTION (object);
   BzTransactionPrivate *priv = bz_transaction_get_instance_private (self);
 
+  g_clear_pointer (&priv->name, g_free);
   g_clear_object (&priv->installs);
   g_clear_object (&priv->updates);
   g_clear_object (&priv->removals);
-
   g_clear_pointer (&priv->status, g_free);
   g_clear_pointer (&priv->error, g_free);
 
@@ -84,6 +85,9 @@ bz_transaction_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_NAME:
+      g_value_set_string (value, priv->name);
+      break;
     case PROP_INSTALLS:
       g_value_set_object (value, priv->installs);
       break;
@@ -127,6 +131,10 @@ bz_transaction_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_NAME:
+      g_clear_pointer (&priv->name, g_free);
+      priv->name = g_value_dup_string (value);
+      break;
     case PROP_INSTALLS:
       g_clear_object (&priv->installs);
       priv->installs = g_value_dup_object (value);
@@ -172,6 +180,12 @@ bz_transaction_class_init (BzTransactionClass *klass)
   object_class->set_property = bz_transaction_set_property;
   object_class->get_property = bz_transaction_get_property;
   object_class->dispose      = bz_transaction_dispose;
+
+  props[PROP_NAME] =
+      g_param_spec_string (
+          "name",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
 
   props[PROP_INSTALLS] =
       g_param_spec_object (
@@ -238,15 +252,19 @@ static void
 bz_transaction_init (BzTransaction *self)
 {
   BzTransactionPrivate *priv = NULL;
+  g_autoptr (GDateTime) now  = NULL;
 
   priv = bz_transaction_get_instance_private (self);
+
+  now        = g_date_time_new_now_local ();
+  priv->name = g_date_time_format (now, "Transaction Requested: %c");
 
   priv->installs = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->updates  = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->removals = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
-
-  priv->pending = TRUE;
-  priv->status  = g_strdup ("Pending");
+  priv->pending  = TRUE;
+  priv->status   = g_strdup ("Pending");
+  priv->success  = TRUE;
 }
 
 BzTransaction *

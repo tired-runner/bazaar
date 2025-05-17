@@ -780,7 +780,7 @@ transaction_new_operation (FlatpakTransaction          *transaction,
                            FlatpakTransactionProgress  *progress,
                            TransactionData             *data)
 {
-  flatpak_transaction_progress_set_update_frequency (progress, 10);
+  flatpak_transaction_progress_set_update_frequency (progress, 50);
 
   if (data->progress_func != NULL)
     {
@@ -857,7 +857,7 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
         /* We'll send an update periodically so the UI can pulse */
         data->timeout_handle = g_timeout_add_full (
             G_PRIORITY_DEFAULT,
-            10,
+            50,
             (GSourceFunc) transaction_progress_timeout,
             idle_transaction_data_ref (idle_data),
             idle_transaction_data_unref);

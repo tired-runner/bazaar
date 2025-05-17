@@ -20,8 +20,16 @@
           </object>
         </property>
         <property name="sheet">
-          <object class="BzTransactionManager" id="transaction_mgr">
-            <property name="margin-top">50</property>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkSeparator">
+                <property name="margin-top">50</property>
+              </object>
+            </child>
+            <child>
+              <object class="BzTransactionManager" id="transaction_mgr"/>
+            </child>
           </object>
         </property>
         <property name="content">
