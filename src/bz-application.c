@@ -41,7 +41,7 @@ bz_application_new (const char       *application_id,
       BZ_TYPE_APPLICATION,
       "application-id", application_id,
       "flags", flags,
-      "resource-base-path", "/io/github/kolunmi",
+      "resource-base-path", "/io/github/kolunmi/bazaar",
       NULL);
 }
 
