@@ -41,14 +41,15 @@ struct _BzWindow
   BzEntry    *pending_installation;
 
   /* Template widgets */
+  AdwStatusPage        *status;
   BzBackground         *background;
   BzBrowseWidget       *browse;
   GtkButton            *refresh;
   GtkButton            *search;
   AdwToastOverlay      *toasts;
   AdwSpinner           *spinner;
+  AdwBottomSheet       *sheet;
   BzTransactionManager *transaction_mgr;
-  AdwStatusPage        *status;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -149,6 +150,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, sheet);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transaction_mgr);
@@ -492,6 +494,7 @@ install (BzWindow *self,
       NULL, 0,
       NULL, 0);
   bz_transaction_manager_add (self->transaction_mgr, transaction);
+  adw_bottom_sheet_set_open (self->sheet, TRUE);
 }
 
 static void
@@ -538,6 +541,7 @@ update (BzWindow *self,
       updates, n_updates,
       NULL, 0);
   bz_transaction_manager_add (self->transaction_mgr, transaction);
+  adw_bottom_sheet_set_open (self->sheet, TRUE);
 }
 
 static void

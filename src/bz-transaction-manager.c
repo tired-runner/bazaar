@@ -44,6 +44,7 @@ struct _BzTransactionManager
   GQueue     queue;
 
   /* Template widgets */
+  GtkListView    *list_view;
   GtkNoSelection *no_selection;
 };
 
@@ -155,6 +156,7 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-transaction-manager.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzTransactionManager, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzTransactionManager, no_selection);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 }
@@ -253,6 +255,7 @@ bz_transaction_manager_add (BzTransactionManager *self,
     dispatch_next (self);
 
   g_list_store_insert (self->transactions, 0, transaction);
+  gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_FOCUS, NULL);
 }
 
 static void
