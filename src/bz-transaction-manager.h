@@ -1,4 +1,4 @@
-/* bz-flatpak-instance.h
+/* bz-transaction-manager.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,28 @@
 
 #pragma once
 
-#include <libdex.h>
+#include <adwaita.h>
 
-#include "bz-flatpak-entry.h"
+#include "bz-backend.h"
+#include "bz-transaction.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_FLATPAK_INSTANCE (bz_flatpak_instance_get_type ())
-G_DECLARE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, BZ, FLATPAK_INSTANCE, GObject)
+#define BZ_TYPE_TRANSACTION_MANAGER (bz_transaction_manager_get_type ())
+G_DECLARE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, BZ, TRANSACTION_MANAGER, AdwBin)
 
-DexFuture *
-bz_flatpak_instance_new (void);
+GtkWidget *
+bz_transaction_manager_new (GListModel *model);
+
+void
+bz_transaction_manager_set_backend (BzTransactionManager *self,
+                                    BzBackend            *backend);
+
+BzBackend *
+bz_transaction_manager_get_backend (BzTransactionManager *self);
+
+void
+bz_transaction_manager_add (BzTransactionManager *self,
+                            BzTransaction        *transaction);
 
 G_END_DECLS

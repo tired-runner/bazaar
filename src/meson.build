@@ -6,10 +6,14 @@ bz_sources = [
   'bz-browse-widget.c',
   'bz-update-dialog.c',
   'bz-background.c',
-  'bz-flatpak-instance.c',
   'bz-entry.c',
+  'bz-transaction.c',
+  'bz-transaction-manager.c',
+  'bz-backend.c',
+  'bz-flatpak-instance.c',
   'bz-flatpak-entry.c',
   'bz-paintable-model.c',
+  'bz-error.c',
 ]
 
 bz_deps = [

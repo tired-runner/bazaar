@@ -24,6 +24,7 @@
 #include <glycin-gtk4.h>
 #include <xmlb.h>
 
+#include "bz-backend.h"
 #include "bz-flatpak-private.h"
 #include "bz-util.h"
 
@@ -35,7 +36,14 @@ struct _BzFlatpakInstance
   FlatpakInstallation *installation;
 };
 
-G_DEFINE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, G_TYPE_OBJECT)
+static void
+backend_iface_init (BzBackendInterface *iface);
+
+G_DEFINE_FINAL_TYPE_WITH_CODE (
+    BzFlatpakInstance,
+    bz_flatpak_instance,
+    G_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE (BZ_TYPE_BACKEND, backend_iface_init));
 
 BZ_DEFINE_DATA (
     init,
@@ -51,7 +59,7 @@ BZ_DEFINE_DATA (
     {
       BzFlatpakInstance         *fp;
       DexScheduler              *home_scheduler;
-      BzFlatpakGatherEntriesFunc progress_func;
+      BzBackendGatherEntriesFunc progress_func;
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
@@ -112,16 +120,18 @@ BZ_DEFINE_DATA (
     Transaction,
     {
       BzFlatpakInstance               *fp;
-      GPtrArray                       *installations;
+      GPtrArray                       *installs;
       GPtrArray                       *updates;
+      GPtrArray                       *removals;
       GHashTable                      *ref_to_entry_hash;
-      BzFlatpakTransactionProgressFunc progress_func;
+      BzBackendTransactionProgressFunc progress_func;
       gpointer                         user_data;
       GDestroyNotify                   destroy_user_data;
     },
     BZ_RELEASE_DATA (fp, g_object_unref);
-    BZ_RELEASE_DATA (installations, g_ptr_array_unref);
+    BZ_RELEASE_DATA (installs, g_ptr_array_unref);
     BZ_RELEASE_DATA (updates, g_ptr_array_unref);
+    BZ_RELEASE_DATA (removals, g_ptr_array_unref);
     BZ_RELEASE_DATA (ref_to_entry_hash, g_hash_table_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
@@ -193,6 +203,132 @@ bz_flatpak_instance_init (BzFlatpakInstance *self)
   self->scheduler = dex_thread_pool_scheduler_new ();
 }
 
+static DexFuture *
+bz_flatpak_instance_refresh (BzBackend *backend)
+{
+  /* TODO: move appstream sync here */
+  return dex_future_new_true ();
+}
+
+static DexFuture *
+bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
+                                             BzBackendGatherEntriesFunc progress_func,
+                                             gpointer                   user_data,
+                                             GDestroyNotify             destroy_user_data)
+{
+  BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
+  g_autoptr (GatherEntriesData) data = NULL;
+
+  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
+  g_return_val_if_fail (progress_func != NULL, NULL);
+
+  data                    = gather_entries_data_new ();
+  data->fp                = g_object_ref (self);
+  data->home_scheduler    = dex_scheduler_ref_thread_default ();
+  data->progress_func     = progress_func;
+  data->user_data         = user_data;
+  data->destroy_user_data = destroy_user_data;
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
+      gather_entries_data_ref (data), gather_entries_data_unref);
+}
+
+static DexFuture *
+bz_flatpak_instance_retrieve_update_ids (BzBackend *backend)
+{
+  BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
+  g_autoptr (GatherEntriesData) data = NULL;
+
+  data                    = gather_entries_data_new ();
+  data->fp                = g_object_ref (self);
+  data->home_scheduler    = dex_scheduler_ref_thread_default ();
+  data->progress_func     = NULL;
+  data->user_data         = NULL;
+  data->destroy_user_data = NULL;
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) ref_updates_fiber,
+      gather_entries_data_ref (data), gather_entries_data_unref);
+}
+
+static DexFuture *
+bz_flatpak_instance_schedule_transaction (BzBackend                       *backend,
+                                          BzEntry                        **installs,
+                                          guint                            n_installs,
+                                          BzEntry                        **updates,
+                                          guint                            n_updates,
+                                          BzEntry                        **removals,
+                                          guint                            n_removals,
+                                          BzBackendTransactionProgressFunc progress_func,
+                                          gpointer                         user_data,
+                                          GDestroyNotify                   destroy_user_data)
+{
+  BzFlatpakInstance *self          = BZ_FLATPAK_INSTANCE (backend);
+  BzFlatpakEntry   **installs_dup  = NULL;
+  BzFlatpakEntry   **updates_dup   = NULL;
+  BzFlatpakEntry   **removals_dup  = NULL;
+  g_autoptr (TransactionData) data = NULL;
+
+  if (n_installs > 0)
+    {
+      for (guint i = 0; i < n_installs; i++)
+        g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (installs[i]), NULL);
+    }
+  if (n_updates > 0)
+    {
+      for (guint i = 0; i < n_updates; i++)
+        g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (updates[i]), NULL);
+    }
+  if (n_removals > 0)
+    {
+      for (guint i = 0; i < n_removals; i++)
+        g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (removals[i]), NULL);
+    }
+
+  if (n_installs > 0)
+    {
+      installs_dup = g_malloc0_n (n_installs, sizeof (*installs_dup));
+      for (guint i = 0; i < n_installs; i++)
+        installs_dup[i] = g_object_ref (BZ_FLATPAK_ENTRY (installs[i]));
+    }
+  if (n_updates > 0)
+    {
+      updates_dup = g_malloc0_n (n_updates, sizeof (*updates_dup));
+      for (guint i = 0; i < n_updates; i++)
+        updates_dup[i] = g_object_ref (BZ_FLATPAK_ENTRY (updates[i]));
+    }
+  if (n_removals > 0)
+    {
+      removals_dup = g_malloc0_n (n_removals, sizeof (*removals_dup));
+      for (guint i = 0; i < n_removals; i++)
+        removals_dup[i] = g_object_ref (BZ_FLATPAK_ENTRY (removals[i]));
+    }
+
+  data                    = transaction_data_new ();
+  data->fp                = g_object_ref (self);
+  data->installs          = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
+  data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
+  data->removals          = removals_dup != NULL ? g_ptr_array_new_take ((gpointer *) removals_dup, n_removals, g_object_unref) : NULL;
+  data->ref_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  data->progress_func     = progress_func;
+  data->user_data         = user_data;
+  data->destroy_user_data = destroy_user_data;
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) transaction_fiber,
+      transaction_data_ref (data), transaction_data_unref);
+}
+
+static void
+backend_iface_init (BzBackendInterface *iface)
+{
+  iface->refresh                 = bz_flatpak_instance_refresh;
+  iface->retrieve_remote_entries = bz_flatpak_instance_retrieve_remote_entries;
+  iface->retrieve_update_ids     = bz_flatpak_instance_retrieve_update_ids;
+  iface->schedule_transaction    = bz_flatpak_instance_schedule_transaction;
+}
+
 FlatpakInstallation *
 bz_flatpak_instance_get_installation (BzFlatpakInstance *self)
 {
@@ -225,29 +361,6 @@ init_fiber (InitData *data)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   return dex_future_new_for_object (fp);
-}
-
-DexFuture *
-bz_flatpak_instance_ref_remote_apps (BzFlatpakInstance         *self,
-                                     BzFlatpakGatherEntriesFunc progress_func,
-                                     gpointer                   user_data,
-                                     GDestroyNotify             destroy_user_data)
-{
-  g_autoptr (GatherEntriesData) data = NULL;
-
-  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-  g_return_val_if_fail (progress_func != NULL, NULL);
-
-  data                    = gather_entries_data_new ();
-  data->fp                = g_object_ref (self);
-  data->home_scheduler    = dex_scheduler_ref_thread_default ();
-  data->progress_func     = progress_func;
-  data->user_data         = user_data;
-  data->destroy_user_data = destroy_user_data;
-
-  return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
-      gather_entries_data_ref (data), gather_entries_data_unref);
 }
 
 static DexFuture *
@@ -520,25 +633,6 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   return dex_future_new_true ();
 }
 
-DexFuture *
-bz_flatpak_instance_ref_updates (BzFlatpakInstance *self)
-{
-  g_autoptr (GatherEntriesData) data = NULL;
-
-  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-
-  data                    = gather_entries_data_new ();
-  data->fp                = g_object_ref (self);
-  data->home_scheduler    = dex_scheduler_ref_thread_default ();
-  data->progress_func     = NULL;
-  data->user_data         = NULL;
-  data->destroy_user_data = NULL;
-
-  return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_updates_fiber,
-      gather_entries_data_ref (data), gather_entries_data_unref);
-}
-
 static DexFuture *
 ref_updates_fiber (GatherEntriesData *data)
 {
@@ -580,55 +674,13 @@ gather_entries_job_update (GatherEntriesUpdateData *data)
   return dex_future_new_true ();
 }
 
-DexFuture *
-bz_flatpak_instance_schedule_transaction (BzFlatpakInstance               *self,
-                                          BzFlatpakEntry                 **installs,
-                                          guint                            n_installs,
-                                          BzFlatpakEntry                 **updates,
-                                          guint                            n_updates,
-                                          BzFlatpakTransactionProgressFunc progress_func,
-                                          gpointer                         user_data,
-                                          GDestroyNotify                   destroy_user_data)
-{
-  BzFlatpakEntry **installs_dup    = NULL;
-  BzFlatpakEntry **updates_dup     = NULL;
-  g_autoptr (TransactionData) data = NULL;
-
-  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-
-  if (n_installs > 0)
-    {
-      installs_dup = g_malloc0_n (n_installs, sizeof (*installs_dup));
-      for (guint i = 0; i < n_installs; i++)
-        installs_dup[i] = g_object_ref (installs[i]);
-    }
-  if (n_updates > 0)
-    {
-      updates_dup = g_malloc0_n (n_updates, sizeof (*updates_dup));
-      for (guint i = 0; i < n_updates; i++)
-        updates_dup[i] = g_object_ref (updates[i]);
-    }
-
-  data                    = transaction_data_new ();
-  data->fp                = g_object_ref (self);
-  data->installations     = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
-  data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
-  data->ref_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
-  data->progress_func     = progress_func;
-  data->user_data         = user_data;
-  data->destroy_user_data = destroy_user_data;
-
-  return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) transaction_fiber,
-      transaction_data_ref (data), transaction_data_unref);
-}
-
 static DexFuture *
 transaction_fiber (TransactionData *data)
 {
   BzFlatpakInstance *fp                           = data->fp;
-  GPtrArray         *installations                = data->installations;
+  GPtrArray         *installations                = data->installs;
   GPtrArray         *updates                      = data->updates;
+  GPtrArray         *removals                     = data->removals;
   g_autoptr (GError) local_error                  = NULL;
   g_autoptr (FlatpakTransaction) transaction      = NULL;
   gboolean result                                 = FALSE;
@@ -681,6 +733,30 @@ transaction_fiber (TransactionData *data)
               ref_fmt,
               NULL,
               NULL,
+              &local_error);
+          if (!result)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          g_hash_table_replace (data->ref_to_entry_hash,
+                                g_steal_pointer (&ref_fmt),
+                                g_object_ref (entry));
+        }
+    }
+
+  if (removals != NULL)
+    {
+      for (guint i = 0; i < removals->len; i++)
+        {
+          BzFlatpakEntry  *entry   = NULL;
+          FlatpakRef      *ref     = NULL;
+          g_autofree char *ref_fmt = NULL;
+
+          entry   = g_ptr_array_index (removals, i);
+          ref     = bz_flatpak_entry_get_ref (entry);
+          ref_fmt = flatpak_ref_format_ref (ref);
+          result  = flatpak_transaction_add_uninstall (
+              transaction,
+              ref_fmt,
               &local_error);
           if (!result)
             return dex_future_new_for_error (g_steal_pointer (&local_error));
@@ -795,7 +871,7 @@ static gboolean
 transaction_progress_idle (IdleTransactionData *data)
 {
   data->parent->parent->progress_func (
-      data->parent->entry,
+      BZ_ENTRY (data->parent->entry),
       data->status,
       data->is_estimating,
       data->progress_num,
@@ -810,7 +886,7 @@ static gboolean
 transaction_progress_timeout (IdleTransactionData *data)
 {
   data->parent->parent->progress_func (
-      data->parent->entry,
+      BZ_ENTRY (data->parent->entry),
       data->status,
       data->is_estimating,
       data->progress_num,

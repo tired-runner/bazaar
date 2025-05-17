@@ -1,4 +1,4 @@
-/* bz-flatpak-instance.h
+/* bz-transaction.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,33 @@
 
 #pragma once
 
-#include <libdex.h>
-
-#include "bz-flatpak-entry.h"
+#include "bz-entry.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_FLATPAK_INSTANCE (bz_flatpak_instance_get_type ())
-G_DECLARE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, BZ, FLATPAK_INSTANCE, GObject)
+#define BZ_TYPE_TRANSACTION (bz_transaction_get_type ())
+G_DECLARE_DERIVABLE_TYPE (BzTransaction, bz_transaction, BZ, TRANSACTION, GObject)
 
-DexFuture *
-bz_flatpak_instance_new (void);
+struct _BzTransactionClass
+{
+  GObjectClass parent_class;
+};
+
+BzTransaction *
+bz_transaction_new_full (BzEntry **installs,
+                         guint     n_installs,
+                         BzEntry **updates,
+                         guint     n_updates,
+                         BzEntry **removals,
+                         guint     n_removals);
+
+GListModel *
+bz_transaction_get_installs (BzTransaction *self);
+
+GListModel *
+bz_transaction_get_updates (BzTransaction *self);
+
+GListModel *
+bz_transaction_get_removals (BzTransaction *self);
 
 G_END_DECLS

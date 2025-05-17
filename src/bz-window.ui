@@ -17,59 +17,11 @@
             <property name="spacing">5</property>
             <property name="margin-top">5</property>
             <property name="margin-bottom">5</property>
-            <child>
-              <object class="GtkCenterBox">
-                <property name="orientation">horizontal</property>
-                <property name="vexpand">TRUE</property>
-                <property name="center-widget">
-                  <object class="GtkLabel" id="progress_label">
-                    <style>
-                      <class name="monospace"/>
-                      <class name="dim-label"/>
-                    </style>
-                    <property name="vexpand">TRUE</property>
-                    <property name="ellipsize">end</property>
-                  </object>
-                </property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkCenterBox">
-                <property name="orientation">horizontal</property>
-                <property name="vexpand">TRUE</property>
-                <property name="center-widget">
-                  <object class="GtkBox">
-                    <property name="orientation">vertical</property>
-                    <child>
-                      <object class="GtkProgressBar" id="progress_bar">
-                        <property name="visible">FALSE</property>
-                        <property name="vexpand">TRUE</property>
-                        <property name="width-request">250</property>
-                        <property name="pulse-step">0.01</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="AdwSpinner" id="progress_spinner">
-                        <property name="visible">FALSE</property>
-                        <property name="vexpand">TRUE</property>
-                      </object>
-                    </child>
-                  </object>
-                </property>
-              </object>
-            </child>
           </object>
         </property>
         <property name="sheet">
-          <object class="GtkLabel">
-            <style>
-              <class name="title-1"/>
-            </style>
-            <property name="margin-top">70</property>
-            <property name="margin-bottom">70</property>
-            <property name="hexpand">TRUE</property>
-            <property name="vexpand">TRUE</property>
-            <property name="label">Downloads</property>
+          <object class="BzTransactionManager" id="transaction_mgr">
+            <property name="margin-top">50</property>
           </object>
         </property>
         <property name="content">

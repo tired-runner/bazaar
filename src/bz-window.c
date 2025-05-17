@@ -20,10 +20,12 @@
 
 #include "config.h"
 
+#include "bz-backend.h"
 #include "bz-background.h"
 #include "bz-browse-widget.h"
 #include "bz-flatpak-instance.h"
 #include "bz-search-widget.h"
+#include "bz-transaction-manager.h"
 #include "bz-update-dialog.h"
 #include "bz-window.h"
 
@@ -39,16 +41,14 @@ struct _BzWindow
   BzEntry    *pending_installation;
 
   /* Template widgets */
-  BzBackground    *background;
-  BzBrowseWidget  *browse;
-  GtkButton       *refresh;
-  GtkButton       *search;
-  AdwToastOverlay *toasts;
-  AdwSpinner      *spinner;
-  AdwStatusPage   *status;
-  GtkLabel        *progress_label;
-  GtkProgressBar  *progress_bar;
-  AdwSpinner      *progress_spinner;
+  BzBackground         *background;
+  BzBrowseWidget       *browse;
+  GtkButton            *refresh;
+  GtkButton            *search;
+  AdwToastOverlay      *toasts;
+  AdwSpinner           *spinner;
+  BzTransactionManager *transaction_mgr;
+  AdwStatusPage        *status;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -81,18 +81,6 @@ refresh_finally (DexFuture *future,
                  BzWindow  *self);
 
 static void
-install_progress (BzFlatpakEntry *entry,
-                  const char     *status,
-                  gboolean        is_estimating,
-                  int             progress_num,
-                  guint64         bytes_transferred,
-                  guint64         start_time,
-                  BzWindow       *self);
-static DexFuture *
-install_finally (DexFuture *future,
-                 BzWindow  *self);
-
-static void
 search_selected_changed (BzSearchWidget *search,
                          GParamSpec     *pspec,
                          BzWindow       *self);
@@ -101,19 +89,6 @@ static void
 install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
                                BzWindow       *self);
-
-static void
-install_success_toast_button_clicked (AdwToast *toast,
-                                      BzWindow *self);
-
-static void
-install_error_toast_button_clicked (AdwToast *toast,
-                                    BzWindow *window);
-
-static void
-error_alert_response (AdwAlertDialog *alert,
-                      gchar          *response,
-                      BzWindow       *self);
 
 static void
 update_dialog_response (BzUpdateDialog *dialog,
@@ -143,10 +118,6 @@ static void
 search (BzWindow *self);
 
 static void
-show_error (BzWindow *self,
-            char     *error_text);
-
-static void
 bz_window_dispose (GObject *object)
 {
   BzWindow *self = BZ_WINDOW (object);
@@ -169,6 +140,7 @@ bz_window_class_init (BzWindowClass *klass)
   object_class->dispose = bz_window_dispose;
 
   g_type_ensure (BZ_TYPE_BACKGROUND);
+  g_type_ensure (BZ_TYPE_TRANSACTION_MANAGER);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Example/bz-window.ui");
@@ -179,9 +151,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_label);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_bar);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, progress_spinner);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, transaction_mgr);
 }
 
 static void
@@ -238,10 +208,13 @@ refresh_then (DexFuture *future,
 
   value         = dex_future_get_value (future, &local_error);
   self->flatpak = g_value_dup_object (value);
+  bz_transaction_manager_set_backend (self->transaction_mgr, BZ_BACKEND (self->flatpak));
 
-  ref_remote_future = bz_flatpak_instance_ref_remote_apps (
-      self->flatpak,
-      (BzFlatpakGatherEntriesFunc) gather_entries_progress,
+  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
+
+  ref_remote_future = bz_backend_retrieve_remote_entries (
+      BZ_BACKEND (self->flatpak),
+      (BzBackendGatherEntriesFunc) gather_entries_progress,
       g_object_ref (self), g_object_unref);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_refs_then,
@@ -309,7 +282,7 @@ fetch_refs_then (DexFuture *future,
       self->toasts,
       adw_toast_new_format ("Discovered %d Apps", n_entries));
 
-  return bz_flatpak_instance_ref_updates (self->flatpak);
+  return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak));
 }
 
 static DexFuture *
@@ -362,9 +335,7 @@ refresh_catch (DexFuture *future,
   g_autoptr (GError) local_error = NULL;
 
   dex_future_get_value (future, &local_error);
-
   adw_toast_overlay_add_toast (self->toasts, adw_toast_new_format ("Failed! %s", local_error->message));
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
 
   return dex_future_new_true ();
 }
@@ -376,105 +347,7 @@ refresh_finally (DexFuture *future,
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->status), TRUE);
   gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
-
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
-
-  return dex_future_new_true ();
-}
-
-static void
-install_progress (BzFlatpakEntry *entry,
-                  const char     *status,
-                  gboolean        is_estimating,
-                  int             progress_num,
-                  guint64         bytes_transferred,
-                  guint64         start_time,
-                  BzWindow       *self)
-{
-  gboolean         show_bar = FALSE;
-  const char      *title    = NULL;
-  g_autofree char *text     = NULL;
-
-  show_bar = status != NULL && status[0] != '\0';
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), show_bar);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), !show_bar);
-
-  if (is_estimating)
-    gtk_progress_bar_pulse (self->progress_bar);
-  else
-    gtk_progress_bar_set_fraction (self->progress_bar, (double) progress_num / 100.0);
-
-  title = bz_entry_get_title (BZ_ENTRY (entry));
-  text  = g_strdup_printf ("Installing: %s (%s)", title, status);
-
-  gtk_label_set_text (self->progress_label, text);
-}
-
-static DexFuture *
-install_finally (DexFuture *future,
-                 BzWindow  *self)
-{
-  if (self->pending_installation != NULL)
-    {
-      const char *entry_title        = NULL;
-      g_autoptr (GError) local_error = NULL;
-      const GValue *value            = NULL;
-
-      entry_title = bz_entry_get_title (self->pending_installation);
-      value       = dex_future_get_value (future, &local_error);
-
-      if (value != NULL)
-        {
-          AdwToast *toast = NULL;
-
-          toast = adw_toast_new_format ("Successfully installed %s", entry_title);
-          if (BZ_IS_FLATPAK_ENTRY (self->pending_installation))
-            {
-              adw_toast_set_button_label (toast, "Launch");
-
-              g_object_set_data_full (
-                  G_OBJECT (toast), "to-launch",
-                  g_object_ref (self->pending_installation),
-                  g_object_unref);
-              g_signal_connect (
-                  toast, "button-clicked",
-                  G_CALLBACK (install_success_toast_button_clicked),
-                  self);
-            }
-
-          adw_toast_overlay_add_toast (self->toasts, toast);
-        }
-      else
-        {
-          AdwToast *toast = NULL;
-
-          toast = adw_toast_new_format ("Failed to install %s", entry_title);
-          adw_toast_set_button_label (toast, "View Error");
-
-          g_object_set_data_full (
-              G_OBJECT (toast), "error-text",
-              g_strdup (local_error->message), g_free);
-          g_signal_connect (
-              toast, "button-clicked",
-              G_CALLBACK (install_error_toast_button_clicked),
-              self);
-
-          adw_toast_overlay_add_toast (self->toasts, toast);
-        }
-    }
-
-  g_clear_object (&self->pending_installation);
-
-  gtk_label_set_text (self->progress_label, NULL);
-  gtk_progress_bar_set_fraction (self->progress_bar, 0);
-
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_label), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), FALSE);
-
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
 
   return dex_future_new_true ();
 }
@@ -506,55 +379,6 @@ install_confirmation_response (AdwAlertDialog *alert,
     install (self, self->pending_installation);
   else
     g_clear_object (&self->pending_installation);
-}
-
-static void
-install_success_toast_button_clicked (AdwToast *toast,
-                                      BzWindow *self)
-{
-  g_autoptr (BzFlatpakEntry) entry = NULL;
-  g_autoptr (GError) local_error   = NULL;
-  gboolean result                  = FALSE;
-
-  entry = g_object_steal_data (G_OBJECT (toast), "to-launch");
-  g_assert (entry != NULL);
-
-  result = bz_flatpak_entry_launch (entry, &local_error);
-  if (!result)
-    show_error (self, g_strdup (local_error->message));
-}
-
-static void
-install_error_toast_button_clicked (AdwToast *toast,
-                                    BzWindow *self)
-{
-  g_autofree char *error_text = NULL;
-
-  error_text = g_object_steal_data (G_OBJECT (toast), "error-text");
-  g_assert (error_text != NULL);
-
-  show_error (self, error_text);
-}
-
-static void
-error_alert_response (AdwAlertDialog *alert,
-                      gchar          *response,
-                      BzWindow       *self)
-{
-  if (g_strcmp0 (response, "copy") == 0)
-    {
-      const char   *body = NULL;
-      GdkClipboard *clipboard;
-
-      body      = adw_alert_dialog_get_body (alert);
-      clipboard = gdk_display_get_clipboard (gdk_display_get_default ());
-
-      gdk_clipboard_set_text (clipboard, body);
-
-      adw_toast_overlay_add_toast (
-          self->toasts,
-          adw_toast_new_format ("Error copied to clipboard"));
-    }
 }
 
 static void
@@ -661,28 +485,13 @@ static void
 install (BzWindow *self,
          BzEntry  *entry)
 {
-  DexFuture *future = NULL;
+  g_autoptr (BzTransaction) transaction = NULL;
 
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
-
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_label), TRUE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
-
-  future = bz_flatpak_instance_schedule_transaction (
-      self->flatpak,
-      (BzFlatpakEntry **) &entry,
-      1,
-      NULL,
-      0,
-      (BzFlatpakTransactionProgressFunc) install_progress,
-      g_object_ref (self),
-      g_object_unref);
-  future = dex_future_finally (
-      future, (DexFutureCallback) install_finally,
-      g_object_ref (self), g_object_unref);
-  dex_future_disown (future);
+  transaction = bz_transaction_new_full (
+      &entry, 1,
+      NULL, 0,
+      NULL, 0);
+  bz_transaction_manager_add (self->transaction_mgr, transaction);
 }
 
 static void
@@ -701,6 +510,7 @@ try_install (BzWindow *self,
       ADW_ALERT_DIALOG (alert),
       "You are about to install the following Flatpak:\n\n<b>%s</b>\n<tt>%s</tt>\n\nAre you sure?",
       bz_entry_get_title (entry),
+      /* TODO: make this fully backend agnostic */
       bz_flatpak_entry_get_name (BZ_FLATPAK_ENTRY (entry)));
   adw_alert_dialog_add_responses (
       ADW_ALERT_DIALOG (alert),
@@ -721,28 +531,13 @@ update (BzWindow *self,
         BzEntry **updates,
         guint     n_updates)
 {
-  DexFuture *future = NULL;
+  g_autoptr (BzTransaction) transaction = NULL;
 
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
-
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_label), TRUE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_bar), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->progress_spinner), TRUE);
-
-  future = bz_flatpak_instance_schedule_transaction (
-      self->flatpak,
-      NULL,
-      0,
-      (BzFlatpakEntry **) updates,
-      n_updates,
-      (BzFlatpakTransactionProgressFunc) install_progress,
-      g_object_ref (self),
-      g_object_unref);
-  future = dex_future_finally (
-      future, (DexFutureCallback) install_finally,
-      g_object_ref (self), g_object_unref);
-  dex_future_disown (future);
+  transaction = bz_transaction_new_full (
+      NULL, 0,
+      updates, n_updates,
+      NULL, 0);
+  bz_transaction_manager_add (self->transaction_mgr, transaction);
 }
 
 static void
@@ -762,30 +557,4 @@ search (BzWindow *self)
   adw_dialog_set_content_height (dialog, 1200);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
-}
-
-static void
-show_error (BzWindow *self,
-            char     *error_text)
-{
-  AdwDialog *alert = NULL;
-
-  alert = adw_alert_dialog_new (NULL, NULL);
-  adw_alert_dialog_format_heading (
-      ADW_ALERT_DIALOG (alert), "An Error Occured");
-  adw_alert_dialog_format_body (
-      ADW_ALERT_DIALOG (alert),
-      "%s", error_text);
-  adw_alert_dialog_add_responses (
-      ADW_ALERT_DIALOG (alert),
-      "close", "Close",
-      "copy", "Copy and Close",
-      NULL);
-  adw_alert_dialog_set_response_appearance (
-      ADW_ALERT_DIALOG (alert), "copy", ADW_RESPONSE_SUGGESTED);
-  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "close");
-  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "close");
-
-  g_signal_connect (alert, "response", G_CALLBACK (error_alert_response), self);
-  adw_dialog_present (alert, GTK_WIDGET (self));
 }

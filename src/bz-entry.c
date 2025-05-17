@@ -349,7 +349,7 @@ bz_entry_class_init (BzEntryClass *klass)
 }
 
 static void
-bz_entry_init (BzEntry *priv)
+bz_entry_init (BzEntry *self)
 {
 }
 

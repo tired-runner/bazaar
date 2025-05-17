@@ -1,4 +1,4 @@
-/* bz-flatpak-instance.h
+/* bz-error.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,14 @@
 
 #pragma once
 
-#include <libdex.h>
-
-#include "bz-flatpak-entry.h"
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_FLATPAK_INSTANCE (bz_flatpak_instance_get_type ())
-G_DECLARE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, BZ, FLATPAK_INSTANCE, GObject)
-
-DexFuture *
-bz_flatpak_instance_new (void);
+/* if parent is NULL, search for window ancestor */
+void
+bz_show_error_for_widget (GtkWidget  *widget,
+                          GtkWidget  *parent,
+                          const char *text);
 
 G_END_DECLS
