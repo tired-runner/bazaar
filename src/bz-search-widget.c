@@ -456,7 +456,7 @@ sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
   gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-2");
 
   gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "title-3");
-  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "title-4");
+  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "heading");
 }
 
 static void
@@ -470,7 +470,7 @@ sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
   gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-2");
   gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-1");
 
-  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "title-4");
+  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "heading");
   gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "title-3");
 }
 
