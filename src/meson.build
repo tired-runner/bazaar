@@ -19,7 +19,7 @@ bz_sources = [
 bz_deps = [
   cc.find_library('m', required: false),
   dependency('gtk4'),
-  dependency('libadwaita-1', version: '>= 1.4'),
+  dependency('libadwaita-1', version: '>= 1.7'),
   dependency('libdex-1', version: '>= 0.9'),
   dependency('flatpak', version: '>= 1.9'),
   dependency('appstream', version : '>= 1.0'),
