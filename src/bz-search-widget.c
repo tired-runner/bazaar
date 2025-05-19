@@ -392,12 +392,20 @@ bz_search_widget_init (BzSearchWidget *self)
 }
 
 GtkWidget *
-bz_search_widget_new (GListModel *model)
+bz_search_widget_new (GListModel *model,
+                      const char *initial)
 {
-  return g_object_new (
+  BzSearchWidget *self = NULL;
+
+  self = g_object_new (
       BZ_TYPE_SEARCH_WIDGET,
       "model", model,
       NULL);
+
+  if (initial != NULL)
+    gtk_editable_set_text (GTK_EDITABLE (self->search_bar), initial);
+
+  return GTK_WIDGET (self);
 }
 
 void

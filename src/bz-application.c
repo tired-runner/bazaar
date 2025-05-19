@@ -29,6 +29,9 @@ struct _BzApplication
   AdwApplication parent_instance;
 
   GListModel *blocklists;
+
+  gboolean initial_search;
+  char    *initial_search_text;
 };
 
 G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
@@ -49,6 +52,7 @@ bz_application_dispose (GObject *object)
   BzApplication *self = BZ_APPLICATION (object);
 
   g_clear_object (&self->blocklists);
+  g_clear_pointer (&self->initial_search_text, g_free);
 
   G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
 }
@@ -93,9 +97,8 @@ bz_application_set_property (GObject      *object,
 static void
 bz_application_activate (GApplication *app)
 {
-  GtkWindow *window;
-
-  g_assert (BZ_IS_APPLICATION (app));
+  BzApplication *self = BZ_APPLICATION (app);
+  GtkWindow     *window;
 
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
   if (window == NULL)
@@ -117,6 +120,9 @@ bz_application_activate (GApplication *app)
     }
 
   gtk_window_present (window);
+
+  if (self->initial_search)
+    bz_window_search (BZ_WINDOW (window), self->initial_search_text);
 }
 
 static void
@@ -144,17 +150,27 @@ bz_application_class_init (BzApplicationClass *klass)
 BzApplication *
 bz_application_new (const char       *application_id,
                     GListModel       *blocklists,
-                    GApplicationFlags flags)
+                    GApplicationFlags flags,
+                    gboolean          search,
+                    const char       *search_text)
 {
+  BzApplication *self = NULL;
+
   g_return_val_if_fail (application_id != NULL, NULL);
 
-  return g_object_new (
+  self = g_object_new (
       BZ_TYPE_APPLICATION,
       "application-id", application_id,
       "flags", flags,
       "resource-base-path", "/io/github/kolunmi/bazaar",
       "blocklists", blocklists,
       NULL);
+
+  self->initial_search = search;
+  if (search && search_text != NULL)
+    self->initial_search_text = g_strdup (search_text);
+
+  return self;
 }
 
 static void
@@ -199,7 +215,7 @@ bz_application_search_action (GSimpleAction *action,
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  bz_window_search (BZ_WINDOW (window));
+  bz_window_search (BZ_WINDOW (window), NULL);
 }
 
 static void

@@ -30,6 +30,8 @@ G_DECLARE_FINAL_TYPE (BzApplication, bz_application, BZ, APPLICATION, AdwApplica
 BzApplication *
 bz_application_new (const char       *application_id,
                     GListModel       *blocklists,
-                    GApplicationFlags flags);
+                    GApplicationFlags flags,
+                    gboolean          search,
+                    const char       *search_text);
 
 G_END_DECLS

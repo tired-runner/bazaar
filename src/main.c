@@ -33,12 +33,16 @@ main (int   argc,
   gboolean version                     = FALSE;
   g_auto (GStrv) blocklists_strv       = NULL;
   g_autoptr (GtkStringList) blocklists = NULL;
+  gboolean         search              = FALSE;
+  g_autofree char *search_text         = NULL;
   g_autoptr (BzApplication) app        = NULL;
   int ret;
 
   GOptionEntry main_entries[] = {
     { "version", 0, 0, G_OPTION_ARG_NONE, &version, "Show program version" },
     { "extra-blocklists", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "A list of extra blocklists to read from" },
+    { "search", 0, 0, G_OPTION_ARG_NONE, &search, "Immediately open the search dialog upon startup" },
+    { "search-text", 0, 0, G_OPTION_ARG_STRING, &search_text, "Specify the initial text used with --search" },
     { NULL }
   };
 
@@ -74,7 +78,9 @@ main (int   argc,
   app = bz_application_new (
       "io.github.kolunmi.bazaar",
       G_LIST_MODEL (blocklists),
-      G_APPLICATION_DEFAULT_FLAGS);
+      G_APPLICATION_DEFAULT_FLAGS,
+      search,
+      search_text);
   ret = g_application_run (G_APPLICATION (app), argc, argv);
 
   return ret;

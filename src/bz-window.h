@@ -34,6 +34,7 @@ void
 bz_window_browse (BzWindow *self);
 
 void
-bz_window_search (BzWindow *self);
+bz_window_search (BzWindow   *self,
+                  const char *text);
 
 G_END_DECLS

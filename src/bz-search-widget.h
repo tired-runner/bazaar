@@ -28,7 +28,8 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (BzSearchWidget, bz_search_widget, BZ, SEARCH_WIDGET, AdwBin)
 
 GtkWidget *
-bz_search_widget_new (GListModel *model);
+bz_search_widget_new (GListModel *model,
+                      const char *initial);
 
 void
 bz_search_widget_set_model (BzSearchWidget *self,

@@ -20,7 +20,6 @@
 
 #include "config.h"
 
-#include "bz-application.h"
 #include "bz-backend.h"
 #include "bz-background.h"
 #include "bz-browse-widget.h"
@@ -117,7 +116,8 @@ update (BzWindow *self,
         guint     n_updates);
 
 static void
-search (BzWindow *self);
+search (BzWindow   *self,
+        const char *text);
 
 static void
 bz_window_dispose (GObject *object)
@@ -191,7 +191,7 @@ static void
 search_clicked (GtkButton *button,
                 BzWindow  *self)
 {
-  search (self);
+  search (self, NULL);
 }
 
 static void
@@ -440,16 +440,12 @@ bz_window_browse (BzWindow *self)
 }
 
 void
-bz_window_search (BzWindow *self)
+bz_window_search (BzWindow   *self,
+                  const char *text)
 {
   g_return_if_fail (BZ_IS_WINDOW (self));
 
-  if (gtk_widget_get_sensitive (GTK_WIDGET (self->search)))
-    search (self);
-  else
-    adw_toast_overlay_add_toast (
-        self->toasts,
-        adw_toast_new_format ("Can't search right now!"));
+  search (self, text);
 }
 
 static void
@@ -553,13 +549,16 @@ update (BzWindow *self,
 }
 
 static void
-search (BzWindow *self)
+search (BzWindow   *self,
+        const char *initial)
 {
   GtkWidget *search_widget = NULL;
   AdwDialog *dialog        = NULL;
 
-  search_widget = bz_search_widget_new (G_LIST_MODEL (self->remote));
-  dialog        = adw_dialog_new ();
+  search_widget = bz_search_widget_new (
+      G_LIST_MODEL (self->remote),
+      initial);
+  dialog = adw_dialog_new ();
 
   g_signal_connect (search_widget, "notify::selected",
                     G_CALLBACK (search_selected_changed), self);
