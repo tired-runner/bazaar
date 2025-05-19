@@ -555,6 +555,11 @@ search (BzWindow   *self,
   GtkWidget *search_widget = NULL;
   AdwDialog *dialog        = NULL;
 
+  /* prevent stacking issue */
+  if (adw_application_window_get_visible_dialog (
+          ADW_APPLICATION_WINDOW (self)) != NULL)
+    return;
+
   search_widget = bz_search_widget_new (
       G_LIST_MODEL (self->remote),
       initial);
