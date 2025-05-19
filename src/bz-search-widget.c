@@ -43,23 +43,24 @@ struct _BzSearchWidget
   DexFuture *loading_image_viewer;
 
   /* Template widgets */
-  AdwBottomSheet  *sheet;
-  AdwBreakpoint   *breakpoint;
-  GtkText         *search_bar;
-  GtkLabel        *search_text;
-  AdwSpinner      *search_spinner;
-  GtkToggleButton *regex_toggle;
-  GtkLabel        *regex_error;
-  GtkBox          *content_box;
-  GtkListView     *list_view;
-  GtkWidget       *entry_view;
-  GtkLabel        *title_label;
-  GtkLabel        *description_label;
-  GtkButton       *download_button;
-  GtkButton       *remove_button;
-  GtkListView     *screenshots;
-  AdwSpinner      *loading_screenshots_external;
-  GtkLabel        *open_screenshot_error;
+  AdwBottomSheet   *sheet;
+  AdwBreakpointBin *breakpoint_bin;
+  AdwBreakpoint    *breakpoint;
+  GtkText          *search_bar;
+  GtkLabel         *search_text;
+  AdwSpinner       *search_spinner;
+  GtkToggleButton  *regex_toggle;
+  GtkLabel         *regex_error;
+  GtkBox           *content_box;
+  GtkListView      *list_view;
+  GtkWidget        *entry_view;
+  GtkLabel         *title_label;
+  GtkLabel         *description_label;
+  GtkButton        *download_button;
+  GtkButton        *remove_button;
+  GtkListView      *screenshots;
+  AdwSpinner       *loading_screenshots_external;
+  GtkLabel         *open_screenshot_error;
 };
 
 G_DEFINE_FINAL_TYPE (BzSearchWidget, bz_search_widget, ADW_TYPE_BIN)
@@ -360,6 +361,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-search-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, sheet);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, breakpoint);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, breakpoint_bin);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_bar);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_text);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_spinner);
@@ -543,8 +545,17 @@ search_activate (GtkText        *text,
 
   if (selected_idx != GTK_INVALID_LIST_POSITION)
     {
-      self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
-      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+      if (adw_breakpoint_bin_get_current_breakpoint (self->breakpoint_bin))
+        {
+          g_clear_handle_id (&self->previewing_timeout, g_source_remove);
+          previewing_property_timeout (self);
+          adw_bottom_sheet_set_open (self->sheet, TRUE);
+        }
+      else
+        {
+          self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+        }
     }
 }
 
@@ -720,14 +731,22 @@ activate (GtkListView    *list_view,
           guint           position,
           BzSearchWidget *self)
 {
-  GtkSelectionModel *model = NULL;
+  if (adw_breakpoint_bin_get_current_breakpoint (self->breakpoint_bin))
+    {
+      g_clear_handle_id (&self->previewing_timeout, g_source_remove);
+      previewing_property_timeout (self);
+      adw_bottom_sheet_set_open (self->sheet, TRUE);
+    }
+  else
+    {
+      GtkSelectionModel *model = NULL;
 
-  g_clear_object (&self->selected);
+      g_clear_object (&self->selected);
 
-  model          = gtk_list_view_get_model (self->list_view);
-  self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+      model          = gtk_list_view_get_model (self->list_view);
+      self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+    }
 }
 
 static void
