@@ -37,6 +37,9 @@ const char *
 bz_entry_get_title (BzEntry *self);
 
 const char *
+bz_entry_get_eol (BzEntry *self);
+
+const char *
 bz_entry_get_description (BzEntry *self);
 
 const char *

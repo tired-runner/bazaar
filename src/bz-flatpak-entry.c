@@ -191,6 +191,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   GBytes *bytes                           = NULL;
   g_autoptr (GKeyFile) key_file           = NULL;
   gboolean         result                 = FALSE;
+  const char      *eol                    = NULL;
   const char      *title                  = NULL;
   const char      *description            = NULL;
   const char      *metadata_license       = NULL;
@@ -399,6 +400,10 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   else
     title = self->name;
 
+  eol = flatpak_remote_ref_get_eol (rref);
+  if (eol != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (eol));
+
   if (description != NULL)
     g_ptr_array_add (search_tokens, g_strdup (description));
   if (long_description != NULL)
@@ -420,10 +425,13 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
     g_ptr_array_add (search_tokens, g_strdup (developer_id));
   if (metadata_license != NULL)
     g_ptr_array_add (search_tokens, g_strdup (metadata_license));
+  if (project_url != NULL)
+    g_ptr_array_add (search_tokens, g_strdup (project_url));
 
   g_object_set (
       self,
       "title", title,
+      "eol", eol,
       "description", description,
       "long-description", long_description,
       "remote-repo-name", remote_name,

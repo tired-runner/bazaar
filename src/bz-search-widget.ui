@@ -552,6 +552,39 @@
                                   </object>
                                 </child>
                                 <child>
+                                  <object class="GtkLabel">
+                                    <style>
+                                      <class name="warning"/>
+                                      <class name="title-4"/>
+                                    </style>
+                                    <property name="hexpand">TRUE</property>
+                                    <property name="width-chars">15</property>
+                                    <property name="max-width-chars">15</property>
+                                    <property name="wrap">TRUE</property>
+                                    <property name="wrap-mode">word-char</property>
+                                    <property name="xalign">0</property>
+                                    <property name="selectable">TRUE</property>
+                                    <binding name="visible">
+                                      <closure function="invert_boolean" type="gboolean">
+                                        <closure function="is_null" type="gboolean">
+                                          <lookup name="eol" type="BzEntry">
+                                            <lookup name="selected-item" type="GtkSingleSelection">
+                                              <lookup name="model">list_view</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </closure>
+                                      </closure>
+                                    </binding>
+                                    <binding name="label">
+                                      <lookup name="eol" type="BzEntry">
+                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                          <lookup name="model">list_view</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                  </object>
+                                </child>
+                                <child>
                                   <object class="GtkLabel" id="developer_label">
                                     <style>
                                       <class name="caption-heading"/>

@@ -25,6 +25,7 @@
 typedef struct
 {
   char         *title;
+  char         *eol;
   char         *description;
   char         *long_description;
   char         *remote_repo_name;
@@ -48,6 +49,7 @@ enum
 {
   PROP_0,
 
+  PROP_EOL,
   PROP_TITLE,
   PROP_DESCRIPTION,
   PROP_LONG_DESCRIPTION,
@@ -106,6 +108,9 @@ bz_entry_get_property (GObject    *object,
     {
     case PROP_TITLE:
       g_value_set_string (value, priv->title);
+      break;
+    case PROP_EOL:
+      g_value_set_string (value, priv->eol);
       break;
     case PROP_DESCRIPTION:
       g_value_set_string (value, priv->description);
@@ -171,6 +176,10 @@ bz_entry_set_property (GObject      *object,
     case PROP_TITLE:
       g_clear_pointer (&priv->title, g_free);
       priv->title = g_value_dup_string (value);
+      break;
+    case PROP_EOL:
+      g_clear_pointer (&priv->eol, g_free);
+      priv->eol = g_value_dup_string (value);
       break;
     case PROP_DESCRIPTION:
       g_clear_pointer (&priv->description, g_free);
@@ -247,6 +256,12 @@ bz_entry_class_init (BzEntryClass *klass)
   props[PROP_TITLE] =
       g_param_spec_string (
           "title",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_EOL] =
+      g_param_spec_string (
+          "eol",
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
@@ -351,6 +366,17 @@ bz_entry_class_init (BzEntryClass *klass)
 static void
 bz_entry_init (BzEntry *self)
 {
+}
+
+const char *
+bz_entry_get_eol (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->eol;
 }
 
 const char *

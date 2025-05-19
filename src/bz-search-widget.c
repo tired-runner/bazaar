@@ -240,6 +240,36 @@ is_null (gpointer object,
   return value == NULL;
 }
 
+static gboolean
+is_valid_timestamp (gpointer object,
+                    guint64  value)
+{
+  return value > 0;
+}
+
+static gboolean
+is_timestamp_ahead (gpointer object,
+                    guint64  value)
+{
+  g_autoptr (GDateTime) now  = NULL;
+  g_autoptr (GDateTime) date = NULL;
+
+  now  = g_date_time_new_now_utc ();
+  date = g_date_time_new_from_unix_utc (value);
+
+  return g_date_time_compare (date, now) >= 0;
+}
+
+static char *
+format_timestamp (gpointer object,
+                  guint64  value)
+{
+  g_autoptr (GDateTime) date = NULL;
+
+  date = g_date_time_new_from_unix_utc (value);
+  return g_date_time_format_iso8601 (date);
+}
+
 static char *
 format_size (gpointer object,
              guint64  value)
@@ -347,6 +377,9 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, is_valid_timestamp);
+  gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
+  gtk_widget_class_bind_template_callback (widget_class, is_timestamp_ahead);
   gtk_widget_class_bind_template_callback (widget_class, format_size);
   gtk_widget_class_bind_template_callback (widget_class, format_as_link);
 
