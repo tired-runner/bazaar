@@ -31,14 +31,14 @@ BZ_DEFINE_DATA (
     {
       BzBackend                 *backend;
       DexScheduler              *home_scheduler;
-      GListModel                *blocklists;
+      GPtrArray                 *blocklists;
       BzBackendGatherEntriesFunc progress_func;
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
     BZ_RELEASE_DATA (backend, g_object_unref);
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
-    BZ_RELEASE_DATA (blocklists, g_object_unref);
+    BZ_RELEASE_DATA (blocklists, g_ptr_array_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
 retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data);
@@ -126,7 +126,9 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
                                                     gpointer                   user_data,
                                                     GDestroyNotify             destroy_user_data)
 {
+
   g_autoptr (RetrieveWithBlocklistsData) data = NULL;
+  guint n_blocklists                          = 0;
 
   g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
   g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (self), NULL);
@@ -135,10 +137,22 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
   data                    = retrieve_with_blocklists_data_new ();
   data->backend           = g_object_ref (self);
   data->home_scheduler    = home_scheduler != NULL ? dex_ref (home_scheduler) : dex_scheduler_ref_thread_default ();
-  data->blocklists        = g_object_ref (blocklists);
+  data->blocklists        = g_ptr_array_new_with_free_func (g_free);
   data->progress_func     = progress_func;
   data->user_data         = user_data;
   data->destroy_user_data = destroy_user_data;
+
+  n_blocklists = g_list_model_get_n_items (blocklists);
+  for (guint i = 0; i < n_blocklists; i++)
+    {
+      g_autoptr (GtkStringObject) string = NULL;
+      const char *path                   = NULL;
+
+      string = g_list_model_get_item (blocklists, i);
+      path   = gtk_string_object_get_string (string);
+
+      g_ptr_array_add (data->blocklists, g_strdup (path));
+    }
 
   return dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),
@@ -270,23 +284,19 @@ bz_backend_merge_and_schedule_transactions (BzBackend                       *sel
 static DexFuture *
 retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data)
 {
+  GPtrArray *blocklists               = data->blocklists;
   g_autoptr (GError) local_error      = NULL;
-  GListModel *blocklists              = data->blocklists;
   g_autoptr (GPtrArray) blocked_names = NULL;
-  guint n_blocklists                  = 0;
 
   blocked_names = g_ptr_array_new_with_free_func (g_free);
 
-  n_blocklists = g_list_model_get_n_items (blocklists);
-  for (guint i = 0; i < n_blocklists; i++)
+  for (guint i = 0; i < blocklists->len; i++)
     {
-      g_autoptr (GtkStringObject) string = NULL;
-      const char *path                   = NULL;
-      g_autoptr (GFile) file             = NULL;
+      const char *path       = NULL;
+      g_autoptr (GFile) file = NULL;
 
-      string = g_list_model_get_item (data->blocklists, i);
-      path   = gtk_string_object_get_string (string);
-      file   = g_file_new_for_path (path);
+      path = g_ptr_array_index (blocklists, i);
+      file = g_file_new_for_path (path);
 
       if (file != NULL)
         {
