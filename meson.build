@@ -9,9 +9,15 @@ gnome = import('gnome')
 cc = meson.get_compiler('c')
 
 config_h = configuration_data()
+
 config_h.set_quoted('PACKAGE_VERSION', meson.project_version())
 config_h.set_quoted('GETTEXT_PACKAGE', 'bazaar')
 config_h.set_quoted('LOCALEDIR', get_option('prefix') / get_option('localedir'))
+
+if get_option('hardcoded_blocklist_path') != ''
+  config_h.set_quoted('HARDCODED_BLOCKLIST', get_option('hardcoded_blocklist_path'))
+endif
+
 configure_file(output: 'config.h', configuration: config_h)
 add_project_arguments(['-I' + meson.project_build_root()], language: 'c')
 

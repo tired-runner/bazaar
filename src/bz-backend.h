@@ -52,6 +52,8 @@ struct _BzBackendInterface
 
   /* DexFuture* -> gboolean */
   DexFuture *(*retrieve_remote_entries) (BzBackend                 *self,
+                                         DexScheduler              *home_scheduler,
+                                         GPtrArray                 *blocked_names,
                                          BzBackendGatherEntriesFunc progress_func,
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data);
@@ -77,9 +79,19 @@ bz_backend_refresh (BzBackend *self);
 
 DexFuture *
 bz_backend_retrieve_remote_entries (BzBackend                 *self,
+                                    DexScheduler              *home_scheduler,
+                                    GPtrArray                 *blocked_names,
                                     BzBackendGatherEntriesFunc progress_func,
                                     gpointer                   user_data,
                                     GDestroyNotify             destroy_user_data);
+
+DexFuture *
+bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *self,
+                                                    DexScheduler              *home_scheduler,
+                                                    GListModel                *blocklists,
+                                                    BzBackendGatherEntriesFunc progress_func,
+                                                    gpointer                   user_data,
+                                                    GDestroyNotify             destroy_user_data);
 
 DexFuture *
 bz_backend_retrieve_update_ids (BzBackend *self);

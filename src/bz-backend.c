@@ -21,8 +21,27 @@
 #include "config.h"
 
 #include "bz-backend.h"
+#include "bz-util.h"
 
 G_DEFINE_INTERFACE (BzBackend, bz_backend, G_TYPE_OBJECT)
+
+BZ_DEFINE_DATA (
+    retrieve_with_blocklists,
+    RetrieveWithBlocklists,
+    {
+      BzBackend                 *backend;
+      DexScheduler              *home_scheduler;
+      GListModel                *blocklists;
+      BzBackendGatherEntriesFunc progress_func;
+      gpointer                   user_data;
+      GDestroyNotify             destroy_user_data;
+    },
+    BZ_RELEASE_DATA (backend, g_object_unref);
+    BZ_RELEASE_DATA (home_scheduler, dex_unref);
+    BZ_RELEASE_DATA (blocklists, g_object_unref);
+    BZ_RELEASE_DATA (user_data, self->destroy_user_data))
+static DexFuture *
+retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data);
 
 static DexFuture *
 bz_backend_real_refresh (BzBackend *self)
@@ -32,6 +51,8 @@ bz_backend_real_refresh (BzBackend *self)
 
 static DexFuture *
 bz_backend_real_retrieve_remote_entries (BzBackend                 *self,
+                                         DexScheduler              *home_scheduler,
+                                         GPtrArray                 *blocked_names,
                                          BzBackendGatherEntriesFunc progress_func,
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data)
@@ -79,17 +100,52 @@ bz_backend_refresh (BzBackend *self)
 
 DexFuture *
 bz_backend_retrieve_remote_entries (BzBackend                 *self,
+                                    DexScheduler              *home_scheduler,
+                                    GPtrArray                 *blocked_names,
                                     BzBackendGatherEntriesFunc progress_func,
                                     gpointer                   user_data,
                                     GDestroyNotify             destroy_user_data)
 {
   g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
+  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (self), NULL);
 
   return BZ_BACKEND_GET_IFACE (self)->retrieve_remote_entries (
       self,
+      home_scheduler != NULL ? home_scheduler : dex_scheduler_get_thread_default (),
+      blocked_names,
       progress_func,
       user_data,
       destroy_user_data);
+}
+
+DexFuture *
+bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *self,
+                                                    DexScheduler              *home_scheduler,
+                                                    GListModel                *blocklists,
+                                                    BzBackendGatherEntriesFunc progress_func,
+                                                    gpointer                   user_data,
+                                                    GDestroyNotify             destroy_user_data)
+{
+  g_autoptr (RetrieveWithBlocklistsData) data = NULL;
+
+  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
+  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (self), NULL);
+  g_return_val_if_fail (G_LIST_MODEL (blocklists), NULL);
+
+  data                    = retrieve_with_blocklists_data_new ();
+  data->backend           = g_object_ref (self);
+  data->home_scheduler    = home_scheduler != NULL ? dex_ref (home_scheduler) : dex_scheduler_ref_thread_default ();
+  data->blocklists        = g_object_ref (blocklists);
+  data->progress_func     = progress_func;
+  data->user_data         = user_data;
+  data->destroy_user_data = destroy_user_data;
+
+  return dex_scheduler_spawn (
+      dex_thread_pool_scheduler_get_default (),
+      0,
+      (DexFiberFunc) retrieve_with_blocklists_fiber,
+      retrieve_with_blocklists_data_ref (data),
+      retrieve_with_blocklists_data_unref);
 }
 
 DexFuture *
@@ -209,4 +265,58 @@ bz_backend_merge_and_schedule_transactions (BzBackend                       *sel
       progress_func,
       user_data,
       destroy_user_data);
+}
+
+static DexFuture *
+retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data)
+{
+  g_autoptr (GError) local_error      = NULL;
+  GListModel *blocklists              = data->blocklists;
+  g_autoptr (GPtrArray) blocked_names = NULL;
+  guint n_blocklists                  = 0;
+
+  blocked_names = g_ptr_array_new_with_free_func (g_free);
+
+  n_blocklists = g_list_model_get_n_items (blocklists);
+  for (guint i = 0; i < n_blocklists; i++)
+    {
+      g_autoptr (GtkStringObject) string = NULL;
+      const char *path                   = NULL;
+      g_autoptr (GFile) file             = NULL;
+
+      string = g_list_model_get_item (data->blocklists, i);
+      path   = gtk_string_object_get_string (string);
+      file   = g_file_new_for_path (path);
+
+      if (file != NULL)
+        {
+          g_autoptr (GBytes) bytes     = NULL;
+          const char       *bytes_data = NULL;
+          g_autofree char **lines      = NULL;
+
+          bytes = dex_await_boxed (dex_file_load_contents_bytes (file), &local_error);
+          if (bytes == NULL)
+            return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+          bytes_data = g_bytes_get_data (bytes, NULL);
+          lines      = g_strsplit (bytes_data, "\n", -1);
+
+          for (char **line = lines; *line != NULL; line++)
+            {
+              if (**line != '\0')
+                g_ptr_array_add (blocked_names, *line);
+              else
+                g_free (*line);
+            }
+        }
+    }
+
+  return BZ_BACKEND_GET_IFACE (data->backend)
+      ->retrieve_remote_entries (
+          data->backend,
+          data->home_scheduler,
+          blocked_names,
+          data->progress_func,
+          g_steal_pointer (&data->user_data),
+          data->destroy_user_data);
 }

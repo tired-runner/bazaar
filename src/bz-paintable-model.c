@@ -237,8 +237,9 @@ bz_paintable_model_set_model (BzPaintableModel *self,
   guint old_length = 0;
 
   g_return_if_fail (BZ_IS_PAINTABLE_MODEL (self));
-  g_return_if_fail (G_IS_LIST_MODEL (model));
-  g_return_if_fail (g_list_model_get_item_type (model) == G_TYPE_FILE);
+  g_return_if_fail (model == NULL ||
+                    (G_IS_LIST_MODEL (model) &&
+                     g_list_model_get_item_type (model) == G_TYPE_FILE));
 
   if (self->model != NULL)
     {

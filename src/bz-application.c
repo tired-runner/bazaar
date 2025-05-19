@@ -27,22 +27,67 @@
 struct _BzApplication
 {
   AdwApplication parent_instance;
+
+  GListModel *blocklists;
 };
 
 G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
 
-BzApplication *
-bz_application_new (const char       *application_id,
-                    GApplicationFlags flags)
+enum
 {
-  g_return_val_if_fail (application_id != NULL, NULL);
+  PROP_0,
 
-  return g_object_new (
-      BZ_TYPE_APPLICATION,
-      "application-id", application_id,
-      "flags", flags,
-      "resource-base-path", "/io/github/kolunmi/bazaar",
-      NULL);
+  PROP_BLOCKLISTS,
+
+  LAST_PROP
+};
+static GParamSpec *props[LAST_PROP] = { 0 };
+
+static void
+bz_application_dispose (GObject *object)
+{
+  BzApplication *self = BZ_APPLICATION (object);
+
+  g_clear_object (&self->blocklists);
+
+  G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
+}
+
+static void
+bz_application_get_property (GObject    *object,
+                             guint       prop_id,
+                             GValue     *value,
+                             GParamSpec *pspec)
+{
+  BzApplication *self = BZ_APPLICATION (object);
+
+  switch (prop_id)
+    {
+    case PROP_BLOCKLISTS:
+      g_value_set_object (value, self->blocklists);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+bz_application_set_property (GObject      *object,
+                             guint         prop_id,
+                             const GValue *value,
+                             GParamSpec   *pspec)
+{
+  BzApplication *self = BZ_APPLICATION (object);
+
+  switch (prop_id)
+    {
+    case PROP_BLOCKLISTS:
+      g_clear_object (&self->blocklists);
+      self->blocklists = g_value_dup_object (value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
 }
 
 static void
@@ -53,7 +98,6 @@ bz_application_activate (GApplication *app)
   g_assert (BZ_IS_APPLICATION (app));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
-
   if (window == NULL)
     {
       g_autoptr (GtkCssProvider) css = NULL;
@@ -78,9 +122,39 @@ bz_application_activate (GApplication *app)
 static void
 bz_application_class_init (BzApplicationClass *klass)
 {
-  GApplicationClass *app_class = G_APPLICATION_CLASS (klass);
+  GObjectClass      *object_class = G_OBJECT_CLASS (klass);
+  GApplicationClass *app_class    = G_APPLICATION_CLASS (klass);
+
+  object_class->dispose      = bz_application_dispose;
+  object_class->get_property = bz_application_get_property;
+  object_class->set_property = bz_application_set_property;
+
+  props[PROP_BLOCKLISTS] =
+      g_param_spec_object (
+          "blocklists",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  g_object_class_install_properties (object_class, LAST_PROP, props);
 
   app_class->activate = bz_application_activate;
+}
+
+BzApplication *
+bz_application_new (const char       *application_id,
+                    GListModel       *blocklists,
+                    GApplicationFlags flags)
+{
+  g_return_val_if_fail (application_id != NULL, NULL);
+
+  return g_object_new (
+      BZ_TYPE_APPLICATION,
+      "application-id", application_id,
+      "flags", flags,
+      "resource-base-path", "/io/github/kolunmi/bazaar",
+      "blocklists", blocklists,
+      NULL);
 }
 
 static void

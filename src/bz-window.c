@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include "bz-application.h"
 #include "bz-backend.h"
 #include "bz-background.h"
 #include "bz-browse-widget.h"
@@ -204,9 +205,11 @@ static DexFuture *
 refresh_then (DexFuture *future,
               BzWindow  *self)
 {
-  g_autoptr (GError) local_error  = NULL;
-  const GValue *value             = NULL;
-  DexFuture    *ref_remote_future = NULL;
+  g_autoptr (GError) local_error    = NULL;
+  const GValue   *value             = NULL;
+  GtkApplication *application       = NULL;
+  g_autoptr (GListModel) blocklists = NULL;
+  DexFuture *ref_remote_future      = NULL;
 
   value         = dex_future_get_value (future, &local_error);
   self->flatpak = g_value_dup_object (value);
@@ -214,8 +217,13 @@ refresh_then (DexFuture *future,
 
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
 
-  ref_remote_future = bz_backend_retrieve_remote_entries (
+  application = gtk_window_get_application (GTK_WINDOW (self));
+  g_object_get (application, "blocklists", &blocklists, NULL);
+
+  ref_remote_future = bz_backend_retrieve_remote_entries_with_blocklists (
       BZ_BACKEND (self->flatpak),
+      NULL,
+      blocklists,
       (BzBackendGatherEntriesFunc) gather_entries_progress,
       g_object_ref (self), g_object_unref);
   ref_remote_future = dex_future_then (

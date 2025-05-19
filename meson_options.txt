@@ -1,0 +1,4 @@
+option('hardcoded_blocklist_path',
+       type: 'string',
+       value: '',
+       description: 'Absolute path to a hardcoded package name blocklist')
