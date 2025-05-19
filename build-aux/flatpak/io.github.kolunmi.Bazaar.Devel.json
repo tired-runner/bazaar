@@ -16,6 +16,7 @@
         "--share=ipc",
         "--socket=fallback-x11",
         "--socket=wayland",
+        "--socket=session-bus",
         "--device=dri",
         "--filesystem=host",
         /* Default Flatpak installations so Bazaar is able to access them */
