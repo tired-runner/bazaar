@@ -158,6 +158,7 @@
                             <style>
                               <class name="navigation-sidebar"/>
                             </style>
+                            <property name="single-click-activate">FALSE</property>
                             <property name="height-request">150</property>
                             <property name="factory">
                               <object class="GtkBuilderListItemFactory">
@@ -771,6 +772,7 @@
                     <setter object="entry_view" property="vexpand">TRUE</setter>
                     <setter object="entry_view" property="hexpand">TRUE</setter>
                     <setter object="entry_view" property="margin-top">50</setter>
+                    <setter object="list_view" property="single-click-activate">TRUE</setter>
                     
                     <setter object="right_box" property="vexpand">TRUE</setter>
                     <setter object="right_box" property="hexpand">TRUE</setter>

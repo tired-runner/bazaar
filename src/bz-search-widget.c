@@ -731,19 +731,20 @@ activate (GtkListView    *list_view,
           guint           position,
           BzSearchWidget *self)
 {
+  GtkSelectionModel *model = NULL;
+
+  model = gtk_list_view_get_model (self->list_view);
+
   if (adw_breakpoint_bin_get_current_breakpoint (self->breakpoint_bin))
     {
+      gtk_single_selection_set_selected (GTK_SINGLE_SELECTION (model), position);
       g_clear_handle_id (&self->previewing_timeout, g_source_remove);
       previewing_property_timeout (self);
       adw_bottom_sheet_set_open (self->sheet, TRUE);
     }
   else
     {
-      GtkSelectionModel *model = NULL;
-
       g_clear_object (&self->selected);
-
-      model          = gtk_list_view_get_model (self->list_view);
       self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
     }
