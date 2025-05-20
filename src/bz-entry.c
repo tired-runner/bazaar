@@ -78,6 +78,7 @@ bz_entry_dispose (GObject *object)
   BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
   g_clear_pointer (&priv->title, g_free);
+  g_clear_pointer (&priv->eol, g_free);
   g_clear_pointer (&priv->description, g_free);
   g_clear_pointer (&priv->long_description, g_free);
   g_clear_pointer (&priv->remote_repo_name, g_free);
