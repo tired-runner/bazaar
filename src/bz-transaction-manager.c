@@ -21,17 +21,8 @@
 #include "config.h"
 
 #include "bz-transaction-manager.h"
+#include "bz-transaction-view.h"
 #include "bz-util.h"
-
-BZ_DEFINE_DATA (
-    queued_schedule,
-    QueuedSchedule,
-    {
-      GPtrArray  *transactions;
-      GHashTable *entry_to_transaction_hash;
-    },
-    BZ_RELEASE_DATA (transactions, g_ptr_array_unref);
-    BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref));
 
 struct _BzTransactionManager
 {
@@ -39,6 +30,7 @@ struct _BzTransactionManager
 
   BzBackend  *backend;
   GListStore *transactions;
+  double      current_progress;
 
   DexFuture *current_task;
   GQueue     queue;
@@ -55,10 +47,25 @@ enum
   PROP_0,
 
   PROP_BACKEND,
+  PROP_HAS_TRANSACTIONS,
+  PROP_ACTIVE,
+  PROP_CURRENT_PROGRESS,
 
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+BZ_DEFINE_DATA (
+    queued_schedule,
+    QueuedSchedule,
+    {
+      BzTransactionManager *self;
+      GPtrArray            *transactions;
+      GHashTable           *entry_to_transaction_hash;
+    },
+    BZ_RELEASE_DATA (self, g_object_unref);
+    BZ_RELEASE_DATA (transactions, g_ptr_array_unref);
+    BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref));
 
 static void
 transaction_progress (BzEntry            *entry,
@@ -72,10 +79,6 @@ transaction_progress (BzEntry            *entry,
 static DexFuture *
 transaction_finally (DexFuture          *future,
                      QueuedScheduleData *data);
-
-static DexFuture *
-transaction_finish (DexFuture            *future,
-                    BzTransactionManager *self);
 
 static void
 dispatch_next (BzTransactionManager *self);
@@ -106,6 +109,15 @@ bz_transaction_manager_get_property (GObject    *object,
     case PROP_BACKEND:
       g_value_set_object (value, bz_transaction_manager_get_backend (self));
       break;
+    case PROP_HAS_TRANSACTIONS:
+      g_value_set_boolean (value, g_list_model_get_n_items (G_LIST_MODEL (self->transactions)) > 0);
+      break;
+    case PROP_ACTIVE:
+      g_value_set_boolean (value, self->current_task != NULL);
+      break;
+    case PROP_CURRENT_PROGRESS:
+      g_value_set_double (value, self->current_progress);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -124,6 +136,9 @@ bz_transaction_manager_set_property (GObject      *object,
     case PROP_BACKEND:
       bz_transaction_manager_set_backend (self, g_value_get_object (value));
       break;
+    case PROP_HAS_TRANSACTIONS:
+    case PROP_ACTIVE:
+    case PROP_CURRENT_PROGRESS:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -148,11 +163,33 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
 
   props[PROP_BACKEND] =
       g_param_spec_object (
-          "model",
+          "backend",
           NULL, NULL,
           BZ_TYPE_BACKEND,
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
+  props[PROP_HAS_TRANSACTIONS] =
+      g_param_spec_boolean (
+          "has-transactions",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READABLE);
+
+  props[PROP_ACTIVE] =
+      g_param_spec_boolean (
+          "active",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READABLE);
+
+  props[PROP_CURRENT_PROGRESS] =
+      g_param_spec_double (
+          "current-progress",
+          NULL, NULL,
+          0.0, 1.0, 0.0,
+          G_PARAM_READABLE);
+
+  g_type_ensure (BZ_TYPE_TRANSACTION_VIEW);
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-transaction-manager.ui");
@@ -220,6 +257,7 @@ bz_transaction_manager_add (BzTransactionManager *self,
   g_return_if_fail (BZ_IS_TRANSACTION (transaction));
 
   data                            = queued_schedule_data_new ();
+  data->self                      = NULL;
   data->transactions              = g_ptr_array_new_with_free_func (g_object_unref);
   data->entry_to_transaction_hash = g_hash_table_new_full (
       g_direct_hash, g_direct_equal, g_object_unref, g_object_unref);
@@ -256,6 +294,8 @@ bz_transaction_manager_add (BzTransactionManager *self,
 
   g_list_store_insert (self->transactions, 0, transaction);
   gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_FOCUS, NULL);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
 }
 
 static void
@@ -267,17 +307,22 @@ transaction_progress (BzEntry            *entry,
                       guint64             start_time,
                       QueuedScheduleData *data)
 {
-  BzTransaction *transaction = NULL;
+  BzTransaction *transaction     = NULL;
+  double         progress_double = 0.0;
 
   transaction = g_hash_table_lookup (data->entry_to_transaction_hash, entry);
   g_assert (transaction != NULL);
 
+  progress_double = (double) progress / 100.0;
   g_object_set (
       transaction,
       "pending", is_estimating,
       "status", status,
-      "progress", (double) progress / 100.0,
+      "progress", progress_double,
       NULL);
+
+  data->self->current_progress = progress_double;
+  g_object_notify_by_pspec (G_OBJECT (data->self), props[PROP_CURRENT_PROGRESS]);
 }
 
 static DexFuture *
@@ -304,14 +349,7 @@ transaction_finally (DexFuture          *future,
           NULL);
     }
 
-  return dex_future_new_true ();
-}
-
-static DexFuture *
-transaction_finish (DexFuture            *future,
-                    BzTransactionManager *self)
-{
-  dispatch_next (self);
+  dispatch_next (data->self);
   return NULL;
 }
 
@@ -325,8 +363,9 @@ dispatch_next (BzTransactionManager *self)
   dex_clear (&self->current_task);
 
   if (self->queue.length == 0)
-    return;
-  data = g_queue_pop_tail (&self->queue);
+    goto done;
+  data       = g_queue_pop_tail (&self->queue);
+  data->self = g_object_ref (self);
 
   store = g_list_store_new (BZ_TYPE_TRANSACTION);
   for (guint i = 0; i < data->transactions->len; i++)
@@ -347,8 +386,8 @@ dispatch_next (BzTransactionManager *self)
       future, (DexFutureCallback) transaction_finally,
       queued_schedule_data_ref (data),
       queued_schedule_data_unref);
-  future = dex_future_finally (
-      future, (DexFutureCallback) transaction_finish,
-      g_object_ref (self), g_object_unref);
   self->current_task = future;
+
+done:
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ACTIVE]);
 }

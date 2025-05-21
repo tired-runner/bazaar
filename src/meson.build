@@ -8,6 +8,7 @@ bz_sources = [
   'bz-background.c',
   'bz-entry.c',
   'bz-transaction.c',
+  'bz-transaction-view.c',
   'bz-transaction-manager.c',
   'bz-backend.c',
   'bz-flatpak-instance.c',
