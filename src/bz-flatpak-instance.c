@@ -33,7 +33,8 @@ struct _BzFlatpakInstance
   GObject parent_instance;
 
   DexScheduler        *scheduler;
-  FlatpakInstallation *installation;
+  FlatpakInstallation *system;
+  FlatpakInstallation *user;
 };
 
 static void
@@ -48,8 +49,8 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (
 BZ_DEFINE_DATA (
     init,
     Init,
-    { BzFlatpakInstance *fp; },
-    BZ_RELEASE_DATA (fp, g_object_unref))
+    { BzFlatpakInstance *instance; },
+    BZ_RELEASE_DATA (instance, g_object_unref))
 static DexFuture *
 init_fiber (InitData *data);
 
@@ -57,14 +58,14 @@ BZ_DEFINE_DATA (
     gather_entries,
     GatherEntries,
     {
-      BzFlatpakInstance         *fp;
+      BzFlatpakInstance         *instance;
       GPtrArray                 *blocked_names;
       DexScheduler              *home_scheduler;
       BzBackendGatherEntriesFunc progress_func;
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
-    BZ_RELEASE_DATA (fp, g_object_unref);
+    BZ_RELEASE_DATA (instance, g_object_unref);
     BZ_RELEASE_DATA (blocked_names, g_ptr_array_unref);
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
@@ -77,11 +78,13 @@ BZ_DEFINE_DATA (
     ref_remote_apps_for_remote,
     RefRemoteAppsForRemote,
     {
-      GatherEntriesData *parent;
-      FlatpakRemote     *remote;
-      GHashTable        *blocked_names_hash;
+      GatherEntriesData   *parent;
+      FlatpakInstallation *installation;
+      FlatpakRemote       *remote;
+      GHashTable          *blocked_names_hash;
     },
     BZ_RELEASE_DATA (parent, gather_entries_data_unref);
+    BZ_RELEASE_DATA (installation, g_object_unref);
     BZ_RELEASE_DATA (remote, g_object_unref);
     BZ_RELEASE_DATA (blocked_names_hash, g_hash_table_unref));
 static DexFuture *
@@ -123,7 +126,7 @@ BZ_DEFINE_DATA (
     transaction,
     Transaction,
     {
-      BzFlatpakInstance               *fp;
+      BzFlatpakInstance               *instance;
       GPtrArray                       *installs;
       GPtrArray                       *updates;
       GPtrArray                       *removals;
@@ -132,7 +135,7 @@ BZ_DEFINE_DATA (
       gpointer                         user_data;
       GDestroyNotify                   destroy_user_data;
     },
-    BZ_RELEASE_DATA (fp, g_object_unref);
+    BZ_RELEASE_DATA (instance, g_object_unref);
     BZ_RELEASE_DATA (installs, g_ptr_array_unref);
     BZ_RELEASE_DATA (updates, g_ptr_array_unref);
     BZ_RELEASE_DATA (removals, g_ptr_array_unref);
@@ -188,7 +191,8 @@ bz_flatpak_instance_dispose (GObject *object)
   BzFlatpakInstance *self = BZ_FLATPAK_INSTANCE (object);
 
   dex_clear (&self->scheduler);
-  g_clear_object (&self->installation);
+  g_clear_object (&self->system);
+  g_clear_object (&self->user);
 
   G_OBJECT_CLASS (bz_flatpak_instance_parent_class)->dispose (object);
 }
@@ -229,7 +233,7 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   g_return_val_if_fail (progress_func != NULL, NULL);
 
   data                    = gather_entries_data_new ();
-  data->fp                = g_object_ref (self);
+  data->instance          = g_object_ref (self);
   data->blocked_names     = g_ptr_array_ref (blocked_names);
   data->home_scheduler    = dex_ref (home_scheduler);
   data->progress_func     = progress_func;
@@ -248,7 +252,7 @@ bz_flatpak_instance_retrieve_update_ids (BzBackend *backend)
   g_autoptr (GatherEntriesData) data = NULL;
 
   data                    = gather_entries_data_new ();
-  data->fp                = g_object_ref (self);
+  data->instance          = g_object_ref (self);
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = NULL;
   data->user_data         = NULL;
@@ -313,7 +317,7 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
     }
 
   data                    = transaction_data_new ();
-  data->fp                = g_object_ref (self);
+  data->instance          = g_object_ref (self);
   data->installs          = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
   data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
   data->removals          = removals_dup != NULL ? g_ptr_array_new_take ((gpointer *) removals_dup, n_removals, g_object_unref) : NULL;
@@ -341,7 +345,7 @@ bz_flatpak_instance_get_installation (BzFlatpakInstance *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
 
-  return self->installation;
+  return self->system;
 }
 
 DexFuture *
@@ -349,44 +353,54 @@ bz_flatpak_instance_new (void)
 {
   g_autoptr (InitData) data = NULL;
 
-  data     = init_data_new ();
-  data->fp = g_object_new (BZ_TYPE_FLATPAK_INSTANCE, NULL);
+  data           = init_data_new ();
+  data->instance = g_object_new (BZ_TYPE_FLATPAK_INSTANCE, NULL);
 
   return dex_scheduler_spawn (
-      data->fp->scheduler, 0, (DexFiberFunc) init_fiber,
+      data->instance->scheduler, 0, (DexFiberFunc) init_fiber,
       init_data_ref (data), init_data_unref);
 }
 
 static DexFuture *
 init_fiber (InitData *data)
 {
-  BzFlatpakInstance *fp          = data->fp;
+  BzFlatpakInstance *instance    = data->instance;
   g_autoptr (GError) local_error = NULL;
 
-  fp->installation = flatpak_installation_new_system (NULL, &local_error);
-  if (fp->installation == NULL)
+  instance->system = flatpak_installation_new_system (NULL, &local_error);
+  if (instance->system == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  return dex_future_new_for_object (fp);
+  instance->user = flatpak_installation_new_user (NULL, &local_error);
+  if (instance->user == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  return dex_future_new_for_object (instance);
 }
 
 static DexFuture *
 ref_remote_apps_fiber (GatherEntriesData *data)
 {
-  BzFlatpakInstance *fp                     = data->fp;
+  BzFlatpakInstance *instance               = data->instance;
   GPtrArray         *blocked_names          = data->blocked_names;
   g_autoptr (GError) local_error            = NULL;
-  g_autoptr (GPtrArray) remotes             = NULL;
+  g_autoptr (GPtrArray) system_remotes      = NULL;
+  g_autoptr (GPtrArray) user_remotes        = NULL;
   g_autoptr (GHashTable) blocked_names_hash = NULL;
   g_autofree DexFuture **jobs               = NULL;
   DexFuture             *future             = NULL;
 
-  remotes = flatpak_installation_list_remotes (
-      fp->installation, NULL, &local_error);
-  if (remotes == NULL)
+  system_remotes = flatpak_installation_list_remotes (
+      instance->system, NULL, &local_error);
+  if (system_remotes == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  if (remotes->len == 0)
+  user_remotes = flatpak_installation_list_remotes (
+      instance->user, NULL, &local_error);
+  if (user_remotes == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  if (system_remotes->len + user_remotes->len == 0)
     return dex_future_new_true ();
 
   if (blocked_names != NULL)
@@ -401,28 +415,39 @@ ref_remote_apps_fiber (GatherEntriesData *data)
         }
     }
 
-  jobs = g_malloc0_n (remotes->len, sizeof (*jobs));
-  for (guint i = 0; i < remotes->len; i++)
+  jobs = g_malloc0_n (system_remotes->len + user_remotes->len, sizeof (*jobs));
+  for (guint i = 0; i < system_remotes->len + user_remotes->len; i++)
     {
-      FlatpakRemote *remote                           = NULL;
+      FlatpakInstallation *installation               = NULL;
+      FlatpakRemote       *remote                     = NULL;
       g_autoptr (RefRemoteAppsForRemoteData) job_data = NULL;
 
-      remote = g_ptr_array_index (remotes, i);
+      if (i < system_remotes->len)
+        {
+          installation = instance->system;
+          remote       = g_ptr_array_index (system_remotes, i);
+        }
+      else
+        {
+          installation = instance->user;
+          remote       = g_ptr_array_index (user_remotes, i - system_remotes->len);
+        }
 
       job_data                     = ref_remote_apps_for_remote_data_new ();
       job_data->parent             = gather_entries_data_ref (data);
+      job_data->installation       = g_object_ref (installation);
       job_data->remote             = g_object_ref (remote);
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
 
       jobs[i] = dex_scheduler_spawn (
-          fp->scheduler, 0,
+          instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
           ref_remote_apps_for_remote_data_ref (job_data),
           ref_remote_apps_for_remote_data_unref);
     }
 
-  future = dex_future_allv (jobs, remotes->len);
-  for (guint i = 0; i < remotes->len; i++)
+  future = dex_future_allv (jobs, system_remotes->len + user_remotes->len);
+  for (guint i = 0; i < system_remotes->len + user_remotes->len; i++)
     dex_unref (jobs[i]);
 
   return future;
@@ -439,36 +464,37 @@ gather_entries_update_progress (const char        *status,
 static DexFuture *
 ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
 {
-  BzFlatpakInstance *fp                 = data->parent->fp;
-  FlatpakRemote     *remote             = data->remote;
-  GHashTable        *blocked_names_hash = data->blocked_names_hash;
-  const char        *remote_name        = NULL;
-  g_autoptr (GError) local_error        = NULL;
-  gboolean result                       = FALSE;
-  g_autoptr (GFile) appstream_dir       = NULL;
-  g_autofree char *appstream_dir_path   = NULL;
-  g_autofree char *appstream_xml_path   = NULL;
-  g_autoptr (GFile) appstream_xml       = NULL;
-  g_autoptr (XbBuilderSource) source    = NULL;
-  g_autoptr (XbBuilder) builder         = NULL;
-  const gchar *const *locales           = NULL;
-  g_autoptr (XbSilo) silo               = NULL;
-  g_autoptr (XbNode) root               = NULL;
-  g_autoptr (GPtrArray) children        = NULL;
-  g_autoptr (AsMetadata) metadata       = NULL;
-  AsComponentBox *components            = NULL;
-  g_autoptr (GHashTable) id_hash        = NULL;
-  g_autofree char *remote_icon_name     = NULL;
-  g_autoptr (GdkPaintable) remote_icon  = NULL;
-  g_autoptr (GPtrArray) refs            = NULL;
-  guint                  n_jobs         = 0;
-  g_autofree DexFuture **jobs           = NULL;
-  g_autoptr (DexFuture) future          = NULL;
+  BzFlatpakInstance   *instance           = data->parent->instance;
+  FlatpakInstallation *installation       = data->installation;
+  FlatpakRemote       *remote             = data->remote;
+  GHashTable          *blocked_names_hash = data->blocked_names_hash;
+  const char          *remote_name        = NULL;
+  g_autoptr (GError) local_error          = NULL;
+  gboolean result                         = FALSE;
+  g_autoptr (GFile) appstream_dir         = NULL;
+  g_autofree char *appstream_dir_path     = NULL;
+  g_autofree char *appstream_xml_path     = NULL;
+  g_autoptr (GFile) appstream_xml         = NULL;
+  g_autoptr (XbBuilderSource) source      = NULL;
+  g_autoptr (XbBuilder) builder           = NULL;
+  const gchar *const *locales             = NULL;
+  g_autoptr (XbSilo) silo                 = NULL;
+  g_autoptr (XbNode) root                 = NULL;
+  g_autoptr (GPtrArray) children          = NULL;
+  g_autoptr (AsMetadata) metadata         = NULL;
+  AsComponentBox *components              = NULL;
+  g_autoptr (GHashTable) id_hash          = NULL;
+  g_autofree char *remote_icon_name       = NULL;
+  g_autoptr (GdkPaintable) remote_icon    = NULL;
+  g_autoptr (GPtrArray) refs              = NULL;
+  guint                  n_jobs           = 0;
+  g_autofree DexFuture **jobs             = NULL;
+  g_autoptr (DexFuture) future            = NULL;
 
   remote_name = flatpak_remote_get_name (remote);
 
   result = flatpak_installation_update_remote_sync (
-      fp->installation,
+      installation,
       remote_name,
       NULL,
       &local_error);
@@ -476,7 +502,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   result = flatpak_installation_update_appstream_full_sync (
-      fp->installation,
+      installation,
       remote_name,
       NULL,
       (FlatpakProgressCallback) gather_entries_update_progress,
@@ -588,7 +614,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     }
 
   refs = flatpak_installation_list_remote_refs_sync (
-      fp->installation, remote_name, NULL, &local_error);
+      installation, remote_name, NULL, &local_error);
   if (refs == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
@@ -615,7 +641,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       job_data->remote_icon   = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
       jobs[n_jobs++] = dex_scheduler_spawn (
-          fp->scheduler, 0,
+          instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_job_fiber,
           ref_remote_apps_job_data_ref (job_data),
           ref_remote_apps_job_data_unref);
@@ -640,7 +666,8 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   DexFuture              *update      = NULL;
 
   entry = bz_flatpak_entry_new_for_remote_ref (
-      data->parent->parent->fp,
+      data->parent->parent->instance,
+      data->parent->installation == data->parent->parent->instance->user,
       data->parent->remote,
       data->rref,
       data->component,
@@ -666,28 +693,43 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 static DexFuture *
 ref_updates_fiber (GatherEntriesData *data)
 {
-  BzFlatpakInstance *fp          = data->fp;
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GPtrArray) refs     = NULL;
-  g_autoptr (GPtrArray) ids      = NULL;
+  BzFlatpakInstance *instance       = data->instance;
+  g_autoptr (GError) local_error    = NULL;
+  g_autoptr (GPtrArray) system_refs = NULL;
+  g_autoptr (GPtrArray) user_refs   = NULL;
+  g_autoptr (GPtrArray) ids         = NULL;
 
-  refs = flatpak_installation_list_installed_refs_for_update (
-      fp->installation, NULL, &local_error);
-  if (refs == NULL)
+  system_refs = flatpak_installation_list_installed_refs_for_update (
+      instance->system, NULL, &local_error);
+  if (system_refs == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  user_refs = flatpak_installation_list_installed_refs_for_update (
+      instance->user, NULL, &local_error);
+  if (user_refs == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   ids = g_ptr_array_new_with_free_func (g_free);
-  g_ptr_array_set_size (ids, refs->len);
+  g_ptr_array_set_size (ids, system_refs->len + user_refs->len);
 
-  for (guint i = 0; i < refs->len; i++)
+  for (guint i = 0; i < system_refs->len + user_refs->len; i++)
     {
+      gboolean             user = FALSE;
       FlatpakInstalledRef *iref = NULL;
-      const char          *name = NULL;
 
-      iref = g_ptr_array_index (refs, i);
-      name = flatpak_ref_get_name (FLATPAK_REF (iref));
+      if (i < system_refs->len)
+        {
+          user = FALSE;
+          iref = g_ptr_array_index (system_refs, i);
+        }
+      else
+        {
+          user = TRUE;
+          iref = g_ptr_array_index (user_refs, i - system_refs->len);
+        }
 
-      g_ptr_array_index (ids, i) = g_strdup (name);
+      g_ptr_array_index (ids, i) =
+          bz_flatpak_ref_format_unique (FLATPAK_REF (iref), user);
     }
 
   return dex_future_new_take_boxed (
@@ -707,19 +749,22 @@ gather_entries_job_update (GatherEntriesUpdateData *data)
 static DexFuture *
 transaction_fiber (TransactionData *data)
 {
-  BzFlatpakInstance *fp                           = data->fp;
-  GPtrArray         *installations                = data->installs;
-  GPtrArray         *updates                      = data->updates;
-  GPtrArray         *removals                     = data->removals;
-  g_autoptr (GError) local_error                  = NULL;
-  g_autoptr (FlatpakTransaction) transaction      = NULL;
-  gboolean result                                 = FALSE;
-  g_autoptr (FlatpakTransactionProgress) progress = NULL;
+  BzFlatpakInstance *instance                       = data->instance;
+  GPtrArray         *installations                  = data->installs;
+  GPtrArray         *updates                        = data->updates;
+  GPtrArray         *removals                       = data->removals;
+  g_autoptr (GError) local_error                    = NULL;
+  g_autoptr (FlatpakTransaction) system_transaction = NULL;
+  g_autoptr (FlatpakTransaction) user_transaction   = NULL;
+  gboolean result                                   = FALSE;
+  g_autoptr (FlatpakTransactionProgress) progress   = NULL;
 
-  transaction = flatpak_transaction_new_for_installation (fp->installation, NULL, &local_error);
-  if (transaction == NULL)
+  system_transaction = flatpak_transaction_new_for_installation (instance->system, NULL, &local_error);
+  if (system_transaction == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
-  g_signal_connect (transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
+  user_transaction = flatpak_transaction_new_for_installation (instance->user, NULL, &local_error);
+  if (user_transaction == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   if (installations != NULL)
     {
@@ -733,7 +778,9 @@ transaction_fiber (TransactionData *data)
           ref     = bz_flatpak_entry_get_ref (entry);
           ref_fmt = flatpak_ref_format_ref (ref);
           result  = flatpak_transaction_add_install (
-              transaction,
+              bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry))
+                  ? user_transaction
+                  : system_transaction,
               flatpak_remote_ref_get_remote_name (FLATPAK_REMOTE_REF (ref)),
               ref_fmt,
               NULL,
@@ -759,7 +806,9 @@ transaction_fiber (TransactionData *data)
           ref     = bz_flatpak_entry_get_ref (entry);
           ref_fmt = flatpak_ref_format_ref (ref);
           result  = flatpak_transaction_add_update (
-              transaction,
+              bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry))
+                  ? user_transaction
+                  : system_transaction,
               ref_fmt,
               NULL,
               NULL,
@@ -785,7 +834,9 @@ transaction_fiber (TransactionData *data)
           ref     = bz_flatpak_entry_get_ref (entry);
           ref_fmt = flatpak_ref_format_ref (ref);
           result  = flatpak_transaction_add_uninstall (
-              transaction,
+              bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry))
+                  ? user_transaction
+                  : system_transaction,
               ref_fmt,
               &local_error);
           if (!result)
@@ -797,9 +848,21 @@ transaction_fiber (TransactionData *data)
         }
     }
 
-  result = flatpak_transaction_run (transaction, NULL, &local_error);
-  if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+  if (!flatpak_transaction_is_empty (system_transaction))
+    {
+      g_signal_connect (system_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
+      result = flatpak_transaction_run (system_transaction, NULL, &local_error);
+      if (!result)
+        return dex_future_new_for_error (g_steal_pointer (&local_error));
+    }
+
+  if (!flatpak_transaction_is_empty (user_transaction))
+    {
+      g_signal_connect (user_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
+      result = flatpak_transaction_run (user_transaction, NULL, &local_error);
+      if (!result)
+        return dex_future_new_for_error (g_steal_pointer (&local_error));
+    }
 
   return dex_future_new_true ();
 }

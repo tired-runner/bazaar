@@ -35,8 +35,13 @@ bz_flatpak_instance_get_installation (BzFlatpakInstance *self);
 
 /* BzFlatpakEntry */
 
+char *
+bz_flatpak_ref_format_unique (FlatpakRef *ref,
+                              gboolean    user);
+
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
+                                     gboolean           user,
                                      FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,

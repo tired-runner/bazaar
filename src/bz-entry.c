@@ -24,6 +24,8 @@
 
 typedef struct
 {
+  char         *id;
+  char         *unique_id;
   char         *title;
   char         *eol;
   char         *description;
@@ -49,8 +51,10 @@ enum
 {
   PROP_0,
 
-  PROP_EOL,
+  PROP_ID,
+  PROP_UNIQUE_ID,
   PROP_TITLE,
+  PROP_EOL,
   PROP_DESCRIPTION,
   PROP_LONG_DESCRIPTION,
   PROP_REMOTE_REPO_NAME,
@@ -77,6 +81,8 @@ bz_entry_dispose (GObject *object)
   BzEntry        *self = BZ_ENTRY (object);
   BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
+  g_clear_pointer (&priv->id, g_free);
+  g_clear_pointer (&priv->unique_id, g_free);
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->eol, g_free);
   g_clear_pointer (&priv->description, g_free);
@@ -107,6 +113,12 @@ bz_entry_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_ID:
+      g_value_set_string (value, priv->id);
+      break;
+    case PROP_UNIQUE_ID:
+      g_value_set_string (value, priv->unique_id);
+      break;
     case PROP_TITLE:
       g_value_set_string (value, priv->title);
       break;
@@ -174,6 +186,14 @@ bz_entry_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_ID:
+      g_clear_pointer (&priv->id, g_free);
+      priv->id = g_value_dup_string (value);
+      break;
+    case PROP_UNIQUE_ID:
+      g_clear_pointer (&priv->unique_id, g_free);
+      priv->unique_id = g_value_dup_string (value);
+      break;
     case PROP_TITLE:
       g_clear_pointer (&priv->title, g_free);
       priv->title = g_value_dup_string (value);
@@ -254,6 +274,18 @@ bz_entry_class_init (BzEntryClass *klass)
   object_class->get_property = bz_entry_get_property;
   object_class->dispose      = bz_entry_dispose;
 
+  props[PROP_ID] =
+      g_param_spec_string (
+          "id",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_UNIQUE_ID] =
+      g_param_spec_string (
+          "unique-id",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
   props[PROP_TITLE] =
       g_param_spec_string (
           "title",
@@ -280,13 +312,13 @@ bz_entry_class_init (BzEntryClass *klass)
 
   props[PROP_URL] =
       g_param_spec_string (
-          "remote-repo-name",
+          "url",
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
   props[PROP_REMOTE_REPO_NAME] =
       g_param_spec_string (
-          "url",
+          "remote-repo-name",
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
@@ -370,14 +402,25 @@ bz_entry_init (BzEntry *self)
 }
 
 const char *
-bz_entry_get_eol (BzEntry *self)
+bz_entry_get_id (BzEntry *self)
 {
   BzEntryPrivate *priv = NULL;
 
-  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
 
   priv = bz_entry_get_instance_private (self);
-  return priv->eol;
+  return priv->id;
+}
+
+const char *
+bz_entry_get_unique_id (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->unique_id;
 }
 
 const char *
@@ -389,6 +432,17 @@ bz_entry_get_title (BzEntry *self)
 
   priv = bz_entry_get_instance_private (self);
   return priv->title;
+}
+
+const char *
+bz_entry_get_eol (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->eol;
 }
 
 const char *

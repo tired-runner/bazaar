@@ -43,7 +43,9 @@ struct _BzFlatpakEntry
   BzEntry parent_instance;
 
   BzFlatpakInstance *flatpak;
-  FlatpakRemoteRef  *rref;
+  gboolean           user;
+
+  FlatpakRemoteRef *rref;
 
   char *name;
   char *runtime;
@@ -57,6 +59,7 @@ enum
   PROP_0,
 
   PROP_INSTANCE,
+  PROP_USER,
   PROP_NAME,
   PROP_RUNTIME,
   PROP_COMMAND,
@@ -103,6 +106,9 @@ bz_flatpak_entry_get_property (GObject    *object,
     case PROP_INSTANCE:
       g_value_set_object (value, self->flatpak);
       break;
+    case PROP_USER:
+      g_value_set_boolean (value, self->user);
+      break;
     case PROP_NAME:
       g_value_set_string (value, self->name);
       break;
@@ -123,11 +129,12 @@ bz_flatpak_entry_set_property (GObject      *object,
                                const GValue *value,
                                GParamSpec   *pspec)
 {
-  BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
+  // BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
 
   switch (prop_id)
     {
     case PROP_INSTANCE:
+    case PROP_USER:
     case PROP_NAME:
     case PROP_RUNTIME:
     case PROP_COMMAND:
@@ -150,6 +157,13 @@ bz_flatpak_entry_class_init (BzFlatpakEntryClass *klass)
           "instance",
           NULL, NULL,
           BZ_TYPE_FLATPAK_INSTANCE,
+          G_PARAM_READABLE);
+
+  props[PROP_USER] =
+      g_param_spec_boolean (
+          "user",
+          NULL, NULL,
+          FALSE,
           G_PARAM_READABLE);
 
   props[PROP_NAME] =
@@ -180,6 +194,7 @@ bz_flatpak_entry_init (BzFlatpakEntry *self)
 
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
+                                     gboolean           user,
                                      FlatpakRemote     *remote,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
@@ -191,8 +206,10 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   GBytes *bytes                           = NULL;
   g_autoptr (GKeyFile) key_file           = NULL;
   gboolean         result                 = FALSE;
-  const char      *eol                    = NULL;
+  const char      *id                     = NULL;
+  g_autofree char *unique_id              = NULL;
   const char      *title                  = NULL;
+  const char      *eol                    = NULL;
   const char      *description            = NULL;
   const char      *metadata_license       = NULL;
   const char      *project_license        = NULL;
@@ -214,6 +231,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
   self          = g_object_new (BZ_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
+  self->user    = user;
   self->rref    = g_object_ref (rref);
 
   key_file = g_key_file_new ();
@@ -241,6 +259,9 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 #undef GET_STRING
 
   /* TODO: permissions, runtimes */
+
+  id        = flatpak_ref_get_name (FLATPAK_REF (rref));
+  unique_id = bz_flatpak_ref_format_unique (FLATPAK_REF (rref), user);
 
   if (component != NULL)
     {
@@ -430,6 +451,8 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
   g_object_set (
       self,
+      "id", id,
+      "unique-id", unique_id,
       "title", title,
       "eol", eol,
       "description", description,
@@ -452,19 +475,37 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   return g_steal_pointer (&self);
 }
 
+char *
+bz_flatpak_ref_format_unique (FlatpakRef *ref,
+                              gboolean    user)
+{
+  g_autofree char *fmt = NULL;
+
+  fmt = flatpak_ref_format_ref (FLATPAK_REF (ref));
+  return g_strdup_printf (
+      "FLATPAK %s: %s",
+      user ? "USER" : "SYSTEM",
+      fmt);
+}
+
 FlatpakRef *
 bz_flatpak_entry_get_ref (BzFlatpakEntry *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
-
   return FLATPAK_REF (self->rref);
+}
+
+gboolean
+bz_flatpak_entry_is_user (BzFlatpakEntry *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), FALSE);
+  return self->user;
 }
 
 const char *
 bz_flatpak_entry_get_name (BzFlatpakEntry *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
-
   return self->name;
 }
 

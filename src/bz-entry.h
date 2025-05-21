@@ -34,6 +34,12 @@ struct _BzEntryClass
 };
 
 const char *
+bz_entry_get_id (BzEntry *self);
+
+const char *
+bz_entry_get_unique_id (BzEntry *self);
+
+const char *
 bz_entry_get_title (BzEntry *self);
 
 const char *

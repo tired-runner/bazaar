@@ -34,8 +34,9 @@ struct _BzWindow
   AdwApplicationWindow parent_instance;
 
   BzFlatpakInstance *flatpak;
-  GListStore        *remote;
+  GListStore        *remote_entries;
   GHashTable        *id_to_entry_hash;
+  GHashTable        *unique_id_to_entry_hash;
 
   GListStore *bg_entries;
   BzEntry    *pending_installation;
@@ -125,7 +126,8 @@ bz_window_dispose (GObject *object)
   BzWindow *self = BZ_WINDOW (object);
 
   g_clear_pointer (&self->id_to_entry_hash, g_hash_table_unref);
-  g_clear_object (&self->remote);
+  g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
+  g_clear_object (&self->remote_entries);
   g_clear_object (&self->flatpak);
   g_clear_object (&self->pending_installation);
   g_clear_object (&self->bg_entries);
@@ -162,7 +164,11 @@ bz_window_init (BzWindow *self)
 {
   GtkEventController *motion_controller = NULL;
 
-  self->remote = g_list_store_new (BZ_TYPE_ENTRY);
+  self->remote_entries   = g_list_store_new (BZ_TYPE_ENTRY);
+  self->id_to_entry_hash = g_hash_table_new_full (
+      g_str_hash, g_str_equal, g_free, g_object_unref);
+  self->unique_id_to_entry_hash = g_hash_table_new_full (
+      g_str_hash, g_str_equal, g_free, g_object_unref);
 
   gtk_widget_init_template (GTK_WIDGET (self));
   // bz_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));
@@ -198,7 +204,44 @@ static void
 gather_entries_progress (BzEntry  *entry,
                          BzWindow *self)
 {
-  g_list_store_append (self->remote, entry);
+
+  const char *id        = NULL;
+  BzEntry    *match     = NULL;
+  const char *unique_id = NULL;
+
+  id    = bz_entry_get_id (entry);
+  match = g_hash_table_lookup (self->id_to_entry_hash, id);
+
+  if (match != NULL)
+    {
+      GPtrArray *extra = NULL;
+
+      extra = g_object_steal_data (G_OBJECT (match), "extra-matches");
+      g_ptr_array_add (extra, g_object_ref (match));
+
+      g_object_set_data_full (
+          G_OBJECT (entry),
+          "extra-matches",
+          extra,
+          (GDestroyNotify) g_ptr_array_unref);
+    }
+  else
+    g_object_set_data_full (
+        G_OBJECT (entry),
+        "extra-matches",
+        g_ptr_array_new_with_free_func (g_object_unref),
+        (GDestroyNotify) g_ptr_array_unref);
+
+  g_hash_table_replace (
+      self->id_to_entry_hash,
+      g_strdup (id),
+      g_object_ref (entry));
+
+  unique_id = bz_entry_get_unique_id (entry);
+  g_hash_table_replace (
+      self->unique_id_to_entry_hash,
+      g_strdup (unique_id),
+      g_object_ref (entry));
 }
 
 static DexFuture *
@@ -215,7 +258,7 @@ refresh_then (DexFuture *future,
   self->flatpak = g_value_dup_object (value);
   bz_transaction_manager_set_backend (self->transaction_mgr, BZ_BACKEND (self->flatpak));
 
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote != NULL);
+  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote_entries != NULL);
 
   application = gtk_window_get_application (GTK_WINDOW (self));
   g_object_get (application, "blocklists", &blocklists, NULL);
@@ -240,25 +283,73 @@ static DexFuture *
 fetch_refs_then (DexFuture *future,
                  BzWindow  *self)
 {
-  guint n_entries            = 0;
+  GHashTableIter iter        = { 0 };
+  guint          n_entries   = 0;
   g_autoptr (GHashTable) set = NULL;
 
-  n_entries = g_list_model_get_n_items (G_LIST_MODEL (self->remote));
-
-  self->id_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
-  for (guint i = 0; i < n_entries; i++)
+  /* TODO: lots of computation, perhaps put in fiber */
+  g_hash_table_iter_init (&iter, self->id_to_entry_hash);
+  for (;;)
     {
-      g_autoptr (BzFlatpakEntry) entry = NULL;
-      const char *name                 = NULL;
+      const char *id    = NULL;
+      BzEntry    *entry = NULL;
+      GPtrArray  *extra = NULL;
 
-      entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
-      name  = bz_flatpak_entry_get_name (entry);
+      if (!g_hash_table_iter_next (
+              &iter, (gpointer *) &id, (gpointer *) &entry))
+        break;
 
-      g_hash_table_replace (
-          self->id_to_entry_hash,
-          g_strdup (name),
-          g_steal_pointer (&entry));
+      /* Don't really like this */
+      extra = g_object_get_data (G_OBJECT (entry), "extra-matches");
+      if (extra != NULL)
+        {
+          g_autoptr (GPtrArray) remote_names = NULL;
+          GPtrArray  *search_tokens          = NULL;
+          const char *remote_name            = NULL;
+
+          remote_names  = g_ptr_array_new ();
+          search_tokens = bz_entry_get_search_tokens (entry);
+
+          remote_name = bz_entry_get_remote_repo_name (entry);
+          if (remote_name != NULL)
+            g_ptr_array_add (remote_names, (gpointer) remote_name);
+
+          for (guint i = 0; i < extra->len; i++)
+            {
+              BzEntry    *extra_entry       = NULL;
+              const char *extra_remote_name = NULL;
+
+              extra_entry       = g_ptr_array_index (extra, i);
+              extra_remote_name = bz_entry_get_remote_repo_name (extra_entry);
+
+              if (extra_remote_name != NULL &&
+                  !g_ptr_array_find_with_equal_func (
+                      remote_names, extra_remote_name, g_str_equal, NULL))
+                {
+                  g_ptr_array_add (remote_names, (gpointer) extra_remote_name);
+                  g_ptr_array_add (search_tokens, g_strdup (extra_remote_name));
+                }
+            }
+          g_ptr_array_sort (remote_names, (GCompareFunc) g_strcmp0);
+
+          if (remote_names->len > 0)
+            {
+              g_autoptr (GString) merged_remote_name = NULL;
+
+              merged_remote_name = g_string_new (g_ptr_array_index (remote_names, 0));
+              for (guint i = 1; i < remote_names->len; i++)
+                g_string_append_printf (
+                    merged_remote_name,
+                    ", %s",
+                    (const char *) g_ptr_array_index (remote_names, i));
+
+              g_object_set (entry, "remote-repo-name", merged_remote_name->str, NULL);
+            }
+        }
+
+      g_list_store_append (self->remote_entries, entry);
     }
+  n_entries = g_list_model_get_n_items (G_LIST_MODEL (self->remote_entries));
 
   g_clear_object (&self->bg_entries);
   self->bg_entries = g_list_store_new (BZ_TYPE_ENTRY);
@@ -275,10 +366,10 @@ fetch_refs_then (DexFuture *future,
       if (g_hash_table_contains (set, GUINT_TO_POINTER (i)))
         continue;
 
-      entry = g_list_model_get_item (G_LIST_MODEL (self->remote), i);
+      entry = g_list_model_get_item (G_LIST_MODEL (self->remote_entries), i);
       if (bz_entry_get_icon_paintable (entry) == NULL)
         continue;
-      if (!g_str_has_prefix (bz_flatpak_entry_get_name (BZ_FLATPAK_ENTRY (entry)), "org.gnome."))
+      if (!g_str_has_prefix (bz_entry_get_id (entry), "org.gnome."))
         continue;
 
       g_list_store_append (self->bg_entries, entry);
@@ -313,11 +404,12 @@ fetch_updates_then (DexFuture *future,
       updates = g_list_store_new (BZ_TYPE_ENTRY);
       for (guint i = 0; i < names->len; i++)
         {
-          const char *name  = NULL;
-          BzEntry    *entry = NULL;
+          const char *unique_id = NULL;
+          BzEntry    *entry     = NULL;
 
-          name  = g_ptr_array_index (names, i);
-          entry = g_hash_table_lookup (self->id_to_entry_hash, name);
+          unique_id = g_ptr_array_index (names, i);
+          entry     = g_hash_table_lookup (
+              self->unique_id_to_entry_hash, unique_id);
 
           /* FIXME address all refs */
           if (entry != NULL)
@@ -386,7 +478,35 @@ install_confirmation_response (AdwAlertDialog *alert,
 {
   if (self->pending_installation != NULL &&
       g_strcmp0 (response, "install") == 0)
-    install (self, self->pending_installation);
+    {
+      BzEntry   *entry  = self->pending_installation;
+      GPtrArray *checks = NULL;
+
+      checks = g_object_get_data (G_OBJECT (alert), "checks");
+      if (checks != NULL)
+        {
+          GPtrArray *extra = NULL;
+
+          extra = g_object_get_data (
+              G_OBJECT (self->pending_installation),
+              "extra-matches");
+
+          for (guint i = 0; i < checks->len; i++)
+            {
+              GtkCheckButton *check = NULL;
+
+              check = g_ptr_array_index (checks, i);
+              if (gtk_check_button_get_active (check))
+                {
+                  if (i > 0)
+                    entry = g_ptr_array_index (extra, i - 1);
+                  break;
+                }
+            }
+        }
+
+      install (self, entry);
+    }
   else
     g_clear_object (&self->pending_installation);
 }
@@ -460,8 +580,9 @@ refresh (BzWindow *self)
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
 
-  g_clear_pointer (&self->id_to_entry_hash, g_hash_table_unref);
-  g_list_store_remove_all (self->remote);
+  g_hash_table_remove_all (self->id_to_entry_hash);
+  g_hash_table_remove_all (self->unique_id_to_entry_hash);
+  g_list_store_remove_all (self->remote_entries);
   g_clear_object (&self->flatpak);
 
   future = bz_flatpak_instance_new ();
@@ -506,6 +627,7 @@ try_install (BzWindow *self,
              BzEntry  *entry)
 {
   AdwDialog *alert = NULL;
+  GPtrArray *extra = NULL;
 
   g_clear_object (&self->pending_installation);
   self->pending_installation = g_object_ref (entry);
@@ -517,8 +639,7 @@ try_install (BzWindow *self,
       ADW_ALERT_DIALOG (alert),
       "You are about to install the following Flatpak:\n\n<b>%s</b>\n<tt>%s</tt>\n\nAre you sure?",
       bz_entry_get_title (entry),
-      /* TODO: make this fully backend agnostic */
-      bz_flatpak_entry_get_name (BZ_FLATPAK_ENTRY (entry)));
+      bz_entry_get_id (entry));
   adw_alert_dialog_add_responses (
       ADW_ALERT_DIALOG (alert),
       "cancel", "Cancel",
@@ -528,6 +649,66 @@ try_install (BzWindow *self,
       ADW_ALERT_DIALOG (alert), "install", ADW_RESPONSE_SUGGESTED);
   adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "cancel");
   adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
+
+  /* TODO: revisit this, use GtkBuilder */
+  extra = g_object_get_data (G_OBJECT (entry), "extra-matches");
+  if (extra != NULL)
+    {
+      GPtrArray *checks            = NULL;
+      GtkWidget *box               = NULL;
+      GtkWidget *first_check       = NULL;
+      GtkWidget *first_check_label = NULL;
+
+      checks = g_ptr_array_new ();
+      box    = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
+
+      first_check = gtk_check_button_new ();
+      g_ptr_array_add (checks, first_check);
+      first_check_label = gtk_label_new (bz_entry_get_unique_id (entry));
+      gtk_widget_add_css_class (first_check_label, "monospace");
+
+      gtk_widget_set_has_tooltip (first_check_label, TRUE);
+      gtk_widget_set_tooltip_text (first_check_label, bz_entry_get_unique_id (entry));
+      gtk_label_set_ellipsize (GTK_LABEL (first_check_label), PANGO_ELLIPSIZE_MIDDLE);
+      gtk_check_button_set_child (GTK_CHECK_BUTTON (first_check), first_check_label);
+
+      for (guint i = 0; i < extra->len; i++)
+        {
+          BzEntry   *variant     = NULL;
+          GtkWidget *check       = NULL;
+          GtkWidget *check_label = NULL;
+
+          variant = g_ptr_array_index (extra, i);
+
+          check = gtk_check_button_new_with_label (
+              bz_entry_get_unique_id (variant));
+          g_ptr_array_add (checks, check);
+          check_label = gtk_label_new (bz_entry_get_unique_id (variant));
+          gtk_widget_add_css_class (check_label, "monospace");
+
+          gtk_widget_set_has_tooltip (check_label, TRUE);
+          gtk_widget_set_tooltip_text (check_label, bz_entry_get_unique_id (variant));
+          gtk_label_set_ellipsize (GTK_LABEL (check_label), PANGO_ELLIPSIZE_MIDDLE);
+          gtk_check_button_set_child (GTK_CHECK_BUTTON (check), check_label);
+
+          gtk_check_button_set_group (
+              GTK_CHECK_BUTTON (check),
+              GTK_CHECK_BUTTON (first_check));
+
+          gtk_box_append (GTK_BOX (box), check);
+        }
+
+      gtk_check_button_set_active (GTK_CHECK_BUTTON (first_check), TRUE);
+      gtk_box_prepend (GTK_BOX (box), first_check);
+
+      adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (alert), box);
+
+      g_object_set_data_full (
+          G_OBJECT (alert),
+          "checks",
+          checks,
+          (GDestroyNotify) g_ptr_array_unref);
+    }
 
   g_signal_connect (alert, "response", G_CALLBACK (install_confirmation_response), self);
   adw_dialog_present (alert, GTK_WIDGET (self));
@@ -561,7 +742,7 @@ search (BzWindow   *self,
     return;
 
   search_widget = bz_search_widget_new (
-      G_LIST_MODEL (self->remote),
+      G_LIST_MODEL (self->remote_entries),
       initial);
   dialog = adw_dialog_new ();
 

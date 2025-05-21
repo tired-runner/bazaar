@@ -27,6 +27,9 @@ G_BEGIN_DECLS
 #define BZ_TYPE_FLATPAK_ENTRY (bz_flatpak_entry_get_type ())
 G_DECLARE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ, FLATPAK_ENTRY, BzEntry)
 
+gboolean
+bz_flatpak_entry_is_user (BzFlatpakEntry *self);
+
 const char *
 bz_flatpak_entry_get_name (BzFlatpakEntry *self);
 
