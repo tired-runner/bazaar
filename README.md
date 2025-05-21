@@ -20,3 +20,8 @@ ninja -C build
 ./build/src/bazaar
 ```
 
+## Supporting
+
+If you would like to support me and the development of this
+application (Thank you!), I have a ko-fi here!
+https://ko-fi.com/kolunmi
