@@ -167,9 +167,9 @@ bz_transaction_view_set_transaction (BzTransactionView *self,
       updates  = bz_transaction_get_updates (transaction);
       removals = bz_transaction_get_removals (transaction);
 
-      installs_valid = installs != NULL && g_list_model_get_n_items (G_LIST_MODEL (installs)) > 0;
-      updates_valid  = updates != NULL && g_list_model_get_n_items (G_LIST_MODEL (updates)) > 0;
-      removals_valid = removals != NULL && g_list_model_get_n_items (G_LIST_MODEL (removals)) > 0;
+      installs_valid = installs != NULL && g_list_model_get_n_items (installs) > 0;
+      updates_valid  = updates != NULL && g_list_model_get_n_items (updates) > 0;
+      removals_valid = removals != NULL && g_list_model_get_n_items (removals) > 0;
 
       gtk_widget_set_visible (self->installs, installs_valid);
       gtk_widget_set_visible (GTK_WIDGET (self->separator_1), installs_valid && (updates_valid || removals_valid));
