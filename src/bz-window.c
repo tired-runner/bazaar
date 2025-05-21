@@ -652,7 +652,7 @@ try_install (BzWindow *self,
 
   /* TODO: revisit this, use GtkBuilder */
   extra = g_object_get_data (G_OBJECT (entry), "extra-matches");
-  if (extra != NULL)
+  if (extra != NULL && extra->len > 0)
     {
       GPtrArray *checks            = NULL;
       GtkWidget *box               = NULL;
