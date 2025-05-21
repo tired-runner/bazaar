@@ -34,6 +34,7 @@ struct _BzSearchWidget
   BzEntry    *selected;
   BzEntry    *previewing;
 
+  guint search_update_timeout;
   guint previewing_timeout;
 
   GPtrArray  *match_tokens;
@@ -52,6 +53,7 @@ struct _BzSearchWidget
   GtkToggleButton  *regex_toggle;
   GtkLabel         *regex_error;
   GtkBox           *content_box;
+  GtkRevealer      *entry_list_revealer;
   GtkListView      *list_view;
   GtkWidget        *entry_view;
   GtkLabel         *title_label;
@@ -174,6 +176,7 @@ bz_search_widget_dispose (GObject *object)
   g_clear_object (&self->model);
   g_clear_object (&self->selected);
   g_clear_object (&self->previewing);
+  g_clear_handle_id (&self->search_update_timeout, g_source_remove);
   g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_pointer (&self->match_tokens, g_ptr_array_unref);
   g_clear_pointer (&self->match_regex, g_regex_unref);
@@ -368,6 +371,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_toggle);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, content_box);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_list_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_view);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label);
@@ -521,7 +525,10 @@ static void
 search_changed (GtkEditable    *editable,
                 BzSearchWidget *self)
 {
-  update_filter (self);
+  g_clear_handle_id (&self->search_update_timeout, g_source_remove);
+  gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
+  self->search_update_timeout = g_timeout_add_once (
+      150 /* 150 ms */, (GSourceOnceFunc) update_filter, self);
 }
 
 static void
@@ -689,6 +696,7 @@ pending_changed (GtkFilterListModel *model,
         gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
 
       gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), FALSE);
+      gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
     }
 }
 
@@ -836,6 +844,7 @@ update_filter (BzSearchWidget *self)
   g_ptr_array_set_size (self->match_tokens, 0);
   g_clear_pointer (&self->match_regex, g_regex_unref);
   g_hash_table_remove_all (self->match_scores);
+  g_clear_handle_id (&self->search_update_timeout, g_source_remove);
 
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
   if (search_text != NULL && *search_text != '\0')
@@ -899,7 +908,12 @@ update_filter (BzSearchWidget *self)
   gtk_filter_changed (filter, GTK_FILTER_CHANGE_DIFFERENT);
 
   if (gtk_filter_list_model_get_pending (filter_list_model) > 0)
-    gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), TRUE);
+    {
+      gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), TRUE);
+      gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
+    }
+  else
+    gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
 }
 
 static DexFuture *
