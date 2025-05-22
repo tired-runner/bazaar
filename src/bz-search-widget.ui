@@ -143,16 +143,18 @@
                       <object class="AdwBreakpoint" id="breakpoint">
                         <condition>max-width: 900px</condition>
                         
+                        <setter object="list_view" property="single-click-activate">TRUE</setter>
+                        
                         <setter object="entry_view" property="vexpand">TRUE</setter>
                         <setter object="entry_view" property="hexpand">TRUE</setter>
                         <setter object="entry_view" property="margin-top">50</setter>
-                        <setter object="list_view" property="single-click-activate">TRUE</setter>
                         
                         <setter object="right_box" property="vexpand">TRUE</setter>
                         <setter object="right_box" property="hexpand">TRUE</setter>
                         
                         <setter object="title_label" property="width-chars">-1</setter>
                         <setter object="title_label" property="max-width-chars">-1</setter>
+                        <setter object="title_label" property="ellipsize">end</setter>
                         <setter object="developer_label" property="width-chars">-1</setter>
                         <setter object="developer_label" property="max-width-chars">-1</setter>
                         <setter object="description_label" property="width-chars">-1</setter>
@@ -270,19 +272,22 @@
                             <property name="margin-top">10</property>
                             <property name="margin-bottom">10</property>
                             <property name="orientation">vertical</property>
-                            <property name="spacing">10</property>
+                            <property name="spacing">15</property>
                             <child>
-                              <object class="GtkBox">
+                              <object class="GtkBox" id="entry_view_top">
                                 <property name="vexpand">FALSE</property>
                                 <property name="orientation">horizontal</property>
                                 <property name="spacing">10</property>
                                 <child>
-                                  <object class="GtkBox">
+                                  <object class="GtkBox" id="left_box">
+                                    <property name="hexpand">FALSE</property>
                                     <property name="orientation">vertical</property>
                                     <property name="spacing">25</property>
                                     <child>
-                                      <object class="GtkPicture">
-                                        <property name="width-request">130</property>
+                                      <object class="GtkPicture" id="app-icon">
+                                        <property name="vexpand">FALSE</property>
+                                        <property name="width-request">128</property>
+                                        <property name="height-request">128</property>
                                         <property name="content-fit">scale-down</property>
                                         <property name="can-shrink">FALSE</property>
                                         <binding name="paintable">
@@ -296,6 +301,7 @@
                                     </child>
                                     <child>
                                       <object class="GtkBox">
+                                        <property name="vexpand">TRUE</property>
                                         <property name="orientation">vertical</property>
                                         <property name="spacing">5</property>
                                         <child>
@@ -342,7 +348,6 @@
                                               <object class="GtkLabel" id="license_label">
                                                 <property name="has-tooltip">TRUE</property>
                                                 <property name="xalign">0</property>
-                                                <property name="selectable">TRUE</property>
                                                 <property name="ellipsize">end</property>
                                                 <property name="width-chars">17</property>
                                                 <property name="max-width-chars">17</property>
@@ -382,7 +387,6 @@
                                               <object class="GtkLabel" id="remote_repo_label">
                                                 <property name="has-tooltip">TRUE</property>
                                                 <property name="xalign">0</property>
-                                                <property name="selectable">TRUE</property>
                                                 <property name="ellipsize">end</property>
                                                 <property name="width-chars">17</property>
                                                 <property name="max-width-chars">17</property>
@@ -457,7 +461,6 @@
                                               <object class="GtkLabel" id="size_label">
                                                 <property name="has-tooltip">TRUE</property>
                                                 <property name="xalign">0</property>
-                                                <property name="selectable">TRUE</property>
                                                 <property name="ellipsize">end</property>
                                                 <property name="width-chars">17</property>
                                                 <property name="max-width-chars">17</property>
@@ -489,10 +492,11 @@
                                 </child>
                                 <child>
                                   <object class="GtkBox" id="right_box">
+                                    <property name="hexpand">TRUE</property>
                                     <property name="orientation">vertical</property>
                                     <property name="spacing">5</property>
                                     <child>
-                                      <object class="GtkBox">
+                                      <object class="GtkBox" id="title_label_bar">
                                         <property name="orientation">horizontal</property>
                                         <property name="spacing">10</property>
                                         <child>
@@ -506,7 +510,6 @@
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <property name="xalign">0</property>
-                                            <property name="selectable">TRUE</property>
                                             <binding name="label">
                                               <lookup name="title" type="BzEntry">
                                                 <lookup name="selected-item" type="GtkSingleSelection">
@@ -520,39 +523,55 @@
                                           <object class="GtkBox">
                                             <property name="hexpand">FALSE</property>
                                             <property name="orientation">vertical</property>
-                                            <property name="spacing">5</property>
                                             <child>
-                                              <object class="GtkButton" id="download_button">
-                                                <style>
-                                                  <class name="suggested-action"/>
-                                                  <class name="circular"/>
-                                                </style>
+                                              <object class="GtkBox">
+                                                <property name="orientation">horizontal</property>
                                                 <property name="vexpand">FALSE</property>
-                                                <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">Download and install this application</property>
-                                                <property name="child">
-                                                  <object class="GtkBox">
-                                                    <property name="margin-start">13</property>
-                                                    <property name="margin-end">13</property>
-                                                    <property name="margin-top">3</property>
-                                                    <property name="margin-bottom">3</property>
-                                                    <property name="orientation">horizontal</property>
-                                                    <property name="spacing">5</property>
-                                                    <child>
-                                                      <object class="GtkImage">
-                                                        <property name="icon-name">folder-download-symbolic</property>
-                                                      </object>
-                                                    </child>
-                                                    <child>
-                                                      <object class="GtkLabel">
-                                                        <style>
-                                                          <class name="caption-heading"/>
-                                                        </style>
-                                                        <property name="label">Install</property>
-                                                      </object>
-                                                    </child>
+                                                <property name="spacing">3</property>
+                                                <child>
+                                                  <object class="GtkButton" id="share_button">
+                                                    <style>
+                                                      <class name="circular"/>
+                                                    </style>
+                                                    <property name="vexpand">FALSE</property>
+                                                    <property name="has-tooltip">TRUE</property>
+                                                    <property name="tooltip-text">Share this application</property>
+                                                    <property name="icon-name">share-symbolic</property>
                                                   </object>
-                                                </property>
+                                                </child>
+                                                <child>
+                                                  <object class="GtkButton" id="download_button">
+                                                    <style>
+                                                      <class name="suggested-action"/>
+                                                      <class name="circular"/>
+                                                    </style>
+                                                    <property name="has-tooltip">TRUE</property>
+                                                    <property name="tooltip-text">Download and install this application</property>
+                                                    <property name="child">
+                                                      <object class="GtkBox">
+                                                        <property name="margin-start">13</property>
+                                                        <property name="margin-end">13</property>
+                                                        <property name="margin-top">3</property>
+                                                        <property name="margin-bottom">3</property>
+                                                        <property name="orientation">horizontal</property>
+                                                        <property name="spacing">5</property>
+                                                        <child>
+                                                          <object class="GtkImage">
+                                                            <property name="icon-name">folder-download-symbolic</property>
+                                                          </object>
+                                                        </child>
+                                                        <child>
+                                                          <object class="GtkLabel">
+                                                            <style>
+                                                              <class name="caption-heading"/>
+                                                            </style>
+                                                            <property name="label">Install</property>
+                                                          </object>
+                                                        </child>
+                                                      </object>
+                                                    </property>
+                                                  </object>
+                                                </child>
                                               </object>
                                             </child>
                                           </object>
@@ -583,7 +602,6 @@
                                         <property name="wrap">TRUE</property>
                                         <property name="wrap-mode">word-char</property>
                                         <property name="xalign">0</property>
-                                        <property name="selectable">TRUE</property>
                                         <binding name="visible">
                                           <closure function="invert_boolean" type="gboolean">
                                             <closure function="is_null" type="gboolean">
@@ -615,7 +633,6 @@
                                         <property name="wrap">TRUE</property>
                                         <property name="wrap-mode">word-char</property>
                                         <property name="xalign">0</property>
-                                        <property name="selectable">TRUE</property>
                                         <binding name="label">
                                           <lookup name="developer" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
@@ -635,7 +652,6 @@
                                         <property name="wrap">TRUE</property>
                                         <property name="wrap-mode">word-char</property>
                                         <property name="xalign">0</property>
-                                        <property name="selectable">TRUE</property>
                                         <binding name="label">
                                           <lookup name="description" type="BzEntry">
                                             <lookup name="selected-item" type="GtkSingleSelection">
@@ -660,7 +676,6 @@
                                             <property name="margin-bottom">10</property>
                                             <property name="valign">start</property>
                                             <property name="xalign">0</property>
-                                            <property name="selectable">TRUE</property>
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <property name="use-markup">TRUE</property>
@@ -739,7 +754,6 @@
                                         </style>
                                         <property name="margin-top">5</property>
                                         <property name="visible">FALSE</property>
-                                        <property name="selectable">TRUE</property>
                                       </object>
                                     </child>
                                     <child>

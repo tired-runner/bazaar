@@ -43,6 +43,7 @@ typedef struct
   char         *developer;
   char         *developer_id;
   GListModel   *screenshot_paintables;
+  GListModel   *share_urls;
 } BzEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
@@ -70,6 +71,7 @@ enum
   PROP_DEVELOPER,
   PROP_DEVELOPER_ID,
   PROP_SCREENSHOT_PAINTABLES,
+  PROP_SHARE_URLS,
 
   LAST_PROP
 };
@@ -98,6 +100,7 @@ bz_entry_dispose (GObject *object)
   g_clear_pointer (&priv->developer, g_free);
   g_clear_pointer (&priv->developer_id, g_free);
   g_clear_object (&priv->screenshot_paintables);
+  g_clear_object (&priv->share_urls);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -169,6 +172,9 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_SCREENSHOT_PAINTABLES:
       g_value_set_object (value, priv->screenshot_paintables);
+      break;
+    case PROP_SHARE_URLS:
+      g_value_set_object (value, priv->share_urls);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -259,6 +265,10 @@ bz_entry_set_property (GObject      *object,
     case PROP_SCREENSHOT_PAINTABLES:
       g_clear_object (&priv->screenshot_paintables);
       priv->screenshot_paintables = g_value_dup_object (value);
+      break;
+    case PROP_SHARE_URLS:
+      g_clear_object (&priv->share_urls);
+      priv->share_urls = g_value_dup_object (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -389,6 +399,13 @@ bz_entry_class_init (BzEntryClass *klass)
   props[PROP_SCREENSHOT_PAINTABLES] =
       g_param_spec_object (
           "screenshot-paintables",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_SHARE_URLS] =
+      g_param_spec_object (
+          "share-urls",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);

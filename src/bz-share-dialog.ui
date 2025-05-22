@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="BzShareDialog" parent="AdwDialog">
+    <property name="child">
+      <object class="AdwToolbarView">
+        <child type="top">
+          <object class="AdwHeaderBar">
+            <property name="title-widget">
+              <object class="GtkLabel">
+                <style>
+                  <class name="heading"/>
+                </style>
+                <property name="label">Share</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <property name="content">
+          <object class="GtkListView">
+            <style>
+              <class name="navigation-sidebar"/>
+            </style>
+            <property name="hexpand">TRUE</property>
+            <property name="margin-start">5</property>
+            <property name="margin-end">5</property>
+            <property name="model">
+              <object class="GtkNoSelection">
+                <binding name="model">
+                  <lookup name="share-urls" type="BzEntry">
+                    <lookup name="entry">BzShareDialog</lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </property>
+            <property name="factory">
+              <object class="GtkBuilderListItemFactory">
+                <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
+    <property name="child">
+      <object class="GtkBox">
+        <property name="margin-top">5</property>
+        <property name="margin-bottom">5</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel">
+            <style>
+              <class name="heading"/>
+            </style>
+            <property name="xalign">0</property>
+            <property name="ellipsize">middle</property>
+            <binding name="label">
+              <closure function="get_share_url_name" type="gchararray">
+                <lookup name="string" type="GtkStringObject">
+                  <lookup name="item">GtkListItem</lookup>
+                </lookup>
+              </closure>
+            </binding>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <style>
+              <class name="linked"/>
+            </style>
+            <property name="orientation">horizontal</property>
+            <child>
+              <object class="GtkEntry">
+                <property name="hexpand">TRUE</property>
+                <property name="editable">FALSE</property>
+                <binding name="text">
+                  <closure function="get_share_url_link" type="gchararray">
+                    <lookup name="string" type="GtkStringObject">
+                      <lookup name="item">GtkListItem</lookup>
+                    </lookup>
+                  </closure>
+                </binding>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text">Copy this link</property>
+                <property name="icon-name">copy-symbolic</property>
+                <signal name="clicked" handler="copy_cb" swapped="true" object="GtkListItem"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text">Open this link externally</property>
+                <property name="icon-name">external-link-symbolic</property>
+                <signal name="clicked" handler="follow_link_cb" swapped="true" object="GtkListItem"/>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                </property>
+              </object>
+            </property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

@@ -224,6 +224,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
   g_autoptr (BzPaintableModel) paintables = NULL;
+  g_autoptr (GtkStringList) share_urls    = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
@@ -401,6 +402,57 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                 dex_scheduler_get_thread_default (),
                 G_LIST_MODEL (files));
         }
+
+      share_urls = gtk_string_list_new (NULL);
+      for (int e = AS_URL_KIND_UNKNOWN + 1; e < AS_URL_KIND_LAST; e++)
+        {
+          const char *url = NULL;
+
+          url = as_component_get_url (component, e);
+          if (url != NULL)
+            {
+              const char      *enum_string = NULL;
+              g_autofree char *share_url   = NULL;
+
+              switch (e)
+                {
+                case AS_URL_KIND_HOMEPAGE:
+                  enum_string = "Homepage";
+                  break;
+                case AS_URL_KIND_BUGTRACKER:
+                  enum_string = "Bugtracker";
+                  break;
+                case AS_URL_KIND_FAQ:
+                  enum_string = "FAQ";
+                  break;
+                case AS_URL_KIND_HELP:
+                  enum_string = "Help";
+                  break;
+                case AS_URL_KIND_DONATION:
+                  enum_string = "Donation";
+                  break;
+                case AS_URL_KIND_TRANSLATE:
+                  enum_string = "Translate";
+                  break;
+                case AS_URL_KIND_CONTACT:
+                  enum_string = "Contact";
+                  break;
+                case AS_URL_KIND_VCS_BROWSER:
+                  enum_string = "VCS Browser";
+                  break;
+                case AS_URL_KIND_CONTRIBUTE:
+                  enum_string = "Contribute";
+                  break;
+                default:
+                  break;
+                }
+
+              share_url = g_strdup_printf ("%s,%s", enum_string, url);
+              gtk_string_list_append (share_urls, share_url);
+            }
+        }
+      if (g_list_model_get_n_items (G_LIST_MODEL (share_urls)) == 0)
+        g_clear_object (&share_urls);
     }
 
   search_tokens = g_ptr_array_new_with_free_func (g_free);
@@ -470,6 +522,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "developer", developer,
       "developer-id", developer_id,
       "screenshot-paintables", paintables,
+      "share-urls", share_urls,
       NULL);
 
   return g_steal_pointer (&self);

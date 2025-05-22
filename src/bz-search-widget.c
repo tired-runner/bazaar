@@ -24,6 +24,7 @@
 
 #include "bz-entry.h"
 #include "bz-search-widget.h"
+#include "bz-share-dialog.h"
 #include "bz-util.h"
 
 struct _BzSearchWidget
@@ -55,11 +56,14 @@ struct _BzSearchWidget
   GtkBox           *content_box;
   GtkRevealer      *entry_list_revealer;
   GtkListView      *list_view;
-  GtkWidget        *entry_view;
+  GtkBox           *entry_view;
+  GtkBox           *right_box;
+  GtkWidget        *title_label_bar;
   GtkLabel         *title_label;
   GtkLabel         *description_label;
   GtkButton        *download_button;
   GtkButton        *remove_button;
+  GtkButton        *share_button;
   GtkListView      *screenshots;
   AdwSpinner       *loading_screenshots_external;
   GtkLabel         *open_screenshot_error;
@@ -159,6 +163,10 @@ download_clicked (GtkButton      *button,
 static void
 remove_clicked (GtkButton      *button,
                 BzSearchWidget *self);
+
+static void
+share_clicked (GtkButton      *button,
+               BzSearchWidget *self);
 
 static void
 screenshot_activate (GtkListView    *list_view,
@@ -374,10 +382,13 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_list_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_view);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, right_box);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label_bar);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, description_label);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, download_button);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, remove_button);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, share_button);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, screenshots);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, loading_screenshots_external);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
@@ -428,6 +439,7 @@ bz_search_widget_init (BzSearchWidget *self)
   g_signal_connect (self->screenshots, "activate", G_CALLBACK (screenshot_activate), self);
   g_signal_connect (self->download_button, "clicked", G_CALLBACK (download_clicked), self);
   g_signal_connect (self->remove_button, "clicked", G_CALLBACK (remove_clicked), self);
+  g_signal_connect (self->share_button, "clicked", G_CALLBACK (share_clicked), self);
 }
 
 GtkWidget *
@@ -496,8 +508,11 @@ static void
 sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
                         BzSearchWidget *self)
 {
-  gtk_box_remove (self->content_box, self->entry_view);
-  adw_bottom_sheet_set_sheet (self->sheet, self->entry_view);
+  gtk_box_remove (self->right_box, self->title_label_bar);
+  gtk_box_prepend (self->entry_view, self->title_label_bar);
+
+  gtk_box_remove (self->content_box, GTK_WIDGET (self->entry_view));
+  adw_bottom_sheet_set_sheet (self->sheet, GTK_WIDGET (self->entry_view));
 
   gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-1");
   gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-2");
@@ -512,7 +527,10 @@ sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
 {
   adw_bottom_sheet_set_open (self->sheet, FALSE);
   adw_bottom_sheet_set_sheet (self->sheet, NULL);
-  gtk_box_append (self->content_box, self->entry_view);
+  gtk_box_append (self->content_box, GTK_WIDGET (self->entry_view));
+
+  gtk_box_remove (self->entry_view, self->title_label_bar);
+  gtk_box_prepend (self->right_box, self->title_label_bar);
 
   gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-2");
   gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-1");
@@ -557,6 +575,7 @@ search_activate (GtkText        *text,
           g_clear_handle_id (&self->previewing_timeout, g_source_remove);
           previewing_property_timeout (self);
           adw_bottom_sheet_set_open (self->sheet, TRUE);
+          gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
         }
       else
         {
@@ -749,6 +768,7 @@ activate (GtkListView    *list_view,
       g_clear_handle_id (&self->previewing_timeout, g_source_remove);
       previewing_property_timeout (self);
       adw_bottom_sheet_set_open (self->sheet, TRUE);
+      gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
     }
   else
     {
@@ -782,6 +802,27 @@ remove_clicked (GtkButton      *button,
                 BzSearchWidget *self)
 {
   /* Implement Me! */
+}
+
+static void
+share_clicked (GtkButton      *button,
+               BzSearchWidget *self)
+{
+  GtkSelectionModel *model    = NULL;
+  guint              position = 0;
+  g_autoptr (BzEntry) entry   = NULL;
+
+  AdwDialog *share_dialog = NULL;
+
+  model    = gtk_list_view_get_model (self->list_view);
+  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+  g_assert (position != GTK_INVALID_LIST_POSITION);
+  entry = g_list_model_get_item (G_LIST_MODEL (model), position);
+
+  share_dialog = bz_share_dialog_new (entry);
+  gtk_widget_set_size_request (GTK_WIDGET (share_dialog), 400, -1);
+
+  adw_dialog_present (share_dialog, GTK_WIDGET (self));
 }
 
 static void
