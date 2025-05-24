@@ -181,8 +181,10 @@
                         <binding name="visible">
                           <closure function="invert_boolean" type="gboolean">
                             <closure function="is_null" type="gboolean">
-                              <lookup name="selected-item" type="GtkSingleSelection">
-                                <lookup name="model">list_view</lookup>
+                              <lookup name="ui-entry" type="BzEntryGroup">
+                                <lookup name="selected-item" type="GtkSingleSelection">
+                                  <lookup name="model">list_view</lookup>
+                                </lookup>
                               </lookup>
                             </closure>
                           </closure>
@@ -218,7 +220,9 @@
             <property name="icon-size">large</property>
             <binding name="paintable">
               <lookup name="icon-paintable" type="BzEntry">
-                <lookup name="item">GtkListItem</lookup>
+                <lookup name="ui-entry" type="BzEntryGroup">
+                  <lookup name="item">GtkListItem</lookup>
+                </lookup>
               </lookup>
             </binding>
           </object>
@@ -230,7 +234,9 @@
             <property name="single-line-mode">true</property>
             <binding name="label">
               <lookup name="title" type="BzEntry">
-                <lookup name="item">GtkListItem</lookup>
+                <lookup name="ui-entry" type="BzEntryGroup">
+                  <lookup name="item">GtkListItem</lookup>
+                </lookup>
               </lookup>
             </binding>
           </object>
@@ -246,7 +252,9 @@
             <property name="single-line-mode">true</property>
             <binding name="label">
               <lookup name="description" type="BzEntry">
-                <lookup name="item">GtkListItem</lookup>
+                <lookup name="ui-entry" type="BzEntryGroup">
+                  <lookup name="item">GtkListItem</lookup>
+                </lookup>
               </lookup>
             </binding>
           </object>
@@ -292,8 +300,10 @@
                                         <property name="can-shrink">FALSE</property>
                                         <binding name="paintable">
                                           <lookup name="icon-paintable" type="BzEntry">
-                                            <lookup name="selected-item" type="GtkSingleSelection">
-                                              <lookup name="model">list_view</lookup>
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
@@ -318,8 +328,10 @@
                                                 <property name="icon-name">license-symbolic</property>
                                                 <binding name="visible">
                                                   <lookup name="is-floss" type="BzEntry">
-                                                    <lookup name="selected-item" type="GtkSingleSelection">
-                                                      <lookup name="model">list_view</lookup>
+                                                    <lookup name="ui-entry" type="BzEntryGroup">
+                                                      <lookup name="selected-item" type="GtkSingleSelection">
+                                                        <lookup name="model">list_view</lookup>
+                                                      </lookup>
                                                     </lookup>
                                                   </lookup>
                                                 </binding>
@@ -336,8 +348,10 @@
                                                 <binding name="visible">
                                                   <closure function="invert_boolean" type="gboolean">
                                                     <lookup name="is-floss" type="BzEntry">
-                                                      <lookup name="selected-item" type="GtkSingleSelection">
-                                                        <lookup name="model">list_view</lookup>
+                                                      <lookup name="ui-entry" type="BzEntryGroup">
+                                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                                          <lookup name="model">list_view</lookup>
+                                                        </lookup>
                                                       </lookup>
                                                     </lookup>
                                                   </closure>
@@ -353,15 +367,19 @@
                                                 <property name="max-width-chars">17</property>
                                                 <binding name="tooltip-text">
                                                   <lookup name="project-license" type="BzEntry">
-                                                    <lookup name="selected-item" type="GtkSingleSelection">
-                                                      <lookup name="model">list_view</lookup>
+                                                    <lookup name="ui-entry" type="BzEntryGroup">
+                                                      <lookup name="selected-item" type="GtkSingleSelection">
+                                                        <lookup name="model">list_view</lookup>
+                                                      </lookup>
                                                     </lookup>
                                                   </lookup>
                                                 </binding>
                                                 <binding name="label">
                                                   <lookup name="project-license" type="BzEntry">
-                                                    <lookup name="selected-item" type="GtkSingleSelection">
-                                                      <lookup name="model">list_view</lookup>
+                                                    <lookup name="ui-entry" type="BzEntryGroup">
+                                                      <lookup name="selected-item" type="GtkSingleSelection">
+                                                        <lookup name="model">list_view</lookup>
+                                                      </lookup>
                                                     </lookup>
                                                   </lookup>
                                                 </binding>
@@ -391,14 +409,14 @@
                                                 <property name="width-chars">17</property>
                                                 <property name="max-width-chars">17</property>
                                                 <binding name="tooltip-text">
-                                                  <lookup name="remote-repo-name" type="BzEntry">
+                                                  <lookup name="remote-repos-string" type="BzEntryGroup">
                                                     <lookup name="selected-item" type="GtkSingleSelection">
                                                       <lookup name="model">list_view</lookup>
                                                     </lookup>
                                                   </lookup>
                                                 </binding>
                                                 <binding name="label">
-                                                  <lookup name="remote-repo-name" type="BzEntry">
+                                                  <lookup name="remote-repos-string" type="BzEntryGroup">
                                                     <lookup name="selected-item" type="GtkSingleSelection">
                                                       <lookup name="model">list_view</lookup>
                                                     </lookup>
@@ -433,8 +451,10 @@
                                                 <binding name="label">
                                                   <closure function="format_as_link" type="gchararray">
                                                     <lookup name="url" type="BzEntry">
-                                                      <lookup name="selected-item" type="GtkSingleSelection">
-                                                        <lookup name="model">list_view</lookup>
+                                                      <lookup name="ui-entry" type="BzEntryGroup">
+                                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                                          <lookup name="model">list_view</lookup>
+                                                        </lookup>
                                                       </lookup>
                                                     </lookup>
                                                   </closure>
@@ -467,8 +487,10 @@
                                                 <binding name="tooltip-text">
                                                   <closure function="format_size" type="gchararray">
                                                     <lookup name="size" type="BzEntry">
-                                                      <lookup name="selected-item" type="GtkSingleSelection">
-                                                        <lookup name="model">list_view</lookup>
+                                                      <lookup name="ui-entry" type="BzEntryGroup">
+                                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                                          <lookup name="model">list_view</lookup>
+                                                        </lookup>
                                                       </lookup>
                                                     </lookup>
                                                   </closure>
@@ -476,8 +498,10 @@
                                                 <binding name="label">
                                                   <closure function="format_size" type="gchararray">
                                                     <lookup name="size" type="BzEntry">
-                                                      <lookup name="selected-item" type="GtkSingleSelection">
-                                                        <lookup name="model">list_view</lookup>
+                                                      <lookup name="ui-entry" type="BzEntryGroup">
+                                                        <lookup name="selected-item" type="GtkSingleSelection">
+                                                          <lookup name="model">list_view</lookup>
+                                                        </lookup>
                                                       </lookup>
                                                     </lookup>
                                                   </closure>
@@ -505,15 +529,17 @@
                                               <class name="title-1"/>
                                             </style>
                                             <property name="hexpand">TRUE</property>
-                                            <property name="width-chars">20</property>
-                                            <property name="max-width-chars">20</property>
+                                            <property name="width-chars">12</property>
+                                            <property name="max-width-chars">12</property>
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <property name="xalign">0</property>
                                             <binding name="label">
                                               <lookup name="title" type="BzEntry">
-                                                <lookup name="selected-item" type="GtkSingleSelection">
-                                                  <lookup name="model">list_view</lookup>
+                                                <lookup name="ui-entry" type="BzEntryGroup">
+                                                  <lookup name="selected-item" type="GtkSingleSelection">
+                                                    <lookup name="model">list_view</lookup>
+                                                  </lookup>
                                                 </lookup>
                                               </lookup>
                                             </binding>
@@ -527,7 +553,7 @@
                                               <object class="GtkBox">
                                                 <property name="orientation">horizontal</property>
                                                 <property name="vexpand">FALSE</property>
-                                                <property name="spacing">3</property>
+                                                <property name="spacing">10</property>
                                                 <child>
                                                   <object class="GtkButton" id="share_button">
                                                     <style>
@@ -540,52 +566,82 @@
                                                   </object>
                                                 </child>
                                                 <child>
-                                                  <object class="GtkButton" id="download_button">
+                                                  <object class="GtkBox">
                                                     <style>
-                                                      <class name="suggested-action"/>
-                                                      <class name="circular"/>
+                                                      <class name="linked"/>
                                                     </style>
-                                                    <property name="has-tooltip">TRUE</property>
-                                                    <property name="tooltip-text">Download and install this application</property>
-                                                    <property name="child">
-                                                      <object class="GtkBox">
-                                                        <property name="margin-start">13</property>
-                                                        <property name="margin-end">13</property>
-                                                        <property name="margin-top">3</property>
-                                                        <property name="margin-bottom">3</property>
-                                                        <property name="orientation">horizontal</property>
-                                                        <property name="spacing">5</property>
-                                                        <child>
-                                                          <object class="GtkImage">
-                                                            <property name="icon-name">folder-download-symbolic</property>
+                                                    <property name="orientation">horizontal</property>
+                                                    <child>
+                                                      <object class="GtkButton" id="download_button">
+                                                        <style>
+                                                          <class name="suggested-action"/>
+                                                          <class name="circular"/>
+                                                        </style>
+                                                        <property name="has-tooltip">TRUE</property>
+                                                        <property name="tooltip-text">Download and install this application</property>
+                                                        <binding name="visible">
+                                                          <closure function="invert_boolean" type="gboolean">
+                                                            <closure function="is_zero" type="gboolean">
+                                                              <lookup name="installable" type="BzEntryGroup">
+                                                                <lookup name="selected-item" type="GtkSingleSelection">
+                                                                  <lookup name="model">list_view</lookup>
+                                                                </lookup>
+                                                              </lookup>
+                                                            </closure>
+                                                          </closure>
+                                                        </binding>
+                                                        <property name="child">
+                                                          <object class="GtkBox">
+                                                            <property name="margin-start">10</property>
+                                                            <property name="margin-end">10</property>
+                                                            <property name="margin-top">3</property>
+                                                            <property name="margin-bottom">3</property>
+                                                            <property name="orientation">horizontal</property>
+                                                            <property name="spacing">5</property>
+                                                            <child>
+                                                              <object class="GtkImage">
+                                                                <property name="icon-name">folder-download-symbolic</property>
+                                                              </object>
+                                                            </child>
+                                                            <child>
+                                                              <object class="GtkLabel">
+                                                                <style>
+                                                                  <class name="caption-heading"/>
+                                                                </style>
+                                                                <property name="label">Install</property>
+                                                              </object>
+                                                            </child>
                                                           </object>
-                                                        </child>
-                                                        <child>
-                                                          <object class="GtkLabel">
-                                                            <style>
-                                                              <class name="caption-heading"/>
-                                                            </style>
-                                                            <property name="label">Install</property>
-                                                          </object>
-                                                        </child>
+                                                        </property>
                                                       </object>
-                                                    </property>
+                                                    </child>
+                                                    <child>
+                                                      <object class="GtkButton" id="remove_button">
+                                                        <style>
+                                                          <class name="destructive-action"/>
+                                                          <class name="circular"/>
+                                                        </style>
+                                                        <binding name="visible">
+                                                          <closure function="invert_boolean" type="gboolean">
+                                                            <closure function="is_zero" type="gboolean">
+                                                              <lookup name="removable" type="BzEntryGroup">
+                                                                <lookup name="selected-item" type="GtkSingleSelection">
+                                                                  <lookup name="model">list_view</lookup>
+                                                                </lookup>
+                                                              </lookup>
+                                                            </closure>
+                                                          </closure>
+                                                        </binding>
+                                                        <property name="vexpand">FALSE</property>
+                                                        <property name="has-tooltip">TRUE</property>
+                                                        <property name="tooltip-text">Uninstall this application</property>
+                                                        <property name="icon-name">user-trash-symbolic</property>
+                                                      </object>
+                                                    </child>
                                                   </object>
                                                 </child>
                                               </object>
                                             </child>
-                                          </object>
-                                        </child>
-                                        <child>
-                                          <object class="GtkButton" id="remove_button">
-                                            <style>
-                                              <class name="destructive-action"/>
-                                            </style>
-                                            <property name="vexpand">FALSE</property>
-                                            <property name="visible">FALSE</property>
-                                            <property name="has-tooltip">TRUE</property>
-                                            <property name="tooltip-text">Uninstall this application</property>
-                                            <property name="icon-name">user-trash-symbolic</property>
                                           </object>
                                         </child>
                                       </object>
@@ -606,8 +662,10 @@
                                           <closure function="invert_boolean" type="gboolean">
                                             <closure function="is_null" type="gboolean">
                                               <lookup name="eol" type="BzEntry">
-                                                <lookup name="selected-item" type="GtkSingleSelection">
-                                                  <lookup name="model">list_view</lookup>
+                                                <lookup name="ui-entry" type="BzEntryGroup">
+                                                  <lookup name="selected-item" type="GtkSingleSelection">
+                                                    <lookup name="model">list_view</lookup>
+                                                  </lookup>
                                                 </lookup>
                                               </lookup>
                                             </closure>
@@ -615,8 +673,10 @@
                                         </binding>
                                         <binding name="label">
                                           <lookup name="eol" type="BzEntry">
-                                            <lookup name="selected-item" type="GtkSingleSelection">
-                                              <lookup name="model">list_view</lookup>
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
@@ -635,8 +695,10 @@
                                         <property name="xalign">0</property>
                                         <binding name="label">
                                           <lookup name="developer" type="BzEntry">
-                                            <lookup name="selected-item" type="GtkSingleSelection">
-                                              <lookup name="model">list_view</lookup>
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
@@ -654,8 +716,10 @@
                                         <property name="xalign">0</property>
                                         <binding name="label">
                                           <lookup name="description" type="BzEntry">
-                                            <lookup name="selected-item" type="GtkSingleSelection">
-                                              <lookup name="model">list_view</lookup>
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="selected-item" type="GtkSingleSelection">
+                                                <lookup name="model">list_view</lookup>
+                                              </lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
@@ -681,8 +745,10 @@
                                             <property name="use-markup">TRUE</property>
                                             <binding name="label">
                                               <lookup name="long-description" type="BzEntry">
-                                                <lookup name="selected-item" type="GtkSingleSelection">
-                                                  <lookup name="model">list_view</lookup>
+                                                <lookup name="ui-entry" type="BzEntryGroup">
+                                                  <lookup name="selected-item" type="GtkSingleSelection">
+                                                    <lookup name="model">list_view</lookup>
+                                                  </lookup>
                                                 </lookup>
                                               </lookup>
                                             </binding>

@@ -46,7 +46,7 @@ retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data);
 static DexFuture *
 bz_backend_real_refresh (BzBackend *self)
 {
-  return dex_future_new_true ();
+  return NULL;
 }
 
 static DexFuture *
@@ -57,13 +57,19 @@ bz_backend_real_retrieve_remote_entries (BzBackend                 *self,
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data)
 {
-  return dex_future_new_true ();
+  return NULL;
+}
+
+static DexFuture *
+bz_backend_real_retrieve_install_ids (BzBackend *self)
+{
+  return NULL;
 }
 
 static DexFuture *
 bz_backend_real_retrieve_update_ids (BzBackend *self)
 {
-  return dex_future_new_true ();
+  return NULL;
 }
 
 static DexFuture *
@@ -78,7 +84,7 @@ bz_backend_real_schedule_transaction (BzBackend                       *self,
                                       gpointer                         user_data,
                                       GDestroyNotify                   destroy_user_data)
 {
-  return dex_future_new_true ();
+  return NULL;
 }
 
 static void
@@ -86,6 +92,7 @@ bz_backend_default_init (BzBackendInterface *iface)
 {
   iface->refresh                 = bz_backend_real_refresh;
   iface->retrieve_remote_entries = bz_backend_real_retrieve_remote_entries;
+  iface->retrieve_install_ids    = bz_backend_real_retrieve_install_ids;
   iface->retrieve_update_ids     = bz_backend_real_retrieve_update_ids;
   iface->schedule_transaction    = bz_backend_real_schedule_transaction;
 }
@@ -160,6 +167,14 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
       (DexFiberFunc) retrieve_with_blocklists_fiber,
       retrieve_with_blocklists_data_ref (data),
       retrieve_with_blocklists_data_unref);
+}
+
+DexFuture *
+bz_backend_retrieve_install_ids (BzBackend *self)
+{
+  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
+
+  return BZ_BACKEND_GET_IFACE (self)->retrieve_install_ids (self);
 }
 
 DexFuture *

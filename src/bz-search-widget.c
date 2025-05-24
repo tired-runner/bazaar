@@ -22,7 +22,6 @@
 
 #include <libdex.h>
 
-#include "bz-entry.h"
 #include "bz-search-widget.h"
 #include "bz-share-dialog.h"
 #include "bz-util.h"
@@ -31,9 +30,10 @@ struct _BzSearchWidget
 {
   AdwBin parent_instance;
 
-  GListModel *model;
-  BzEntry    *selected;
-  BzEntry    *previewing;
+  GListModel   *model;
+  BzEntryGroup *selected;
+  gboolean      remove;
+  BzEntry      *previewing;
 
   guint search_update_timeout;
   guint previewing_timeout;
@@ -130,12 +130,12 @@ search_activate (GtkText        *text,
                  BzSearchWidget *self);
 
 static gint
-cmp_item (BzEntry        *a,
-          BzEntry        *b,
+cmp_item (BzEntryGroup   *a,
+          BzEntryGroup   *b,
           BzSearchWidget *self);
 
 static int
-match (BzEntry        *item,
+match (BzEntryGroup   *item,
        BzSearchWidget *self);
 
 static void
@@ -152,9 +152,9 @@ static void
 previewing_property_timeout (BzSearchWidget *self);
 
 static void
-activate (GtkListView    *list_view,
-          guint           position,
-          BzSearchWidget *self);
+list_activate (GtkListView    *list_view,
+               guint           position,
+               BzSearchWidget *self);
 
 static void
 download_clicked (GtkButton      *button,
@@ -175,6 +175,11 @@ screenshot_activate (GtkListView    *list_view,
 
 static void
 update_filter (BzSearchWidget *self);
+
+static void
+emit_idx (BzSearchWidget *self,
+          GListModel     *model,
+          guint           selected_idx);
 
 static void
 bz_search_widget_dispose (GObject *object)
@@ -208,7 +213,7 @@ bz_search_widget_get_property (GObject    *object,
       g_value_set_object (value, bz_search_widget_get_model (self));
       break;
     case PROP_SELECTED:
-      g_value_set_object (value, bz_search_widget_get_selected (self));
+      g_value_set_object (value, bz_search_widget_get_selected (self, NULL));
       break;
     case PROP_PREVIEWING:
       g_value_set_object (value, bz_search_widget_get_previewing (self));
@@ -243,6 +248,13 @@ invert_boolean (gpointer object,
                 gboolean value)
 {
   return !value;
+}
+
+static gboolean
+is_zero (gpointer object,
+         int      value)
+{
+  return value == 0;
 }
 
 static gboolean
@@ -357,7 +369,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
       g_param_spec_object (
           "selected",
           NULL, NULL,
-          BZ_TYPE_ENTRY,
+          BZ_TYPE_ENTRY_GROUP,
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_PREVIEWING] =
@@ -393,6 +405,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, loading_screenshots_external);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, is_zero);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, is_valid_timestamp);
   gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
@@ -435,7 +448,7 @@ bz_search_widget_init (BzSearchWidget *self)
   g_signal_connect (self->regex_toggle, "toggled", G_CALLBACK (regex_toggled), self);
   g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
   g_signal_connect (selection_model, "notify::selected-item", G_CALLBACK (selected_item_changed), self);
-  g_signal_connect (self->list_view, "activate", G_CALLBACK (activate), self);
+  g_signal_connect (self->list_view, "activate", G_CALLBACK (list_activate), self);
   g_signal_connect (self->screenshots, "activate", G_CALLBACK (screenshot_activate), self);
   g_signal_connect (self->download_button, "clicked", G_CALLBACK (download_clicked), self);
   g_signal_connect (self->remove_button, "clicked", G_CALLBACK (remove_clicked), self);
@@ -468,6 +481,9 @@ bz_search_widget_set_model (BzSearchWidget *self,
   GtkFilterListModel *filter_list_model = NULL;
 
   g_return_if_fail (BZ_IS_SEARCH_WIDGET (self));
+  g_return_if_fail (model == NULL ||
+                    (G_IS_LIST_MODEL (model) &&
+                     g_list_model_get_item_type (model) == BZ_TYPE_ENTRY_GROUP));
 
   g_clear_object (&self->model);
   self->model = model != NULL ? g_object_ref (model) : NULL;
@@ -490,14 +506,18 @@ bz_search_widget_get_model (BzSearchWidget *self)
   return self->model;
 }
 
-gpointer
-bz_search_widget_get_selected (BzSearchWidget *self)
+BzEntryGroup *
+bz_search_widget_get_selected (BzSearchWidget *self,
+                               gboolean       *remove)
 {
   g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
+
+  if (remove != NULL)
+    *remove = self->remove;
   return self->selected;
 }
 
-gpointer
+BzEntry *
 bz_search_widget_get_previewing (BzSearchWidget *self)
 {
   g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
@@ -575,39 +595,44 @@ search_activate (GtkText        *text,
           g_clear_handle_id (&self->previewing_timeout, g_source_remove);
           previewing_property_timeout (self);
           adw_bottom_sheet_set_open (self->sheet, TRUE);
-          gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
+          if (gtk_widget_get_visible (GTK_WIDGET (self->download_button)))
+            gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
+          else if (gtk_widget_get_visible (GTK_WIDGET (self->remove_button)))
+            gtk_widget_grab_focus (GTK_WIDGET (self->remove_button));
         }
       else
-        {
-          self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
-          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
-        }
+        emit_idx (self, G_LIST_MODEL (model), selected_idx);
     }
 }
 
 static gint
-cmp_item (BzEntry        *a,
-          BzEntry        *b,
+cmp_item (BzEntryGroup   *a,
+          BzEntryGroup   *b,
           BzSearchWidget *self)
 {
-  int a_score = 0;
-  int b_score = 0;
+  int      a_score = 0;
+  int      b_score = 0;
+  BzEntry *a_entry = NULL;
+  BzEntry *b_entry = NULL;
 
   a_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, a));
   b_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, b));
 
+  a_entry = bz_entry_group_get_ui_entry (a);
+  b_entry = bz_entry_group_get_ui_entry (b);
+
   if (a_score == b_score)
     {
       /* slightly favor entries with a description */
-      if (bz_entry_get_description (a) != NULL)
+      if (bz_entry_get_description (a_entry) != NULL)
         a_score++;
-      if (bz_entry_get_description (b) != NULL)
+      if (bz_entry_get_description (b_entry) != NULL)
         b_score++;
 
       /* slightly favor entries with an icon */
-      if (bz_entry_get_icon_paintable (a) != NULL)
+      if (bz_entry_get_icon_paintable (a_entry) != NULL)
         a_score++;
-      if (bz_entry_get_icon_paintable (b) != NULL)
+      if (bz_entry_get_icon_paintable (b_entry) != NULL)
         b_score++;
     }
   if (a_score == b_score)
@@ -616,8 +641,8 @@ cmp_item (BzEntry        *a,
       const char *b_title = NULL;
       int         cmp_res = 0;
 
-      a_title = bz_entry_get_title (a);
-      b_title = bz_entry_get_title (b);
+      a_title = bz_entry_get_title (a_entry);
+      b_title = bz_entry_get_title (b_entry);
       cmp_res = g_strcmp0 (a_title, b_title);
 
       if (cmp_res < 0)
@@ -632,13 +657,18 @@ cmp_item (BzEntry        *a,
 }
 
 static gboolean
-match (BzEntry        *item,
+match (BzEntryGroup   *item,
        BzSearchWidget *self)
 {
-  int        score         = 0;
+  BzEntry   *entry         = NULL;
   GPtrArray *search_tokens = NULL;
+  int        score         = 0;
 
-  search_tokens = bz_entry_get_search_tokens (item);
+  entry = bz_entry_group_get_ui_entry (item);
+  if (entry == NULL)
+    return FALSE;
+
+  search_tokens = bz_entry_get_search_tokens (entry);
 
   if (self->match_regex != NULL)
     {
@@ -748,15 +778,24 @@ previewing_property_timeout (BzSearchWidget *self)
   selected = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
 
   if (selected != GTK_INVALID_LIST_POSITION)
-    self->previewing = g_list_model_get_item (G_LIST_MODEL (model), selected);
+    {
+      g_autoptr (BzEntryGroup) group = NULL;
+      BzEntry *entry                 = NULL;
+
+      group = g_list_model_get_item (G_LIST_MODEL (model), selected);
+      entry = bz_entry_group_get_ui_entry (group);
+
+      if (entry != NULL)
+        self->previewing = g_object_ref (entry);
+    }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PREVIEWING]);
 }
 
 static void
-activate (GtkListView    *list_view,
-          guint           position,
-          BzSearchWidget *self)
+list_activate (GtkListView    *list_view,
+               guint           position,
+               BzSearchWidget *self)
 {
   GtkSelectionModel *model = NULL;
 
@@ -768,14 +807,13 @@ activate (GtkListView    *list_view,
       g_clear_handle_id (&self->previewing_timeout, g_source_remove);
       previewing_property_timeout (self);
       adw_bottom_sheet_set_open (self->sheet, TRUE);
-      gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
+      if (gtk_widget_get_visible (GTK_WIDGET (self->download_button)))
+        gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
+      else if (gtk_widget_get_visible (GTK_WIDGET (self->remove_button)))
+        gtk_widget_grab_focus (GTK_WIDGET (self->remove_button));
     }
   else
-    {
-      g_clear_object (&self->selected);
-      self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
-      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
-    }
+    emit_idx (self, G_LIST_MODEL (model), position);
 }
 
 static void
@@ -793,6 +831,7 @@ download_clicked (GtkButton      *button,
   g_assert (position != GTK_INVALID_LIST_POSITION);
 
   self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
+  self->remove   = FALSE;
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
 }
@@ -801,28 +840,45 @@ static void
 remove_clicked (GtkButton      *button,
                 BzSearchWidget *self)
 {
-  /* Implement Me! */
+  GtkSelectionModel *model    = NULL;
+  guint              position = 0;
+
+  g_clear_object (&self->selected);
+
+  model    = gtk_list_view_get_model (self->list_view);
+  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+  g_assert (position != GTK_INVALID_LIST_POSITION);
+
+  self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
+  self->remove   = TRUE;
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
 }
 
 static void
 share_clicked (GtkButton      *button,
                BzSearchWidget *self)
 {
-  GtkSelectionModel *model    = NULL;
-  guint              position = 0;
-  g_autoptr (BzEntry) entry   = NULL;
-
-  AdwDialog *share_dialog = NULL;
+  GtkSelectionModel *model       = NULL;
+  guint              position    = 0;
+  g_autoptr (BzEntryGroup) group = NULL;
+  BzEntry *entry                 = NULL;
 
   model    = gtk_list_view_get_model (self->list_view);
   position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
   g_assert (position != GTK_INVALID_LIST_POSITION);
-  entry = g_list_model_get_item (G_LIST_MODEL (model), position);
+  group = g_list_model_get_item (G_LIST_MODEL (model), position);
+  entry = bz_entry_group_get_ui_entry (group);
 
-  share_dialog = bz_share_dialog_new (entry);
-  gtk_widget_set_size_request (GTK_WIDGET (share_dialog), 400, -1);
+  if (entry != NULL)
+    {
+      AdwDialog *share_dialog = NULL;
 
-  adw_dialog_present (share_dialog, GTK_WIDGET (self));
+      share_dialog = bz_share_dialog_new (entry);
+      gtk_widget_set_size_request (GTK_WIDGET (share_dialog), 400, -1);
+
+      adw_dialog_present (share_dialog, GTK_WIDGET (self));
+    }
 }
 
 static void
@@ -955,6 +1011,27 @@ update_filter (BzSearchWidget *self)
     }
   else
     gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
+}
+
+static void
+emit_idx (BzSearchWidget *self,
+          GListModel     *model,
+          guint           selected_idx)
+{
+  int installable = 0;
+  int removable   = 0;
+
+  g_clear_object (&self->selected);
+  self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
+
+  g_object_get (
+      self->selected,
+      "installable", &installable,
+      "removable", &removable,
+      NULL);
+  self->remove = installable == 0 && removable > 0;
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
 }
 
 static DexFuture *

@@ -28,9 +28,10 @@ struct _BzTransactionManager
 {
   AdwBin parent_instance;
 
-  BzBackend  *backend;
-  GListStore *transactions;
-  double      current_progress;
+  BzBackend     *backend;
+  GListStore    *transactions;
+  double         current_progress;
+  BzTransaction *last_success;
 
   DexFuture *current_task;
   GQueue     queue;
@@ -50,6 +51,7 @@ enum
   PROP_HAS_TRANSACTIONS,
   PROP_ACTIVE,
   PROP_CURRENT_PROGRESS,
+  PROP_LAST_SUCCESS,
 
   LAST_PROP
 };
@@ -90,6 +92,7 @@ bz_transaction_manager_dispose (GObject *object)
 
   g_clear_object (&self->backend);
   g_clear_object (&self->transactions);
+  g_clear_object (&self->last_success);
   g_queue_clear_full (&self->queue, queued_schedule_data_unref);
   dex_clear (&self->current_task);
 
@@ -118,6 +121,9 @@ bz_transaction_manager_get_property (GObject    *object,
     case PROP_CURRENT_PROGRESS:
       g_value_set_double (value, self->current_progress);
       break;
+    case PROP_LAST_SUCCESS:
+      g_value_set_object (value, self->last_success);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -139,6 +145,7 @@ bz_transaction_manager_set_property (GObject      *object,
     case PROP_HAS_TRANSACTIONS:
     case PROP_ACTIVE:
     case PROP_CURRENT_PROGRESS:
+    case PROP_LAST_SUCCESS:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -189,6 +196,13 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
           0.0, 1.0, 0.0,
           G_PARAM_READABLE);
 
+  props[PROP_LAST_SUCCESS] =
+      g_param_spec_object (
+          "last-success",
+          NULL, NULL,
+          BZ_TYPE_BACKEND,
+          G_PARAM_READABLE);
+
   g_type_ensure (BZ_TYPE_TRANSACTION_VIEW);
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
@@ -237,6 +251,13 @@ bz_transaction_manager_get_backend (BzTransactionManager *self)
 {
   g_return_val_if_fail (BZ_IS_TRANSACTION_MANAGER (self), NULL);
   return self->backend;
+}
+
+BzTransaction *
+bz_transaction_manager_get_last_success (BzTransactionManager *self)
+{
+  g_return_val_if_fail (BZ_IS_TRANSACTION_MANAGER (self), NULL);
+  return self->last_success;
 }
 
 void
@@ -347,6 +368,16 @@ transaction_finally (DexFuture          *future,
           "success", value != NULL,
           "error", local_error != NULL ? local_error->message : NULL,
           NULL);
+
+      if (value != NULL)
+        {
+          g_clear_object (&data->self->last_success);
+          data->self->last_success = g_object_ref (transaction);
+
+          g_object_notify_by_pspec (
+              G_OBJECT (data->self),
+              props[PROP_LAST_SUCCESS]);
+        }
     }
 
   dispatch_next (data->self);

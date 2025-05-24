@@ -1,4 +1,4 @@
-/* bz-transaction-manager.h
+/* bz-entry-group.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,31 +20,27 @@
 
 #pragma once
 
-#include <adwaita.h>
-
-#include "bz-backend.h"
-#include "bz-transaction.h"
+#include "bz-entry.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_TRANSACTION_MANAGER (bz_transaction_manager_get_type ())
-G_DECLARE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, BZ, TRANSACTION_MANAGER, AdwBin)
+#define BZ_TYPE_ENTRY_GROUP (bz_entry_group_get_type ())
+G_DECLARE_FINAL_TYPE (BzEntryGroup, bz_entry_group, BZ, ENTRY_GROUP, GObject)
 
-GtkWidget *
-bz_transaction_manager_new (GListModel *model);
+BzEntryGroup *
+bz_entry_group_new (void);
 
-void
-bz_transaction_manager_set_backend (BzTransactionManager *self,
-                                    BzBackend            *backend);
+GListModel *
+bz_entry_group_get_model (BzEntryGroup *self);
 
-BzBackend *
-bz_transaction_manager_get_backend (BzTransactionManager *self);
-
-BzTransaction *
-bz_transaction_manager_get_last_success (BzTransactionManager *self);
+BzEntry *
+bz_entry_group_get_ui_entry (BzEntryGroup *self);
 
 void
-bz_transaction_manager_add (BzTransactionManager *self,
-                            BzTransaction        *transaction);
+bz_entry_group_add (BzEntryGroup *self,
+                    BzEntry      *entry,
+                    gboolean      installable,
+                    gboolean      updatable,
+                    gboolean      removable);
 
 G_END_DECLS

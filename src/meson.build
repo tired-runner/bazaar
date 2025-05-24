@@ -7,6 +7,7 @@ bz_sources = [
   'bz-update-dialog.c',
   'bz-background.c',
   'bz-entry.c',
+  'bz-entry-group.c',
   'bz-transaction.c',
   'bz-transaction-view.c',
   'bz-transaction-manager.c',

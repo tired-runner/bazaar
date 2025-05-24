@@ -72,6 +72,8 @@ BZ_DEFINE_DATA (
 static DexFuture *
 ref_remote_apps_fiber (GatherEntriesData *data);
 static DexFuture *
+ref_installs_fiber (GatherEntriesData *data);
+static DexFuture *
 ref_updates_fiber (GatherEntriesData *data);
 
 BZ_DEFINE_DATA (
@@ -246,6 +248,24 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
 }
 
 static DexFuture *
+bz_flatpak_instance_retrieve_install_ids (BzBackend *backend)
+{
+  BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
+  g_autoptr (GatherEntriesData) data = NULL;
+
+  data                    = gather_entries_data_new ();
+  data->instance          = g_object_ref (self);
+  data->home_scheduler    = dex_scheduler_ref_thread_default ();
+  data->progress_func     = NULL;
+  data->user_data         = NULL;
+  data->destroy_user_data = NULL;
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) ref_installs_fiber,
+      gather_entries_data_ref (data), gather_entries_data_unref);
+}
+
+static DexFuture *
 bz_flatpak_instance_retrieve_update_ids (BzBackend *backend)
 {
   BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
@@ -336,6 +356,7 @@ backend_iface_init (BzBackendInterface *iface)
 {
   iface->refresh                 = bz_flatpak_instance_refresh;
   iface->retrieve_remote_entries = bz_flatpak_instance_retrieve_remote_entries;
+  iface->retrieve_install_ids    = bz_flatpak_instance_retrieve_install_ids;
   iface->retrieve_update_ids     = bz_flatpak_instance_retrieve_update_ids;
   iface->schedule_transaction    = bz_flatpak_instance_schedule_transaction;
 }
@@ -688,6 +709,50 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   return dex_future_new_true ();
+}
+
+static DexFuture *
+ref_installs_fiber (GatherEntriesData *data)
+{
+  BzFlatpakInstance *instance       = data->instance;
+  g_autoptr (GError) local_error    = NULL;
+  g_autoptr (GPtrArray) system_refs = NULL;
+  g_autoptr (GPtrArray) user_refs   = NULL;
+  g_autoptr (GHashTable) ids        = NULL;
+
+  system_refs = flatpak_installation_list_installed_refs (
+      instance->system, NULL, &local_error);
+  if (system_refs == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  user_refs = flatpak_installation_list_installed_refs (
+      instance->user, NULL, &local_error);
+  if (user_refs == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  ids = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+  for (guint i = 0; i < system_refs->len + user_refs->len; i++)
+    {
+      gboolean             user = FALSE;
+      FlatpakInstalledRef *iref = NULL;
+
+      if (i < system_refs->len)
+        {
+          user = FALSE;
+          iref = g_ptr_array_index (system_refs, i);
+        }
+      else
+        {
+          user = TRUE;
+          iref = g_ptr_array_index (user_refs, i - system_refs->len);
+        }
+
+      g_hash_table_add (ids, bz_flatpak_ref_format_unique (FLATPAK_REF (iref), user));
+    }
+
+  return dex_future_new_take_boxed (
+      G_TYPE_HASH_TABLE, g_steal_pointer (&ids));
 }
 
 static DexFuture *

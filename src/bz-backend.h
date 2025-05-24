@@ -58,6 +58,9 @@ struct _BzBackendInterface
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data);
 
+  /* DexFuture* -> GHashTable* */
+  DexFuture *(*retrieve_install_ids) (BzBackend *self);
+
   /* DexFuture* -> GPtrArray* -> char* */
   DexFuture *(*retrieve_update_ids) (BzBackend *self);
 
@@ -92,6 +95,9 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
                                                     BzBackendGatherEntriesFunc progress_func,
                                                     gpointer                   user_data,
                                                     GDestroyNotify             destroy_user_data);
+
+DexFuture *
+bz_backend_retrieve_install_ids (BzBackend *self);
 
 DexFuture *
 bz_backend_retrieve_update_ids (BzBackend *self);

@@ -527,3 +527,46 @@ bz_entry_get_search_tokens (BzEntry *self)
   priv = bz_entry_get_instance_private (self);
   return priv->search_tokens;
 }
+
+gint
+bz_entry_cmp_usefulness (gconstpointer a,
+                         gconstpointer b,
+                         gpointer      user_data)
+{
+  BzEntryPrivate *priv_a  = bz_entry_get_instance_private (BZ_ENTRY ((gpointer) a));
+  BzEntryPrivate *priv_b  = bz_entry_get_instance_private (BZ_ENTRY ((gpointer) b));
+  int             a_score = 0;
+  int             b_score = 0;
+
+  a_score += priv_a->title != NULL ? 1 : 0;
+  a_score += priv_a->description != NULL ? 1 : 0;
+  a_score += priv_a->long_description != NULL ? 1 : 0;
+  a_score += priv_a->url != NULL ? 1 : 0;
+  a_score += priv_a->size > 0 ? 1 : 0;
+  a_score += priv_a->icon_paintable != NULL ? 1 : 0;
+  a_score += priv_a->remote_repo_icon != NULL ? 1 : 0;
+  a_score += priv_a->metadata_license != NULL ? 1 : 0;
+  a_score += priv_a->project_license != NULL ? 1 : 0;
+  a_score += priv_a->project_group != NULL ? 1 : 0;
+  a_score += priv_a->developer != NULL ? 1 : 0;
+  a_score += priv_a->developer_id != NULL ? 1 : 0;
+  a_score += priv_a->screenshot_paintables != NULL ? 1 : 0;
+  a_score += priv_a->share_urls != NULL ? 1 : 0;
+
+  b_score += priv_b->title != NULL ? 1 : 0;
+  b_score += priv_b->description != NULL ? 1 : 0;
+  b_score += priv_b->long_description != NULL ? 1 : 0;
+  b_score += priv_b->url != NULL ? 1 : 0;
+  b_score += priv_b->size > 0 ? 1 : 0;
+  b_score += priv_b->icon_paintable != NULL ? 1 : 0;
+  b_score += priv_b->remote_repo_icon != NULL ? 1 : 0;
+  b_score += priv_b->metadata_license != NULL ? 1 : 0;
+  b_score += priv_b->project_license != NULL ? 1 : 0;
+  b_score += priv_b->project_group != NULL ? 1 : 0;
+  b_score += priv_b->developer != NULL ? 1 : 0;
+  b_score += priv_b->developer_id != NULL ? 1 : 0;
+  b_score += priv_b->screenshot_paintables != NULL ? 1 : 0;
+  b_score += priv_b->share_urls != NULL ? 1 : 0;
+
+  return b_score - a_score;
+}

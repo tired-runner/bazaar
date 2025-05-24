@@ -21,7 +21,6 @@
 #pragma once
 
 #include <gtk/gtk.h>
-#include <libdex.h>
 
 G_BEGIN_DECLS
 
@@ -62,5 +61,10 @@ bz_entry_get_icon_paintable (BzEntry *self);
 
 GPtrArray *
 bz_entry_get_search_tokens (BzEntry *self);
+
+gint
+bz_entry_cmp_usefulness (gconstpointer a,
+                         gconstpointer b,
+                         gpointer      user_data);
 
 G_END_DECLS

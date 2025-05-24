@@ -22,6 +22,8 @@
 
 #include <adwaita.h>
 
+#include "bz-entry-group.h"
+
 G_BEGIN_DECLS
 
 #define BZ_TYPE_SEARCH_WIDGET (bz_search_widget_get_type ())
@@ -38,10 +40,11 @@ bz_search_widget_set_model (BzSearchWidget *self,
 GListModel *
 bz_search_widget_get_model (BzSearchWidget *self);
 
-gpointer
-bz_search_widget_get_selected (BzSearchWidget *self);
+BzEntryGroup *
+bz_search_widget_get_selected (BzSearchWidget *self,
+                               gboolean       *remove);
 
-gpointer
+BzEntry *
 bz_search_widget_get_previewing (BzSearchWidget *self);
 
 G_END_DECLS
