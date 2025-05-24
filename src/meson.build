@@ -17,6 +17,7 @@ bz_sources = [
   'bz-paintable-model.c',
   'bz-share-dialog.c',
   'bz-preferences-dialog.c',
+  'bz-progress-bar.c',
   'bz-error.c',
 ]
 

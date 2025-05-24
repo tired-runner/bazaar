@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include "bz-progress-bar.h"
 #include "bz-transaction-view.h"
 
 struct _BzTransactionView
@@ -119,6 +120,8 @@ bz_transaction_view_class_init (BzTransactionViewClass *klass)
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
+
+  g_type_ensure (BZ_TYPE_PROGRESS_BAR);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-transaction-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, installs);
