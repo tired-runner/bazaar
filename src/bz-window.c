@@ -34,6 +34,8 @@ struct _BzWindow
 {
   AdwApplicationWindow parent_instance;
 
+  GSettings *settings;
+
   BzFlatpakInstance *flatpak;
   GListStore        *remote_groups;
   GHashTable        *id_to_entry_group_hash;
@@ -56,6 +58,21 @@ struct _BzWindow
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
+
+enum
+{
+  PROP_0,
+
+  PROP_SETTINGS,
+
+  LAST_PROP
+};
+static GParamSpec *props[LAST_PROP] = { 0 };
+
+static void
+setting_changed (GSettings *settings,
+                 gchar     *key,
+                 BzWindow  *self);
 
 static void
 last_success_changed (BzTransactionManager *manager,
@@ -137,6 +154,11 @@ bz_window_dispose (GObject *object)
 {
   BzWindow *self = BZ_WINDOW (object);
 
+  if (self->settings != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->settings, setting_changed, self);
+  g_clear_object (&self->settings);
+
   g_clear_pointer (&self->id_to_entry_group_hash, g_hash_table_unref);
   g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
@@ -149,12 +171,70 @@ bz_window_dispose (GObject *object)
 }
 
 static void
+bz_window_get_property (GObject    *object,
+                        guint       prop_id,
+                        GValue     *value,
+                        GParamSpec *pspec)
+{
+  BzWindow *self = BZ_WINDOW (object);
+
+  switch (prop_id)
+    {
+    case PROP_SETTINGS:
+      g_value_set_object (value, self->settings);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+bz_window_set_property (GObject      *object,
+                        guint         prop_id,
+                        const GValue *value,
+                        GParamSpec   *pspec)
+{
+  BzWindow *self = BZ_WINDOW (object);
+
+  switch (prop_id)
+    {
+    case PROP_SETTINGS:
+      if (self->settings != NULL)
+        g_signal_handlers_disconnect_by_func (
+            self->settings, setting_changed, self);
+      g_clear_object (&self->settings);
+      self->settings = g_value_dup_object (value);
+      if (self->settings != NULL)
+        {
+          g_signal_connect (
+              self->settings, "changed",
+              G_CALLBACK (setting_changed), self);
+          setting_changed (self->settings, "show-animated-background", self);
+        }
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->dispose = bz_window_dispose;
+  object_class->dispose      = bz_window_dispose;
+  object_class->get_property = bz_window_get_property;
+  object_class->set_property = bz_window_set_property;
+
+  props[PROP_SETTINGS] =
+      g_param_spec_object (
+          "settings",
+          NULL, NULL,
+          G_TYPE_SETTINGS,
+          G_PARAM_READWRITE);
+
+  g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_TRANSACTION_MANAGER);
@@ -202,6 +282,19 @@ bz_window_init (BzWindow *self)
   gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
 
   refresh (self);
+}
+
+static void
+setting_changed (GSettings *settings,
+                 gchar     *key,
+                 BzWindow  *self)
+{
+  if (g_strcmp0 (key, "show-animated-background") == 0)
+    gtk_widget_set_visible (
+        GTK_WIDGET (self->background),
+        g_settings_get_boolean (
+            settings,
+            "show-animated-background"));
 }
 
 static void

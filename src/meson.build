@@ -16,6 +16,7 @@ bz_sources = [
   'bz-flatpak-entry.c',
   'bz-paintable-model.c',
   'bz-share-dialog.c',
+  'bz-preferences-dialog.c',
   'bz-error.c',
 ]
 

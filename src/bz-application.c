@@ -22,12 +22,14 @@
 #include <glib/gi18n.h>
 
 #include "bz-application.h"
+#include "bz-preferences-dialog.h"
 #include "bz-window.h"
 
 struct _BzApplication
 {
   AdwApplication parent_instance;
 
+  GSettings  *settings;
   GListModel *blocklists;
 
   gboolean initial_search;
@@ -40,6 +42,7 @@ enum
 {
   PROP_0,
 
+  PROP_SETTINGS,
   PROP_BLOCKLISTS,
 
   LAST_PROP
@@ -51,6 +54,7 @@ bz_application_dispose (GObject *object)
 {
   BzApplication *self = BZ_APPLICATION (object);
 
+  g_clear_object (&self->settings);
   g_clear_object (&self->blocklists);
   g_clear_pointer (&self->initial_search_text, g_free);
 
@@ -67,6 +71,9 @@ bz_application_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_SETTINGS:
+      g_value_set_object (value, self->settings);
+      break;
     case PROP_BLOCKLISTS:
       g_value_set_object (value, self->blocklists);
       break;
@@ -85,6 +92,10 @@ bz_application_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_SETTINGS:
+      g_clear_object (&self->settings);
+      self->settings = g_value_dup_object (value);
+      break;
     case PROP_BLOCKLISTS:
       g_clear_object (&self->blocklists);
       self->blocklists = g_value_dup_object (value);
@@ -99,6 +110,16 @@ bz_application_activate (GApplication *app)
 {
   BzApplication *self = BZ_APPLICATION (app);
   GtkWindow     *window;
+
+  if (self->settings == NULL)
+    {
+      const char *app_id = NULL;
+
+      app_id = g_application_get_application_id (G_APPLICATION (self));
+      g_assert (app_id != NULL);
+      self->settings = g_settings_new (app_id);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
+    }
 
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
   if (window == NULL)
@@ -116,6 +137,7 @@ bz_application_activate (GApplication *app)
       window = g_object_new (
           BZ_TYPE_WINDOW,
           "application", app,
+          "settings", self->settings,
           NULL);
     }
 
@@ -134,6 +156,13 @@ bz_application_class_init (BzApplicationClass *klass)
   object_class->dispose      = bz_application_dispose;
   object_class->get_property = bz_application_get_property;
   object_class->set_property = bz_application_set_property;
+
+  props[PROP_SETTINGS] =
+      g_param_spec_object (
+          "settings",
+          NULL, NULL,
+          G_TYPE_SETTINGS,
+          G_PARAM_READWRITE);
 
   props[PROP_BLOCKLISTS] =
       g_param_spec_object (
@@ -244,6 +273,23 @@ bz_application_about_action (GSimpleAction *action,
 }
 
 static void
+bz_application_preferences_action (GSimpleAction *action,
+                                   GVariant      *parameter,
+                                   gpointer       user_data)
+{
+  BzApplication *self        = user_data;
+  GtkWindow     *window      = NULL;
+  AdwDialog     *preferences = NULL;
+
+  g_assert (BZ_IS_APPLICATION (self));
+
+  window      = gtk_application_get_active_window (GTK_APPLICATION (self));
+  preferences = bz_preferences_dialog_new (self->settings);
+
+  adw_dialog_present (preferences, GTK_WIDGET (window));
+}
+
+static void
 bz_application_quit_action (GSimpleAction *action,
                             GVariant      *parameter,
                             gpointer       user_data)
@@ -256,11 +302,12 @@ bz_application_quit_action (GSimpleAction *action,
 }
 
 static const GActionEntry app_actions[] = {
-  {    "quit",    bz_application_quit_action },
-  {   "about",   bz_application_about_action },
-  {  "search",  bz_application_search_action },
-  {  "browse",  bz_application_browse_action },
-  { "refresh", bz_application_refresh_action },
+  {        "quit",        bz_application_quit_action },
+  { "preferences", bz_application_preferences_action },
+  {       "about",       bz_application_about_action },
+  {      "search",      bz_application_search_action },
+  {      "browse",      bz_application_browse_action },
+  {     "refresh",     bz_application_refresh_action },
 };
 
 static void

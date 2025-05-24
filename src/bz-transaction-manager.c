@@ -200,7 +200,7 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
       g_param_spec_object (
           "last-success",
           NULL, NULL,
-          BZ_TYPE_BACKEND,
+          BZ_TYPE_TRANSACTION,
           G_PARAM_READABLE);
 
   g_type_ensure (BZ_TYPE_TRANSACTION_VIEW);
