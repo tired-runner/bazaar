@@ -87,6 +87,9 @@
               </object>
             </child>
             <child>
+              <object class="GtkSeparator"/>
+            </child>
+            <child>
               <object class="GtkBox">
                 <property name="hexpand">TRUE</property>
                 <property name="orientation">horizontal</property>
@@ -210,44 +213,36 @@
   <template class="GtkListItem">
     <property name="activatable">FALSE</property>
     <property name="child">
-      <object class="GtkFrame">
-        <style>
-          <class name="raised"/>
-        </style>
-        <property name="child">
-          <object class="GtkBox">
-            <property name="orientation">horizontal</property>
-            <property name="margin-start">5</property>
-            <property name="margin-end">5</property>
-            <property name="margin-top">5</property>
-            <property name="margin-bottom">5</property>
-            <property name="spacing">6</property>
-            <child>
-              <object class="GtkImage">
-                <property name="icon-size">large</property>
-                <binding name="paintable">
-                  <lookup name="icon-paintable" type="BzEntry">
-                    <lookup name="item">GtkListItem</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <style>
-                  <class name="heading"/>
-                </style>
-                <property name="hexpand">TRUE</property>
-                <property name="xalign">0</property>
-                <property name="ellipsize">end</property>
-                <property name="single-line-mode">true</property>
-                <binding name="label">
-                  <lookup name="title" type="BzEntry">
-                    <lookup name="item">GtkListItem</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
+      <object class="GtkCenterBox">
+        <property name="orientation">horizontal</property>
+        <property name="margin-start">5</property>
+        <property name="margin-end">5</property>
+        <property name="margin-top">5</property>
+        <property name="margin-bottom">5</property>
+        <property name="start-widget">
+          <object class="GtkLabel">
+            <style>
+              <class name="heading"/>
+            </style>
+            <property name="hexpand">TRUE</property>
+            <property name="xalign">0</property>
+            <property name="ellipsize">end</property>
+            <property name="single-line-mode">true</property>
+            <binding name="label">
+              <lookup name="title" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
+          </object>
+        </property>
+        <property name="end-widget">
+          <object class="GtkImage">
+            <property name="icon-size">large</property>
+            <binding name="paintable">
+              <lookup name="icon-paintable" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
           </object>
         </property>
       </object>
