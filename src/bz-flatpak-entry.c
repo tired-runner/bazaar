@@ -26,6 +26,7 @@
 
 #include "bz-flatpak-private.h"
 #include "bz-paintable-model.h"
+// #include "bz-review.h"
 
 enum
 {
@@ -208,6 +209,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   gboolean         result                 = FALSE;
   const char      *id                     = NULL;
   g_autofree char *unique_id              = NULL;
+  guint64          download_size          = 0;
   const char      *title                  = NULL;
   const char      *eol                    = NULL;
   const char      *description            = NULL;
@@ -225,6 +227,9 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GdkTexture) icon_paintable   = NULL;
   g_autoptr (BzPaintableModel) paintables = NULL;
   g_autoptr (GtkStringList) share_urls    = NULL;
+  g_autoptr (GListStore) native_reviews   = NULL;
+  double           average_rating         = 0.0;
+  g_autofree char *ratings_summary        = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
@@ -261,8 +266,9 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
   /* TODO: permissions, runtimes */
 
-  id        = flatpak_ref_get_name (FLATPAK_REF (rref));
-  unique_id = bz_flatpak_ref_format_unique (FLATPAK_REF (rref), user);
+  id            = flatpak_ref_get_name (FLATPAK_REF (rref));
+  unique_id     = bz_flatpak_ref_format_unique (FLATPAK_REF (rref), user);
+  download_size = flatpak_remote_ref_get_download_size (rref);
 
   if (component != NULL)
     {
@@ -270,6 +276,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       AsIcon      *icon                 = NULL;
       AsDeveloper *developer_obj        = NULL;
       GPtrArray   *screenshots          = NULL;
+      // GPtrArray   *reviews              = NULL;
 
       title = as_component_get_name (component);
       if (title == NULL)
@@ -453,6 +460,48 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
         }
       if (g_list_model_get_n_items (G_LIST_MODEL (share_urls)) == 0)
         g_clear_object (&share_urls);
+
+      // reviews = as_component_get_reviews (component);
+      // if (reviews != NULL && reviews->len > 0)
+      //   {
+      //     double ratings_sum = 0.0;
+
+      //     native_reviews = g_list_store_new (BZ_TYPE_REVIEW);
+
+      //     for (guint i = 0; i < reviews->len; i++)
+      //       {
+      //         AsReview *review                   = NULL;
+      //         double    rating                   = 0.0;
+      //         g_autoptr (BzReview) native_review = NULL;
+
+      //         review = g_ptr_array_index (reviews, i);
+      //         rating = (double) as_review_get_rating (review) / 100.0;
+      //         ratings_sum += rating;
+
+      //         native_review = g_object_new (
+      //             BZ_TYPE_REVIEW,
+      //             "priority", as_review_get_priority (review),
+      //             "id", as_review_get_id (review),
+      //             "summary", as_review_get_summary (review),
+      //             "description", as_review_get_description (review),
+      //             "locale", as_review_get_locale (review),
+      //             "rating", rating,
+      //             "version", as_review_get_version (review),
+      //             "reviewer-id", as_review_get_reviewer_id (review),
+      //             "reviewer-name", as_review_get_reviewer_name (review),
+      //             "date", as_review_get_date (review),
+      //             "was-self", (gboolean) (as_review_get_flags (review) & AS_REVIEW_FLAG_SELF),
+      //             "self-voted", (gboolean) (as_review_get_flags (review) & AS_REVIEW_FLAG_VOTED),
+      //             NULL);
+      //         g_list_store_append (native_reviews, native_review);
+      //       }
+
+      //     average_rating  = ratings_sum / (double) reviews->len;
+      //     ratings_summary = g_strdup_printf (
+      //         "%.2f stars (%d reviews)",
+      //         average_rating * 5.0,
+      //         reviews->len);
+      //   }
     }
 
   search_tokens = g_ptr_array_new_with_free_func (g_free);
@@ -511,7 +560,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "long-description", long_description,
       "remote-repo-name", remote_name,
       "url", project_url,
-      "size", flatpak_remote_ref_get_installed_size (rref),
+      "size", download_size,
       "icon-paintable", icon_paintable,
       "search-tokens", search_tokens,
       "remote-repo-icon", remote_icon,
@@ -523,6 +572,9 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "developer-id", developer_id,
       "screenshot-paintables", paintables,
       "share-urls", share_urls,
+      "reviews", native_reviews,
+      "average-rating", average_rating,
+      "ratings-summary", ratings_summary,
       NULL);
 
   return g_steal_pointer (&self);

@@ -18,6 +18,7 @@ bz_sources = [
   'bz-share-dialog.c',
   'bz-preferences-dialog.c',
   'bz-progress-bar.c',
+  'bz-review.c',
   'bz-error.c',
 ]
 

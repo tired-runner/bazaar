@@ -23,5 +23,6 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/user-trash-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/share-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/copy-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/starred-symbolic.svg</file>
   </gresource>
 </gresources>

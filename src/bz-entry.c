@@ -44,6 +44,9 @@ typedef struct
   char         *developer_id;
   GListModel   *screenshot_paintables;
   GListModel   *share_urls;
+  GListModel   *reviews;
+  double        average_rating;
+  char         *ratings_summary;
 } BzEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
@@ -72,6 +75,9 @@ enum
   PROP_DEVELOPER_ID,
   PROP_SCREENSHOT_PAINTABLES,
   PROP_SHARE_URLS,
+  PROP_REVIEWS,
+  PROP_AVERAGE_RATING,
+  PROP_RATINGS_SUMMARY,
 
   LAST_PROP
 };
@@ -101,6 +107,8 @@ bz_entry_dispose (GObject *object)
   g_clear_pointer (&priv->developer_id, g_free);
   g_clear_object (&priv->screenshot_paintables);
   g_clear_object (&priv->share_urls);
+  g_clear_object (&priv->reviews);
+  g_clear_pointer (&priv->ratings_summary, g_free);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -175,6 +183,15 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_SHARE_URLS:
       g_value_set_object (value, priv->share_urls);
+      break;
+    case PROP_REVIEWS:
+      g_value_set_object (value, priv->reviews);
+      break;
+    case PROP_AVERAGE_RATING:
+      g_value_set_double (value, priv->average_rating);
+      break;
+    case PROP_RATINGS_SUMMARY:
+      g_value_set_string (value, priv->ratings_summary);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -269,6 +286,17 @@ bz_entry_set_property (GObject      *object,
     case PROP_SHARE_URLS:
       g_clear_object (&priv->share_urls);
       priv->share_urls = g_value_dup_object (value);
+      break;
+    case PROP_REVIEWS:
+      g_clear_object (&priv->reviews);
+      priv->reviews = g_value_dup_object (value);
+      break;
+    case PROP_AVERAGE_RATING:
+      priv->average_rating = g_value_get_double (value);
+      break;
+    case PROP_RATINGS_SUMMARY:
+      g_clear_pointer (&priv->ratings_summary, g_free);
+      priv->ratings_summary = g_value_dup_string (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -408,6 +436,26 @@ bz_entry_class_init (BzEntryClass *klass)
           "share-urls",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_REVIEWS] =
+      g_param_spec_object (
+          "reviews",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_AVERAGE_RATING] =
+      g_param_spec_double (
+          "average-rating",
+          NULL, NULL,
+          0.0, 1.0, 0.0,
+          G_PARAM_READWRITE);
+
+  props[PROP_RATINGS_SUMMARY] =
+      g_param_spec_string (
+          "ratings-summary",
+          NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -552,6 +600,7 @@ bz_entry_cmp_usefulness (gconstpointer a,
   a_score += priv_a->developer_id != NULL ? 1 : 0;
   a_score += priv_a->screenshot_paintables != NULL ? 1 : 0;
   a_score += priv_a->share_urls != NULL ? 1 : 0;
+  a_score += priv_a->reviews != NULL ? 1 : 0;
 
   b_score += priv_b->title != NULL ? 1 : 0;
   b_score += priv_b->description != NULL ? 1 : 0;
@@ -567,6 +616,7 @@ bz_entry_cmp_usefulness (gconstpointer a,
   b_score += priv_b->developer_id != NULL ? 1 : 0;
   b_score += priv_b->screenshot_paintables != NULL ? 1 : 0;
   b_score += priv_b->share_urls != NULL ? 1 : 0;
+  b_score += priv_b->reviews != NULL ? 1 : 0;
 
   return b_score - a_score;
 }
