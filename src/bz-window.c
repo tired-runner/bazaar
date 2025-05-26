@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <glib/gi18n.h>
+
 #include "bz-backend.h"
 #include "bz-background.h"
 #include "bz-browse-widget.h"
@@ -71,9 +73,9 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
-setting_changed (GSettings *settings,
-                 gchar     *key,
-                 BzWindow  *self);
+setting_changed (GSettings   *settings,
+                 const gchar *pkey,
+                 BzWindow    *self);
 
 static void
 last_success_changed (BzTransactionManager *manager,
@@ -287,11 +289,11 @@ bz_window_init (BzWindow *self)
 }
 
 static void
-setting_changed (GSettings *settings,
-                 gchar     *key,
-                 BzWindow  *self)
+setting_changed (GSettings   *settings,
+                 const gchar *pkey,
+                 BzWindow    *self)
 {
-  if (g_strcmp0 (key, "show-animated-background") == 0)
+  if (g_strcmp0 (pkey, "show-animated-background") == 0)
     gtk_widget_set_visible (
         GTK_WIDGET (self->background),
         g_settings_get_boolean (
@@ -622,7 +624,9 @@ refresh_catch (DexFuture *future,
   g_autoptr (GError) local_error = NULL;
 
   dex_future_get_value (future, &local_error);
-  adw_toast_overlay_add_toast (self->toasts, adw_toast_new_format ("Failed! %s", local_error->message));
+  adw_toast_overlay_add_toast (
+      self->toasts,
+      adw_toast_new_format (_ ("Failed! %s"), local_error->message));
 
   return dex_future_new_true ();
 }
@@ -850,16 +854,16 @@ try_transact (BzWindow     *self,
     {
       adw_alert_dialog_format_body_markup (
           ADW_ALERT_DIALOG (alert),
-          "You are about to remove the following Flatpak:\n\n"
-          "<b>%s</b>\n"
-          "<tt>%s</tt>\n\n"
-          "Are you sure?",
+          _ ("You are about to remove the following Flatpak:\n\n"
+             "<b>%s</b>\n"
+             "<tt>%s</tt>\n\n"
+             "Are you sure?"),
           bz_entry_get_title (ui_entry),
           bz_entry_get_id (ui_entry));
       adw_alert_dialog_add_responses (
           ADW_ALERT_DIALOG (alert),
-          "cancel", "Cancel",
-          "remove", "Remove",
+          "cancel", _ ("Cancel"),
+          "remove", _ ("Remove"),
           NULL);
       adw_alert_dialog_set_response_appearance (
           ADW_ALERT_DIALOG (alert), "remove", ADW_RESPONSE_DESTRUCTIVE);
@@ -868,16 +872,16 @@ try_transact (BzWindow     *self,
     {
       adw_alert_dialog_format_body_markup (
           ADW_ALERT_DIALOG (alert),
-          "You are about to install the following Flatpak:\n\n"
-          "<b>%s</b>\n"
-          "<tt>%s</tt>\n\n"
-          "Are you sure?",
+          _ ("You are about to install the following Flatpak:\n\n"
+             "<b>%s</b>\n"
+             "<tt>%s</tt>\n\n"
+             "Are you sure?"),
           bz_entry_get_title (ui_entry),
           bz_entry_get_id (ui_entry));
       adw_alert_dialog_add_responses (
           ADW_ALERT_DIALOG (alert),
-          "cancel", "Cancel",
-          "install", "Install",
+          "cancel", _ ("Cancel"),
+          "install", _ ("Install"),
           NULL);
       adw_alert_dialog_set_response_appearance (
           ADW_ALERT_DIALOG (alert), "install", ADW_RESPONSE_SUGGESTED);

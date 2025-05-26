@@ -120,7 +120,7 @@
                                         </layout>
                                         <child>
                                           <object class="GtkButton">
-                                            <property name="label">Search</property>
+                                            <property name="label" translatable="yes">Search</property>
                                             <property name="action-name">app.search</property>
                                             <style>
                                               <class name="pill"/>
@@ -129,7 +129,7 @@
                                         </child>
                                         <child>
                                           <object class="GtkButton">
-                                            <property name="label">Browse</property>
+                                            <property name="label" translatable="yes">Browse</property>
                                             <property name="action-name">app.browse</property>
                                             <style>
                                               <class name="pill"/>

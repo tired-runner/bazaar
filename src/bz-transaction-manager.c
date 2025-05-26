@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <glib/gi18n.h>
+
 #include "bz-transaction-manager.h"
 #include "bz-transaction-view.h"
 #include "bz-util.h"
@@ -362,7 +364,7 @@ transaction_finally (DexFuture          *future,
       transaction = g_ptr_array_index (data->transactions, i);
       g_object_set (
           transaction,
-          "status", "Finished!",
+          "status", _ ("Finished!"),
           "progress", 1.0,
           "finished", TRUE,
           "success", value != NULL,

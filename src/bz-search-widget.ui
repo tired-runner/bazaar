@@ -114,14 +114,14 @@
                     <property name="margin-start">6</property>
                     <property name="margin-end">6</property>
                     <property name="has-tooltip">TRUE</property>
-                    <property name="tooltip-text">Whether to match using regular expressions</property>
+                    <property name="tooltip-text" translatable="yes">Whether to match using regular expressions</property>
                     <property name="icon-name">regex-symbolic</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkButton">
                     <property name="icon-name">window-close-symbolic</property>
-                    <property name="tooltip-text">Close Miniwindow</property>
+                    <property name="tooltip-text" translatable="yes">Close Miniwindow</property>
                     <property name="valign">center</property>
                     <property name="action-name">sheet.close</property>
                     <style>
@@ -324,7 +324,7 @@
                                                   <class name="good-icon"/>
                                                 </style>
                                                 <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">This application has a FLOSS license, meaning the source code can be audited for safety.</property>
+                                                <property name="tooltip-text" translatable="yes">This application has a FLOSS license, meaning the source code can be audited for safety.</property>
                                                 <property name="icon-name">license-symbolic</property>
                                                 <binding name="visible">
                                                   <lookup name="is-floss" type="BzEntry">
@@ -343,7 +343,7 @@
                                                   <class name="bad-icon"/>
                                                 </style>
                                                 <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk.</property>
+                                                <property name="tooltip-text" translatable="yes">This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk.</property>
                                                 <property name="icon-name">dialog-warning-symbolic</property>
                                                 <binding name="visible">
                                                   <closure function="invert_boolean" type="gboolean">
@@ -397,7 +397,7 @@
                                                   <class name="neutral-icon"/>
                                                 </style>
                                                 <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">Remote repo name</property>
+                                                <property name="tooltip-text" translatable="yes">Remote repo name</property>
                                                 <property name="icon-name">globe-symbolic</property>
                                               </object>
                                             </child>
@@ -436,7 +436,7 @@
                                                   <class name="neutral-icon"/>
                                                 </style>
                                                 <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">Project URL</property>
+                                                <property name="tooltip-text" translatable="yes">Project URL</property>
                                                 <property name="icon-name">external-link-symbolic</property>
                                               </object>
                                             </child>
@@ -473,7 +473,7 @@
                                                   <class name="neutral-icon"/>
                                                 </style>
                                                 <property name="has-tooltip">TRUE</property>
-                                                <property name="tooltip-text">Download size</property>
+                                                <property name="tooltip-text" translatable="yes">Download size</property>
                                                 <property name="icon-name">drive-harddisk-symbolic</property>
                                               </object>
                                             </child>
@@ -561,7 +561,7 @@
                                                     </style>
                                                     <property name="vexpand">FALSE</property>
                                                     <property name="has-tooltip">TRUE</property>
-                                                    <property name="tooltip-text">Share this application</property>
+                                                    <property name="tooltip-text" translatable="yes">Share this application</property>
                                                     <property name="icon-name">share-symbolic</property>
                                                   </object>
                                                 </child>
@@ -578,7 +578,7 @@
                                                           <class name="circular"/>
                                                         </style>
                                                         <property name="has-tooltip">TRUE</property>
-                                                        <property name="tooltip-text">Download and install this application</property>
+                                                        <property name="tooltip-text" translatable="yes">Download and install this application</property>
                                                         <binding name="visible">
                                                           <closure function="invert_boolean" type="gboolean">
                                                             <closure function="is_zero" type="gboolean">
@@ -608,7 +608,7 @@
                                                                 <style>
                                                                   <class name="caption-heading"/>
                                                                 </style>
-                                                                <property name="label">Install</property>
+                                                                <property name="label" translatable="yes">Install</property>
                                                               </object>
                                                             </child>
                                                           </object>
@@ -634,7 +634,7 @@
                                                         </binding>
                                                         <property name="vexpand">FALSE</property>
                                                         <property name="has-tooltip">TRUE</property>
-                                                        <property name="tooltip-text">Uninstall this application</property>
+                                                        <property name="tooltip-text" translatable="yes">Uninstall this application</property>
                                                         <property name="icon-name">user-trash-symbolic</property>
                                                       </object>
                                                     </child>
@@ -794,7 +794,7 @@
                                               <class name="dimmed"/>
                                             </style>
                                             <property name="margin-top">5</property>
-                                            <property name="label">Click on an image to open the screenshots externally.</property>
+                                            <property name="label" translatable="yes">Click on an image to open the screenshots externally.</property>
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <binding name="visible">

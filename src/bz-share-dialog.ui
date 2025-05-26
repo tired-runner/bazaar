@@ -12,7 +12,7 @@
                 <style>
                   <class name="heading"/>
                 </style>
-                <property name="label">Share</property>
+                <property name="label" translatable="yes">Share</property>
               </object>
             </property>
           </object>
@@ -84,7 +84,7 @@
             <child>
               <object class="GtkButton">
                 <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text">Copy this link</property>
+                <property name="tooltip-text" translatable="yes">Copy this link</property>
                 <property name="icon-name">copy-symbolic</property>
                 <signal name="clicked" handler="copy_cb" swapped="true" object="GtkListItem"/>
               </object>
@@ -92,7 +92,7 @@
             <child>
               <object class="GtkButton">
                 <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text">Open this link externally</property>
+                <property name="tooltip-text" translatable="yes">Open this link externally</property>
                 <property name="icon-name">external-link-symbolic</property>
                 <signal name="clicked" handler="follow_link_cb" swapped="true" object="GtkListItem"/>
               </object>

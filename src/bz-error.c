@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include <adwaita.h>
+#include <glib/gi18n.h>
 
 #include "bz-error.h"
 
@@ -46,14 +47,14 @@ bz_show_error_for_widget (GtkWidget  *widget,
 
   alert = adw_alert_dialog_new (NULL, NULL);
   adw_alert_dialog_format_heading (
-      ADW_ALERT_DIALOG (alert), "An Error Occured");
+      ADW_ALERT_DIALOG (alert), _ ("An Error Occured"));
   adw_alert_dialog_format_body (
       ADW_ALERT_DIALOG (alert),
       "%s", text);
   adw_alert_dialog_add_responses (
       ADW_ALERT_DIALOG (alert),
-      "close", "Close",
-      "copy", "Copy and Close",
+      "close", _ ("Close"),
+      "copy", _ ("Copy and Close"),
       NULL);
   adw_alert_dialog_set_response_appearance (
       ADW_ALERT_DIALOG (alert), "copy", ADW_RESPONSE_SUGGESTED);

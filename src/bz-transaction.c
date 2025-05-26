@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <glib/gi18n.h>
+
 #include "bz-transaction.h"
 
 typedef struct
@@ -257,13 +259,13 @@ bz_transaction_init (BzTransaction *self)
   priv = bz_transaction_get_instance_private (self);
 
   now        = g_date_time_new_now_local ();
-  priv->name = g_date_time_format (now, "Transaction Requested: %c");
+  priv->name = g_date_time_format (now, _ ("Transaction Requested: %c"));
 
   priv->installs = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->updates  = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->removals = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->pending  = TRUE;
-  priv->status   = g_strdup ("Pending");
+  priv->status   = g_strdup (_ ("Pending"));
   priv->success  = TRUE;
 }
 
