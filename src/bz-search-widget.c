@@ -745,7 +745,7 @@ pending_changed (GtkFilterListModel *model,
         gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
 
       gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), FALSE);
-      gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
+      gtk_revealer_set_reveal_child (self->entry_list_revealer, n_items > 0);
     }
 }
 
@@ -1010,7 +1010,10 @@ update_filter (BzSearchWidget *self)
       gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
     }
   else
-    gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
+    gtk_revealer_set_reveal_child (
+        self->entry_list_revealer,
+        g_list_model_get_n_items (
+            G_LIST_MODEL (filter_list_model)) > 0);
 }
 
 static void
