@@ -114,7 +114,7 @@ bz_backend_retrieve_remote_entries (BzBackend                 *self,
                                     GDestroyNotify             destroy_user_data)
 {
   g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (self), NULL);
+  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler), NULL);
 
   return BZ_BACKEND_GET_IFACE (self)->retrieve_remote_entries (
       self,
@@ -138,7 +138,7 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
   guint n_blocklists                          = 0;
 
   g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (self), NULL);
+  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler), NULL);
   g_return_val_if_fail (G_LIST_MODEL (blocklists), NULL);
 
   data                    = retrieve_with_blocklists_data_new ();
