@@ -54,7 +54,7 @@ enum
 BZ_DEFINE_DATA (
     block_counter,
     BlockCounter,
-    { gatomicrefcount blk; },
+    { gint blk; },
     (void) self;)
 
 struct _BzContentProvider
@@ -260,7 +260,7 @@ bz_content_provider_init (BzContentProvider *self)
       G_CALLBACK (impl_model_changed), self);
 
   self->block = block_counter_data_new ();
-  g_atomic_ref_count_init (&self->block->blk);
+  g_atomic_int_set (&self->block->blk, 0);
 }
 
 static GType
@@ -366,22 +366,35 @@ void
 bz_content_provider_block (BzContentProvider *self)
 {
   g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
-  g_atomic_ref_count_inc (&self->block->blk);
+
+  g_atomic_int_inc (&self->block->blk);
+
+  if (self->input_files != NULL)
+    {
+      guint n_inputs = 0;
+
+      n_inputs = g_list_model_get_n_items (self->input_files);
+      for (guint i = 0; i < n_inputs; i++)
+        {
+          g_autoptr (GFile) file  = NULL;
+          InputTrackingData *data = NULL;
+
+          file = g_list_model_get_item (self->input_files, i);
+          data = g_hash_table_lookup (self->input_tracking, file);
+          g_assert (data != NULL);
+
+          dex_clear (&data->task);
+        }
+    }
 }
 
 void
 bz_content_provider_unblock (BzContentProvider *self)
 {
   g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
-  g_atomic_ref_count_dec (&self->block->blk);
-}
 
-void
-bz_content_provider_refresh (BzContentProvider *self)
-{
-  g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
-
-  if (self->input_files != NULL)
+  if (g_atomic_int_dec_and_test (&self->block->blk) &&
+      self->input_files != NULL)
     {
       guint n_inputs = 0;
 
@@ -793,7 +806,7 @@ commence_reload (InputTrackingData *data)
   DexFuture *future                   = NULL;
 
   dex_clear (&data->task);
-  if (!g_atomic_ref_count_compare (&data->block->blk, 1))
+  if (g_atomic_int_get (&data->block->blk) != 0)
     goto done;
 
   load_data             = input_load_data_new ();

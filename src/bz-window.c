@@ -677,7 +677,6 @@ refresh_finally (DexFuture *future,
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
 
   bz_content_provider_unblock (self->content_provider);
-  bz_content_provider_refresh (self->content_provider);
 
   return dex_future_new_true ();
 }
