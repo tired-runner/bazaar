@@ -15,9 +15,10 @@ If you would like to try this project on your local machine, clone it
 on the cli and type these commands inside the project root:
 
 ```sh
-meson setup build
+meson setup build --prefix=/usr/local
 ninja -C build
-./build/src/bazaar
+sudo ninja -C build install
+bazaar
 ```
 
 ## Supporting
