@@ -17,5 +17,6 @@ RUN apt-get update && apt-get install -y \
     libgtk-4-dev \
     liblcms2-dev \
     libxmlb-dev \
+    libyaml-dev \
     meson \
     ninja-build
