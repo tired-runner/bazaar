@@ -1,4 +1,4 @@
-/* bz-review.h
+/* bz-content-section.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -24,10 +24,10 @@
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_REVIEW (bz_review_get_type ())
-G_DECLARE_DERIVABLE_TYPE (BzReview, bz_review, BZ, REVIEW, GObject)
+#define BZ_TYPE_CONTENT_SECTION (bz_content_section_get_type ())
+G_DECLARE_DERIVABLE_TYPE (BzContentSection, bz_content_section, BZ, CONTENT_SECTION, GObject)
 
-struct _BzReviewClass
+struct _BzContentSectionClass
 {
   GObjectClass parent_class;
 };

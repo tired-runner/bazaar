@@ -147,6 +147,9 @@
                                 <property name="visible">FALSE</property>
                                 <property name="hexpand">TRUE</property>
                                 <property name="vexpand">TRUE</property>
+                                <binding name="content-provider">
+                                  <lookup name="content-provider">BzWindow</lookup>
+                                </binding>
                               </object>
                             </child>
                           </object>

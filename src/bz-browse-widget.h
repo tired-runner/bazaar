@@ -22,6 +22,8 @@
 
 #include <adwaita.h>
 
+#include "bz-content-provider.h"
+
 G_BEGIN_DECLS
 
 #define BZ_TYPE_BROWSE_WIDGET (bz_browse_widget_get_type ())
@@ -36,5 +38,12 @@ bz_browse_widget_set_model (BzBrowseWidget *self,
 
 GListModel *
 bz_browse_widget_get_model (BzBrowseWidget *self);
+
+void
+bz_browse_widget_set_content_provider (BzBrowseWidget    *self,
+                                       BzContentProvider *provider);
+
+BzContentProvider *
+bz_browse_widget_get_content_provider (BzBrowseWidget *self);
 
 G_END_DECLS

@@ -1,4 +1,4 @@
-/* bz-review.h
+/* bz-section-view.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,16 +20,23 @@
 
 #pragma once
 
-#include <glib-object.h>
+#include <adwaita.h>
+
+#include "bz-content-section.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_REVIEW (bz_review_get_type ())
-G_DECLARE_DERIVABLE_TYPE (BzReview, bz_review, BZ, REVIEW, GObject)
+#define BZ_TYPE_SECTION_VIEW (bz_section_view_get_type ())
+G_DECLARE_FINAL_TYPE (BzSectionView, bz_section_view, BZ, SECTION_VIEW, AdwBin)
 
-struct _BzReviewClass
-{
-  GObjectClass parent_class;
-};
+GtkWidget *
+bz_section_view_new (BzContentSection *section);
+
+void
+bz_section_view_set_section (BzSectionView    *self,
+                             BzContentSection *section);
+
+BzContentSection *
+bz_section_view_get_section (BzSectionView *self);
 
 G_END_DECLS

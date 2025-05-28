@@ -22,6 +22,7 @@
 #include <glib/gi18n.h>
 
 #include "bz-application.h"
+#include "bz-content-provider.h"
 #include "bz-preferences-dialog.h"
 #include "bz-window.h"
 
@@ -34,6 +35,8 @@ struct _BzApplication
 
   gboolean initial_search;
   char    *initial_search_text;
+
+  GListStore *content_configs; // temp
 };
 
 G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
@@ -57,6 +60,7 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->settings);
   g_clear_object (&self->blocklists);
   g_clear_pointer (&self->initial_search_text, g_free);
+  g_clear_object (&self->content_configs);
 
   G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
 }
@@ -121,6 +125,17 @@ bz_application_activate (GApplication *app)
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
     }
 
+  /* TODO: this is temp, add user config */
+  if (self->content_configs == NULL)
+    {
+      g_autoptr (GFile) file = NULL;
+
+      self->content_configs = g_list_store_new (G_TYPE_FILE);
+
+      file = g_file_new_for_path ("./sections.yaml");
+      g_list_store_append (self->content_configs, file);
+    }
+
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
   if (window == NULL)
     {
@@ -138,6 +153,7 @@ bz_application_activate (GApplication *app)
           BZ_TYPE_WINDOW,
           "application", app,
           "settings", self->settings,
+          "content-configs", self->content_configs,
           NULL);
     }
 

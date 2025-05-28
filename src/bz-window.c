@@ -37,7 +37,8 @@ struct _BzWindow
 {
   AdwApplicationWindow parent_instance;
 
-  GSettings *settings;
+  GSettings         *settings;
+  BzContentProvider *content_provider;
 
   BzFlatpakInstance *flatpak;
   GListStore        *remote_groups;
@@ -67,6 +68,8 @@ enum
   PROP_0,
 
   PROP_SETTINGS,
+  PROP_CONTENT_PROVIDER,
+  PROP_CONTENT_CONFIGS,
 
   LAST_PROP
 };
@@ -162,6 +165,7 @@ bz_window_dispose (GObject *object)
         self->settings, setting_changed, self);
   g_clear_object (&self->settings);
 
+  g_clear_object (&self->content_provider);
   g_clear_pointer (&self->id_to_entry_group_hash, g_hash_table_unref);
   g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
@@ -185,6 +189,14 @@ bz_window_get_property (GObject    *object,
     {
     case PROP_SETTINGS:
       g_value_set_object (value, self->settings);
+      break;
+    case PROP_CONTENT_PROVIDER:
+      g_value_set_object (value, self->content_provider);
+      break;
+    case PROP_CONTENT_CONFIGS:
+      g_value_set_object (
+          value,
+          bz_content_provider_get_input_files (self->content_provider));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -215,6 +227,12 @@ bz_window_set_property (GObject      *object,
           setting_changed (self->settings, "show-animated-background", self);
         }
       break;
+    case PROP_CONTENT_CONFIGS:
+      bz_content_provider_set_input_files (
+          self->content_provider,
+          g_value_get_object (value));
+      break;
+    case PROP_CONTENT_PROVIDER:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -235,6 +253,20 @@ bz_window_class_init (BzWindowClass *klass)
           "settings",
           NULL, NULL,
           G_TYPE_SETTINGS,
+          G_PARAM_READWRITE);
+
+  props[PROP_CONTENT_PROVIDER] =
+      g_param_spec_object (
+          "content-provider",
+          NULL, NULL,
+          BZ_TYPE_CONTENT_PROVIDER,
+          G_PARAM_READABLE);
+
+  props[PROP_CONTENT_CONFIGS] =
+      g_param_spec_object (
+          "content-configs",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -268,6 +300,10 @@ bz_window_init (BzWindow *self)
       g_str_hash, g_str_equal, g_free, g_object_unref);
   self->installed_unique_ids_set = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, NULL);
+
+  self->content_provider = bz_content_provider_new ();
+  bz_content_provider_set_group_hash (
+      self->content_provider, self->id_to_entry_group_hash);
 
   gtk_widget_init_template (GTK_WIDGET (self));
   // bz_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));

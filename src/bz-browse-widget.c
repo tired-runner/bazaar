@@ -21,13 +21,14 @@
 #include "config.h"
 
 #include "bz-browse-widget.h"
-#include "bz-entry.h"
+#include "bz-section-view.h"
 
 struct _BzBrowseWidget
 {
   AdwBin parent_instance;
 
-  GListModel *model;
+  GListModel        *model;
+  BzContentProvider *provider;
 
   /* Template widgets */
 };
@@ -39,6 +40,7 @@ enum
   PROP_0,
 
   PROP_MODEL,
+  PROP_CONTENT_PROVIDER,
 
   LAST_PROP
 };
@@ -50,6 +52,7 @@ bz_browse_widget_dispose (GObject *object)
   BzBrowseWidget *self = BZ_BROWSE_WIDGET (object);
 
   g_clear_object (&self->model);
+  g_clear_object (&self->provider);
 
   G_OBJECT_CLASS (bz_browse_widget_parent_class)->dispose (object);
 }
@@ -66,6 +69,9 @@ bz_browse_widget_get_property (GObject    *object,
     {
     case PROP_MODEL:
       g_value_set_object (value, bz_browse_widget_get_model (self));
+      break;
+    case PROP_CONTENT_PROVIDER:
+      g_value_set_object (value, bz_browse_widget_get_content_provider (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -84,6 +90,9 @@ bz_browse_widget_set_property (GObject      *object,
     {
     case PROP_MODEL:
       bz_browse_widget_set_model (self, g_value_get_object (value));
+      break;
+    case PROP_CONTENT_PROVIDER:
+      bz_browse_widget_set_content_provider (self, g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -107,7 +116,16 @@ bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
+  props[PROP_CONTENT_PROVIDER] =
+      g_param_spec_object (
+          "content-provider",
+          NULL, NULL,
+          BZ_TYPE_CONTENT_PROVIDER,
+          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
+
+  g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-browse-widget.ui");
 }
@@ -149,4 +167,25 @@ bz_browse_widget_get_model (BzBrowseWidget *self)
 {
   g_return_val_if_fail (BZ_IS_BROWSE_WIDGET (self), NULL);
   return self->model;
+}
+
+void
+bz_browse_widget_set_content_provider (BzBrowseWidget    *self,
+                                       BzContentProvider *provider)
+{
+  g_return_if_fail (BZ_IS_BROWSE_WIDGET (self));
+  g_return_if_fail (provider == NULL || BZ_IS_CONTENT_PROVIDER (provider));
+
+  g_clear_object (&self->provider);
+  if (provider != NULL)
+    self->provider = g_object_ref (provider);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CONTENT_PROVIDER]);
+}
+
+BzContentProvider *
+bz_browse_widget_get_content_provider (BzBrowseWidget *self)
+{
+  g_return_val_if_fail (BZ_IS_BROWSE_WIDGET (self), NULL);
+  return self->provider;
 }

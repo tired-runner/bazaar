@@ -3,6 +3,9 @@ bz_sources = [
   'bz-application.c',
   'bz-window.c',
   'bz-search-widget.c',
+  'bz-content-section.c',
+  'bz-content-provider.c',
+  'bz-section-view.c',
   'bz-browse-widget.c',
   'bz-update-dialog.c',
   'bz-background.c',
@@ -32,6 +35,7 @@ bz_deps = [
   dependency('xmlb', version : '>= 0.3.4'),
   dependency('glycin-1', version : '>= 1.0'),
   dependency('glycin-gtk4-1', version : '>= 1.0'),
+  dependency('yaml-0.1', version : '>= 0.2.5'),
 ]
 
 bz_sources += gnome.compile_resources('bz-resources',
