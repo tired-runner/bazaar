@@ -42,8 +42,8 @@ main (int   argc,
 
   GOptionEntry main_entries[] = {
     { "version", 0, 0, G_OPTION_ARG_NONE, &version, "Show program version" },
-    { "extra-blocklists", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "A list of extra blocklists to read from" },
-    { "extra-content-configs", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "A list of extra yaml files with which to configure the app browser" },
+    { "extra-blocklist", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "A list of extra blocklists to read from" },
+    { "extra-content-config", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "A list of extra yaml files with which to configure the app browser" },
     { "search", 0, 0, G_OPTION_ARG_NONE, &search, "Immediately open the search dialog upon startup" },
     { "search-text", 0, 0, G_OPTION_ARG_STRING, &search_text, "Specify the initial text used with --search" },
     { NULL }
