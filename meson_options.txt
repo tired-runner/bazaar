@@ -1,4 +1,9 @@
 option('hardcoded_blocklist_path',
        type: 'string',
        value: '',
-       description: 'Absolute path to a hardcoded package name blocklist')
+       description: 'Hardcoded absolute path to a package name blocklist which will be read at runtime')
+
+option('hardcoded_content_config_path',
+       type: 'string',
+       value: '',
+       description: 'Hardcoded absolute path to a yaml content configuration which will be read at runtime')

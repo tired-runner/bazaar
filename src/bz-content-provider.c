@@ -51,6 +51,12 @@ enum
   INSIDE_VAL = -3,
 };
 
+BZ_DEFINE_DATA (
+    block_counter,
+    BlockCounter,
+    { gatomicrefcount blk; },
+    (void) self;)
+
 struct _BzContentProvider
 {
   GObject parent_instance;
@@ -63,6 +69,8 @@ struct _BzContentProvider
 
   GListStore          *outputs;
   GtkFlattenListModel *impl_model;
+
+  BlockCounterData *block;
 };
 
 static void list_model_iface_init (GListModelInterface *iface);
@@ -108,12 +116,14 @@ BZ_DEFINE_DATA (
     input_tracking,
     InputTracking,
     {
-      GHashTable   *group_hash;
-      char         *path;
-      GFileMonitor *monitor;
-      DexFuture    *task;
-      GListStore   *output;
+      BlockCounterData *block;
+      GHashTable       *group_hash;
+      char             *path;
+      GFileMonitor     *monitor;
+      DexFuture        *task;
+      GListStore       *output;
     },
+    BZ_RELEASE_DATA (block, block_counter_data_unref);
     BZ_RELEASE_DATA (group_hash, g_hash_table_unref);
     BZ_RELEASE_DATA (path, g_free);
     BZ_RELEASE_DATA (monitor, g_object_unref);
@@ -161,6 +171,7 @@ bz_content_provider_dispose (GObject *object)
   g_clear_pointer (&self->input_tracking, g_hash_table_unref);
   g_clear_object (&self->outputs);
   g_clear_object (&self->impl_model);
+  g_clear_pointer (&self->block, block_counter_data_unref);
 
   G_OBJECT_CLASS (bz_content_provider_parent_class)->dispose (object);
 }
@@ -247,6 +258,9 @@ bz_content_provider_init (BzContentProvider *self)
   g_signal_connect (
       self->impl_model, "items-changed",
       G_CALLBACK (impl_model_changed), self);
+
+  self->block = block_counter_data_new ();
+  g_atomic_ref_count_init (&self->block->blk);
 }
 
 static GType
@@ -291,9 +305,7 @@ bz_content_provider_set_input_files (BzContentProvider *self,
   guint old_length = 0;
 
   g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
-  g_return_if_fail (input_files == NULL ||
-                    (G_IS_LIST_MODEL (input_files) &&
-                     g_list_model_get_item_type (input_files) == G_TYPE_FILE));
+  g_return_if_fail (input_files == NULL || G_IS_LIST_MODEL (input_files));
 
   if (self->input_files != NULL)
     {
@@ -348,6 +360,44 @@ bz_content_provider_get_group_hash (BzContentProvider *self)
 {
   g_return_val_if_fail (BZ_IS_CONTENT_PROVIDER (self), NULL);
   return self->group_hash;
+}
+
+void
+bz_content_provider_block (BzContentProvider *self)
+{
+  g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
+  g_atomic_ref_count_inc (&self->block->blk);
+}
+
+void
+bz_content_provider_unblock (BzContentProvider *self)
+{
+  g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
+  g_atomic_ref_count_dec (&self->block->blk);
+}
+
+void
+bz_content_provider_refresh (BzContentProvider *self)
+{
+  g_return_if_fail (BZ_IS_CONTENT_PROVIDER (self));
+
+  if (self->input_files != NULL)
+    {
+      guint n_inputs = 0;
+
+      n_inputs = g_list_model_get_n_items (self->input_files);
+      for (guint i = 0; i < n_inputs; i++)
+        {
+          g_autoptr (GFile) file  = NULL;
+          InputTrackingData *data = NULL;
+
+          file = g_list_model_get_item (self->input_files, i);
+          data = g_hash_table_lookup (self->input_tracking, file);
+          g_assert (data != NULL);
+
+          commence_reload (data);
+        }
+    }
 }
 
 static void
@@ -421,6 +471,7 @@ input_files_changed (GListModel        *input_files,
           input_init_data_unref);
 
       data             = input_tracking_data_new ();
+      data->block      = block_counter_data_ref (self->block);
       data->group_hash = self->group_hash != NULL ? g_hash_table_ref (self->group_hash) : NULL;
       data->path       = g_file_get_path (additions[i]);
       data->output     = g_steal_pointer (&new_outputs[i]);
@@ -742,6 +793,8 @@ commence_reload (InputTrackingData *data)
   DexFuture *future                   = NULL;
 
   dex_clear (&data->task);
+  if (!g_atomic_ref_count_compare (&data->block->blk, 1))
+    goto done;
 
   load_data             = input_load_data_new ();
   load_data->group_hash = g_hash_table_ref (data->group_hash);
@@ -759,5 +812,6 @@ commence_reload (InputTrackingData *data)
       input_tracking_data_unref);
   data->task = future;
 
+done:
   return G_SOURCE_REMOVE;
 }

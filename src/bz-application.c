@@ -19,6 +19,7 @@
  */
 
 #include "config.h"
+
 #include <glib/gi18n.h>
 
 #include "bz-application.h"
@@ -32,11 +33,12 @@ struct _BzApplication
 
   GSettings  *settings;
   GListModel *blocklists;
+  GListModel *content_configs;
+
+  GtkMapListModel *content_configs_to_files;
 
   gboolean initial_search;
   char    *initial_search_text;
-
-  GListStore *content_configs; // temp
 };
 
 G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
@@ -47,6 +49,7 @@ enum
 
   PROP_SETTINGS,
   PROP_BLOCKLISTS,
+  PROP_CONTENT_CONFIGS,
 
   LAST_PROP
 };
@@ -59,8 +62,9 @@ bz_application_dispose (GObject *object)
 
   g_clear_object (&self->settings);
   g_clear_object (&self->blocklists);
-  g_clear_pointer (&self->initial_search_text, g_free);
   g_clear_object (&self->content_configs);
+  g_clear_object (&self->content_configs_to_files);
+  g_clear_pointer (&self->initial_search_text, g_free);
 
   G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
 }
@@ -80,6 +84,9 @@ bz_application_get_property (GObject    *object,
       break;
     case PROP_BLOCKLISTS:
       g_value_set_object (value, self->blocklists);
+      break;
+    case PROP_CONTENT_CONFIGS:
+      g_value_set_object (value, self->content_configs);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -104,6 +111,12 @@ bz_application_set_property (GObject      *object,
       g_clear_object (&self->blocklists);
       self->blocklists = g_value_dup_object (value);
       break;
+    case PROP_CONTENT_CONFIGS:
+      g_clear_object (&self->content_configs);
+      self->content_configs = g_value_dup_object (value);
+      gtk_map_list_model_set_model (
+          self->content_configs_to_files, self->content_configs);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -125,17 +138,6 @@ bz_application_activate (GApplication *app)
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
     }
 
-  /* TODO: this is temp, add user config */
-  if (self->content_configs == NULL)
-    {
-      g_autoptr (GFile) file = NULL;
-
-      self->content_configs = g_list_store_new (G_TYPE_FILE);
-
-      file = g_file_new_for_path ("./sections.yaml");
-      g_list_store_append (self->content_configs, file);
-    }
-
   window = gtk_application_get_active_window (GTK_APPLICATION (app));
   if (window == NULL)
     {
@@ -153,7 +155,7 @@ bz_application_activate (GApplication *app)
           BZ_TYPE_WINDOW,
           "application", app,
           "settings", self->settings,
-          "content-configs", self->content_configs,
+          "content-configs", self->content_configs_to_files,
           NULL);
     }
 
@@ -187,6 +189,13 @@ bz_application_class_init (BzApplicationClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
+  props[PROP_CONTENT_CONFIGS] =
+      g_param_spec_object (
+          "content-configs",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   app_class->activate = bz_application_activate;
@@ -195,6 +204,7 @@ bz_application_class_init (BzApplicationClass *klass)
 BzApplication *
 bz_application_new (const char       *application_id,
                     GListModel       *blocklists,
+                    GListModel       *content_configs,
                     GApplicationFlags flags,
                     gboolean          search,
                     const char       *search_text)
@@ -209,6 +219,7 @@ bz_application_new (const char       *application_id,
       "flags", flags,
       "resource-base-path", "/io/github/kolunmi/bazaar",
       "blocklists", blocklists,
+      "content-configs", content_configs,
       NULL);
 
   self->initial_search = search;
@@ -326,9 +337,26 @@ static const GActionEntry app_actions[] = {
   {     "refresh",     bz_application_refresh_action },
 };
 
+static gpointer
+map_strings_to_files (GtkStringObject *string,
+                      gpointer         data)
+{
+  const char *path   = NULL;
+  GFile      *result = NULL;
+
+  path   = gtk_string_object_get_string (string);
+  result = g_file_new_for_path (path);
+
+  g_object_unref (string);
+  return result;
+}
+
 static void
 bz_application_init (BzApplication *self)
 {
+  self->content_configs_to_files = gtk_map_list_model_new (
+      NULL, (GtkMapListModelMapFunc) map_strings_to_files, NULL, NULL);
+
   g_action_map_add_action_entries (
       G_ACTION_MAP (self),
       app_actions,

@@ -676,6 +676,9 @@ refresh_finally (DexFuture *future,
   gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
 
+  bz_content_provider_unblock (self->content_provider);
+  bz_content_provider_refresh (self->content_provider);
+
   return dex_future_new_true ();
 }
 
@@ -807,6 +810,8 @@ static void
 refresh (BzWindow *self)
 {
   DexFuture *future = NULL;
+
+  bz_content_provider_block (self->content_provider);
 
   gtk_widget_set_visible (GTK_WIDGET (self->spinner), TRUE);
   gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);

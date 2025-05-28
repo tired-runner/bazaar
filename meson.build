@@ -17,6 +17,9 @@ config_h.set_quoted('LOCALEDIR', get_option('prefix') / get_option('localedir'))
 if get_option('hardcoded_blocklist_path') != ''
   config_h.set_quoted('HARDCODED_BLOCKLIST', get_option('hardcoded_blocklist_path'))
 endif
+if get_option('hardcoded_content_config_path') != ''
+  config_h.set_quoted('HARDCODED_CONTENT_CONFIG', get_option('hardcoded_content_config_path'))
+endif
 
 configure_file(output: 'config.h', configuration: config_h)
 add_project_arguments(['-I' + meson.project_build_root()], language: 'c')

@@ -54,4 +54,13 @@ bz_content_provider_set_group_hash (BzContentProvider *self,
 GHashTable *
 bz_content_provider_get_group_hash (BzContentProvider *self);
 
+void
+bz_content_provider_block (BzContentProvider *self);
+
+void
+bz_content_provider_unblock (BzContentProvider *self);
+
+void
+bz_content_provider_refresh (BzContentProvider *self);
+
 G_END_DECLS
