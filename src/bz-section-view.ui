@@ -28,6 +28,10 @@
             <property name="hexpand">TRUE</property>
             <property name="child">
               <object class="GtkListView">
+                <property name="css-name">banners</property>
+                <style>
+                  <class name="navigation-sidebar"/>
+                </style>
                 <property name="model">
                   <object class="GtkNoSelection">
                     <binding name="model">
@@ -46,6 +50,7 @@
     <property name="activatable">FALSE</property>
     <property name="child">
       <object class="GtkPicture">
+        <property name="css-name">banner</property>
         <style>
           <class name="browser-banner"/>
         </style>
@@ -67,6 +72,7 @@
             </property>
             <child type="overlay">
               <object class="GtkBox">
+                <property name="css-name">banner-text</property>
                 <property name="margin-top">30</property>
                 <property name="margin-bottom">30</property>
                 <property name="margin-start">30</property>
@@ -126,34 +132,41 @@
           </object>
         </child>
         <child>
-          <object class="GtkGridView">
-            <style>
-              <class name="navigation-sidebar"/>
-            </style>
-            <property name="min-columns">1</property>
-            <property name="max-columns">1</property>
-            <property name="model">
-              <object class="GtkNoSelection">
-                <binding name="model">
-                  <lookup name="appids" type="BzContentSection">
-                    <lookup name="section">BzSectionView</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </property>
-            <property name="factory">
-              <object class="GtkBuilderListItemFactory" id="factory">
-                <property name="bytes"><![CDATA[
+          <object class="GtkScrolledWindow">
+            <property name="propagate-natural-width">TRUE</property>
+            <property name="vscrollbar-policy">never</property>
+            <property name="child">
+              <object class="GtkGridView">
+                <property name="css-name">entry-grid</property>
+                <style>
+                  <class name="navigation-sidebar"/>
+                </style>
+                <property name="orientation">horizontal</property>
+                <property name="min-columns">3</property>
+                <property name="max-columns">3</property>
+                <property name="model">
+                  <object class="GtkNoSelection">
+                    <binding name="model">
+                      <lookup name="appids" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </property>
+                <property name="factory">
+                  <object class="GtkBuilderListItemFactory" id="factory">
+                    <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
     <property name="activatable">FALSE</property>
     <property name="child">
       <object class="GtkFrame">
+        <property name="css-name">entry</property>
         <style>
           <class name="card"/>
         </style>
-        <property name="width-request">250</property>
+        <property name="width-request">350</property>
         <property name="child">
           <object class="GtkBox">
             <property name="margin-top">15</property>
@@ -221,6 +234,8 @@
   </template>
 </interface>
 ]]> 
+                    </property>
+                  </object>
                 </property>
               </object>
             </property>

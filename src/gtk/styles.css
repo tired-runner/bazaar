@@ -68,7 +68,8 @@
 }
 
 .browser-banner {
-    border-radius: 0px;
+    border-radius: 25px;
+    background-color: transparent;
 }
 .browser-banner-title {
     font-size: 3.2em;
