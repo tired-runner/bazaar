@@ -132,7 +132,7 @@
             <property name="model">
               <object class="GtkNoSelection">
                 <binding name="model">
-                  <lookup name="groups" type="BzContentSection">
+                  <lookup name="appids" type="BzContentSection">
                     <lookup name="section">BzSectionView</lookup>
                   </lookup>
                 </binding>

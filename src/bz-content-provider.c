@@ -28,6 +28,7 @@
 #include "bz-entry-group.h"
 #include "bz-paintable-model.h"
 #include "bz-util.h"
+#include "bz-yaml-parser.h"
 
 /* clang-format off */
 G_DEFINE_QUARK (bz-content-yaml-error-quark, bz_content_yaml_error);
@@ -46,13 +47,6 @@ enum
   SECTION_PROP_N_PROPS,
 };
 
-enum
-{
-  NOT_INSIDE = -1,
-  INSIDE_KEY = -2,
-  INSIDE_VAL = -3,
-};
-
 BZ_DEFINE_DATA (
     block_counter,
     BlockCounter,
@@ -62,6 +56,8 @@ BZ_DEFINE_DATA (
 struct _BzContentProvider
 {
   GObject parent_instance;
+
+  BzYamlParser *yaml_parser;
 
   GHashTable *group_hash;
   GListModel *input_files;
@@ -106,10 +102,12 @@ BZ_DEFINE_DATA (
     input_load,
     InputLoad,
     {
-      GFile      *file;
-      GHashTable *group_hash;
+      GFile        *file;
+      BzYamlParser *parser;
+      GHashTable   *group_hash;
     },
     BZ_RELEASE_DATA (file, g_object_unref);
+    BZ_RELEASE_DATA (parser, g_object_unref);
     BZ_RELEASE_DATA (group_hash, g_hash_table_unref))
 static DexFuture *
 input_load_fiber (InputLoadData *data);
@@ -120,6 +118,7 @@ BZ_DEFINE_DATA (
     {
       BlockCounterData *block;
       GHashTable       *group_hash;
+      BzYamlParser     *parser;
       char             *path;
       GFileMonitor     *monitor;
       DexFuture        *task;
@@ -127,6 +126,7 @@ BZ_DEFINE_DATA (
     },
     BZ_RELEASE_DATA (block, block_counter_data_unref);
     BZ_RELEASE_DATA (group_hash, g_hash_table_unref);
+    BZ_RELEASE_DATA (parser, g_object_unref);
     BZ_RELEASE_DATA (path, g_free);
     BZ_RELEASE_DATA (monitor, g_object_unref);
     BZ_RELEASE_DATA (task, dex_unref);
@@ -167,6 +167,7 @@ bz_content_provider_dispose (GObject *object)
 {
   BzContentProvider *self = BZ_CONTENT_PROVIDER (object);
 
+  g_clear_object (&self->yaml_parser);
   g_clear_pointer (&self->group_hash, g_hash_table_unref);
   g_clear_object (&self->input_files);
   g_clear_object (&self->input_mirror);
@@ -249,6 +250,10 @@ bz_content_provider_class_init (BzContentProviderClass *klass)
 static void
 bz_content_provider_init (BzContentProvider *self)
 {
+  g_type_ensure (BZ_TYPE_CONTENT_SECTION);
+  self->yaml_parser = bz_yaml_parser_new_for_resource_schema (
+      "/io/github/kolunmi/bazaar/bz-content-provider-config-schema.xml");
+
   self->input_mirror   = g_list_store_new (G_TYPE_FILE);
   self->input_tracking = g_hash_table_new_full (
       g_direct_hash, g_direct_equal,
@@ -488,6 +493,7 @@ input_files_changed (GListModel        *input_files,
       data             = input_tracking_data_new ();
       data->block      = block_counter_data_ref (self->block);
       data->group_hash = self->group_hash != NULL ? g_hash_table_ref (self->group_hash) : NULL;
+      data->parser     = g_object_ref (self->yaml_parser);
       data->path       = g_file_get_path (additions[i]);
       data->output     = g_steal_pointer (&new_outputs[i]);
 
@@ -573,20 +579,13 @@ input_init_finally (DexFuture         *future,
 static DexFuture *
 input_load_fiber (InputLoadData *data)
 {
-  GFile      *file                              = data->file;
-  GHashTable *group_hash                        = data->group_hash;
-  g_autoptr (GPtrArray) sections                = NULL;
-  g_autoptr (GError) local_error                = NULL;
-  gsize bytes_size                              = 0;
-  g_autoptr (GBytes) bytes                      = NULL;
-  const guchar *bytes_data                      = NULL;
-  yaml_parser_t parser                          = { 0 };
-  gboolean      done_parsing                    = FALSE;
-  int           inside_sections                 = NOT_INSIDE;
-  g_autoptr (BzContentSection) current_section  = NULL;
-  int current_section_prop                      = NOT_INSIDE;
-  g_autoptr (GListStore) current_section_images = NULL;
-  g_autoptr (GListStore) current_section_groups = NULL;
+  GFile        *file                   = data->file;
+  GHashTable   *group_hash             = data->group_hash;
+  BzYamlParser *parser                 = data->parser;
+  g_autoptr (GPtrArray) sections       = NULL;
+  g_autoptr (GError) local_error       = NULL;
+  g_autoptr (GBytes) bytes             = NULL;
+  g_autoptr (GHashTable) parse_results = NULL;
 
   sections = g_ptr_array_new_with_free_func (g_object_unref);
 
@@ -594,209 +593,111 @@ input_load_fiber (InputLoadData *data)
   if (bytes == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  bytes_data = g_bytes_get_data (bytes, &bytes_size);
+  parse_results = bz_yaml_parser_process_bytes (parser, bytes, &local_error);
+  if (parse_results == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-  yaml_parser_initialize (&parser);
-  yaml_parser_set_input_string (&parser, bytes_data, bytes_size);
-
-  /* TODO: completely rework this to take a schema or something */
-  while (!done_parsing)
+  if (g_hash_table_contains (parse_results, "/sections"))
     {
-      yaml_event_t event = { 0 };
+      GPtrArray *list = NULL;
 
-      if (!yaml_parser_parse (&parser, &event))
+      list = g_value_get_boxed (g_hash_table_lookup (parse_results, "/sections"));
+
+      for (guint i = 0; i < list->len; i++)
         {
-          DexFuture *ret = NULL;
+          GHashTable *section_props            = NULL;
+          g_autoptr (BzContentSection) section = NULL;
 
-          ret = dex_future_new_reject (
-              BZ_CONTENT_YAML_ERROR,
-              BZ_CONTENT_YAML_ERROR_INVALID_YAML,
-              "Failed to parse YAML at byte offset %zu: %s",
-              parser.problem_offset,
-              parser.problem);
-          yaml_parser_delete (&parser);
-          return ret;
-        }
+          section_props = g_value_get_boxed (
+              g_hash_table_lookup (
+                  g_value_get_boxed (
+                      g_ptr_array_index (list, i)),
+                  "/"));
+          section = g_object_new (BZ_TYPE_CONTENT_SECTION, NULL);
 
-#define ERROR_OUT(...)                                           \
-  G_STMT_START                                                   \
-  {                                                              \
-    g_autofree char *formatted = NULL;                           \
-    DexFuture       *ret       = NULL;                           \
-                                                                 \
-    formatted = g_strdup_printf (__VA_ARGS__);                   \
-                                                                 \
-    ret = dex_future_new_reject (                                \
-        BZ_CONTENT_YAML_ERROR,                                   \
-        BZ_CONTENT_YAML_ERROR_INVALID_STRUCTURE,                 \
-        "Failed to validate YAML at byte region %zu to %zu: %s", \
-        event.start_mark.index,                                  \
-        event.end_mark.index,                                    \
-        formatted);                                              \
-                                                                 \
-    yaml_event_delete (&event);                                  \
-    yaml_parser_delete (&parser);                                \
-    return ret;                                                  \
-  }                                                              \
-  G_STMT_END
+#define GRAB_STRING(s)                            \
+  if (g_hash_table_contains (section_props, (s))) \
+    g_object_set (                                \
+        section,                                  \
+        (s),                                      \
+        g_variant_get_string (                    \
+            g_value_get_variant (                 \
+                g_hash_table_lookup (             \
+                    section_props, (s))),         \
+            NULL),                                \
+        NULL);
 
-      if (inside_sections == INSIDE_KEY)
-        {
-          if (event.type == YAML_MAPPING_END_EVENT)
-            inside_sections = NOT_INSIDE;
-          else if (event.type != YAML_SCALAR_EVENT)
-            ERROR_OUT ("Expected a scalar");
-          else if (g_strcmp0 ((const char *) event.data.scalar.value, "sections") != 0)
-            ERROR_OUT ("Unexpected scalar '%s'", event.data.scalar.value);
-          else
-            inside_sections = INSIDE_VAL;
-        }
-      else if (inside_sections == INSIDE_VAL)
-        {
-          if (current_section != NULL)
+          GRAB_STRING ("title");
+          GRAB_STRING ("subtitle");
+          GRAB_STRING ("description");
+
+#undef GRAB_STRING
+
+          if (g_hash_table_contains (section_props, "images"))
             {
-              if (current_section_prop == INSIDE_KEY)
+              GPtrArray *urls                    = NULL;
+              g_autoptr (GListStore) store       = NULL;
+              g_autoptr (BzPaintableModel) model = NULL;
+
+              urls = g_value_get_boxed (
+                  g_hash_table_lookup (section_props, "images"));
+              store = g_list_store_new (G_TYPE_FILE);
+
+              for (guint j = 0; j < urls->len; j++)
                 {
-                  if (event.type == YAML_MAPPING_END_EVENT)
-                    g_ptr_array_add (sections, g_steal_pointer (&current_section));
-                  else if (event.type != YAML_SCALAR_EVENT)
-                    ERROR_OUT ("Expected a scalar");
-                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "title") == 0)
-                    current_section_prop = SECTION_PROP_TITLE;
-                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "subtitle") == 0)
-                    current_section_prop = SECTION_PROP_SUBTITLE;
-                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "description") == 0)
-                    current_section_prop = SECTION_PROP_DESCRIPTION;
-                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "images") == 0)
-                    current_section_prop = SECTION_PROP_IMAGES;
-                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "appids") == 0)
-                    current_section_prop = SECTION_PROP_GROUPS;
-                  else
-                    ERROR_OUT ("Unexpected section property '%s'", event.data.scalar.value);
+                  const char *url         = NULL;
+                  g_autoptr (GFile) image = NULL;
+
+                  url = g_variant_get_string (
+                      g_value_get_variant (
+                          g_ptr_array_index (urls, j)),
+                      NULL);
+                  image = g_file_new_for_uri (url);
+
+                  g_list_store_append (store, image);
                 }
-              else if (current_section_prop > SECTION_PROP_0)
+
+              model = bz_paintable_model_new (
+                  dex_thread_pool_scheduler_get_default (),
+                  G_LIST_MODEL (store));
+              g_object_set (section, "images", model, NULL);
+            }
+
+          if (g_hash_table_contains (section_props, "appids"))
+            {
+              GPtrArray *appids            = NULL;
+              g_autoptr (GListStore) store = NULL;
+
+              appids = g_value_get_boxed (
+                  g_hash_table_lookup (section_props, "appids"));
+              store = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
+
+              if (group_hash != NULL)
                 {
-                  switch (current_section_prop)
+                  for (guint j = 0; j < appids->len; j++)
                     {
-                    case SECTION_PROP_TITLE:
-                      if (event.type != YAML_SCALAR_EVENT)
-                        ERROR_OUT ("Expected a scalar");
-                      else
-                        {
-                          g_object_set (current_section, "title", event.data.scalar.value, NULL);
-                          current_section_prop = INSIDE_KEY;
-                        }
-                      break;
-                    case SECTION_PROP_SUBTITLE:
-                      if (event.type != YAML_SCALAR_EVENT)
-                        ERROR_OUT ("Expected a scalar");
-                      else
-                        {
-                          g_object_set (current_section, "subtitle", event.data.scalar.value, NULL);
-                          current_section_prop = INSIDE_KEY;
-                        }
-                      break;
-                    case SECTION_PROP_DESCRIPTION:
-                      if (event.type != YAML_SCALAR_EVENT)
-                        ERROR_OUT ("Expected a scalar");
-                      else
-                        {
-                          g_object_set (current_section, "description", event.data.scalar.value, NULL);
-                          current_section_prop = INSIDE_KEY;
-                        }
-                      break;
-                    case SECTION_PROP_IMAGES:
-                      if (current_section_images != NULL)
-                        {
-                          if (event.type == YAML_SEQUENCE_END_EVENT)
-                            {
-                              g_autoptr (BzPaintableModel) model = NULL;
+                      const char   *appid = NULL;
+                      BzEntryGroup *group = NULL;
 
-                              model = bz_paintable_model_new (
-                                  dex_thread_pool_scheduler_get_default (),
-                                  G_LIST_MODEL (current_section_images));
-                              g_object_set (current_section, "images", model, NULL);
-                              g_clear_object (&current_section_images);
+                      appid = g_variant_get_string (
+                          g_value_get_variant (
+                              g_ptr_array_index (appids, j)),
+                          NULL);
+                      group = g_hash_table_lookup (group_hash, appid);
 
-                              current_section_prop = INSIDE_KEY;
-                            }
-                          else if (event.type != YAML_SCALAR_EVENT)
-                            ERROR_OUT ("Expected a scalar");
-                          else
-                            {
-                              g_autoptr (GFile) url = NULL;
-
-                              url = g_file_new_for_uri ((const char *) event.data.scalar.value);
-                              g_list_store_append (current_section_images, url);
-                            }
-                        }
-                      else if (event.type != YAML_SEQUENCE_START_EVENT)
-                        ERROR_OUT ("Expected a start of a sequence");
+                      if (group != NULL)
+                        g_list_store_append (store, group);
                       else
-                        current_section_images = g_list_store_new (G_TYPE_FILE);
-                      break;
-                    case SECTION_PROP_GROUPS:
-                      if (current_section_groups != NULL)
-                        {
-                          if (event.type == YAML_SEQUENCE_END_EVENT)
-                            {
-                              if (g_list_model_get_n_items (G_LIST_MODEL (current_section_groups)) == 0)
-                                ERROR_OUT ("A section must have at least one appid");
-                              else
-                                {
-                                  g_object_set (current_section, "groups", current_section_groups, NULL);
-                                  g_clear_object (&current_section_groups);
-                                  current_section_prop = INSIDE_KEY;
-                                }
-                            }
-                          else if (event.type != YAML_SCALAR_EVENT)
-                            ERROR_OUT ("Expected a scalar");
-                          else
-                            {
-                              BzEntryGroup *group = NULL;
-
-                              if (group_hash != NULL)
-                                group = g_hash_table_lookup (group_hash, event.data.scalar.value);
-                              if (group != NULL)
-                                g_list_store_append (current_section_groups, group);
-                              else
-                                g_warning ("appid '%s' was not found", event.data.scalar.value);
-                            }
-                        }
-                      else if (event.type != YAML_SEQUENCE_START_EVENT)
-                        ERROR_OUT ("Expected a start of a sequence");
-                      else
-                        current_section_groups = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
-                      break;
-                    default:
-                      g_assert_not_reached ();
+                        g_critical ("appid '%s' not found", appid);
                     }
                 }
-              else if (event.type != YAML_MAPPING_START_EVENT)
-                ERROR_OUT ("Expected a mapping");
-              else
-                current_section_prop = INSIDE_KEY;
+
+              g_object_set (section, "appids", store, NULL);
             }
-          else if (event.type == YAML_SEQUENCE_END_EVENT)
-            {
-              current_section_prop = NOT_INSIDE;
-              inside_sections      = NOT_INSIDE;
-            }
-          else if (current_section_prop != INSIDE_KEY &&
-                   event.type != YAML_SEQUENCE_START_EVENT)
-            ERROR_OUT ("Expected a start of a sequence");
-          else
-            current_section = g_object_new (BZ_TYPE_CONTENT_SECTION, NULL);
+
+          g_ptr_array_add (sections, g_steal_pointer (&section));
         }
-      else if (event.type == YAML_MAPPING_START_EVENT)
-        inside_sections = INSIDE_KEY;
-
-      done_parsing = event.type == YAML_STREAM_END_EVENT;
-      yaml_event_delete (&event);
     }
-  yaml_parser_delete (&parser);
-
-#undef ERROR_OUT
 
   return dex_future_new_take_boxed (
       G_TYPE_PTR_ARRAY,
@@ -819,7 +720,8 @@ input_load_finally (DexFuture         *future,
       GPtrArray *sections = NULL;
 
       sections = g_value_get_boxed (value);
-      g_list_store_splice (data->output, 0, 0, sections->pdata, sections->len);
+      if (sections->pdata != NULL && sections->len > 0)
+        g_list_store_splice (data->output, 0, 0, sections->pdata, sections->len);
     }
   else
     {
@@ -846,8 +748,9 @@ commence_reload (InputTrackingData *data)
     goto done;
 
   load_data             = input_load_data_new ();
-  load_data->group_hash = g_hash_table_ref (data->group_hash);
   load_data->file       = g_file_new_for_path (data->path);
+  load_data->parser     = g_object_ref (data->parser);
+  load_data->group_hash = g_hash_table_ref (data->group_hash);
 
   future = dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),

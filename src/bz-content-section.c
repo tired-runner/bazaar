@@ -44,7 +44,7 @@ enum
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
   PROP_IMAGES,
-  PROP_GROUPS,
+  PROP_APPIDS,
 
   LAST_PROP
 };
@@ -92,7 +92,7 @@ bz_content_section_get_property (GObject    *object,
     case PROP_IMAGES:
       g_value_set_object (value, priv->images);
       break;
-    case PROP_GROUPS:
+    case PROP_APPIDS:
       g_value_set_object (value, priv->groups);
       break;
     default:
@@ -131,7 +131,7 @@ bz_content_section_set_property (GObject      *object,
       g_clear_object (&priv->images);
       priv->images = g_value_dup_object (value);
       break;
-    case PROP_GROUPS:
+    case PROP_APPIDS:
       g_clear_object (&priv->groups);
       priv->groups = g_value_dup_object (value);
       break;
@@ -180,9 +180,9 @@ bz_content_section_class_init (BzContentSectionClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
-  props[PROP_GROUPS] =
+  props[PROP_APPIDS] =
       g_param_spec_object (
-          "groups",
+          "appids",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);

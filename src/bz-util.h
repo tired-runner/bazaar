@@ -30,11 +30,12 @@
 
 /* va args = releases */
 #define BZ_DEFINE_DATA(name, Name, layout, ...)     \
-  typedef struct                                    \
+  typedef struct _##Name##Data Name##Data;          \
+  struct _##Name##Data                              \
   {                                                 \
     gatomicrefcount rc;                             \
     struct layout;                                  \
-  } Name##Data;                                     \
+  };                                                \
   G_GNUC_UNUSED                                     \
   static inline Name##Data *                        \
       name##_data_new (void)                        \

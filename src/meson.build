@@ -5,6 +5,7 @@ bz_sources = [
   'bz-search-widget.c',
   'bz-content-section.c',
   'bz-content-provider.c',
+  'bz-yaml-parser.c',
   'bz-section-view.c',
   'bz-browse-widget.c',
   'bz-update-dialog.c',

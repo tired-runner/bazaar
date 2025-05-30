@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mappings>
+  <mapping key="css">
+    <scalar type="s"/>
+  </mapping>
+  <mapping key="sections">
+    <list>
+      <object class="BzContentSection">
+        <typehint name="images" type="s"/>
+        <typehint name="appids" type="s"/>
+      </object>
+    </list>
+  </mapping>
+</mappings>
