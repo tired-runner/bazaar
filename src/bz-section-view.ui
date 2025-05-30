@@ -4,135 +4,213 @@
   <requires lib="Adw" version="1.0"/>
   <template class="BzSectionView" parent="AdwBin">
     <property name="child">
-      <object class="GtkFrame">
-        <style>
-          <class name="card"/>
-        </style>
-        <property name="child">
-          <object class="GtkBox">
-            <property name="margin-top">10</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-start">10</property>
-            <property name="margin-end">10</property>
-            <property name="orientation">vertical</property>
-            <property name="spacing">5</property>
-            <child>
-              <object class="GtkLabel">
-                <style>
-                  <class name="title-1"/>
-                </style>
-                <property name="wrap">TRUE</property>
-                <property name="wrap-mode">word-char</property>
-                <property name="xalign">0</property>
-                <binding name="label">
-                  <lookup name="title" type="BzContentSection">
-                    <lookup name="section">BzSectionView</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <style>
-                  <class name="title-3"/>
-                </style>
-                <property name="wrap">TRUE</property>
-                <property name="wrap-mode">word-char</property>
-                <property name="xalign">0</property>
-                <property name="ellipsize">end</property>
-                <binding name="label">
-                  <lookup name="subtitle" type="BzContentSection">
-                    <lookup name="section">BzSectionView</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <style>
-                  <class name="heading"/>
-                </style>
-                <property name="wrap">TRUE</property>
-                <property name="wrap-mode">word-char</property>
-                <property name="xalign">0</property>
-                <binding name="label">
-                  <lookup name="description" type="BzContentSection">
-                    <lookup name="section">BzSectionView</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <style>
-                  <class name="heading"/>
-                  <class name="error"/>
-                </style>
-                <property name="wrap">TRUE</property>
-                <property name="wrap-mode">word-char</property>
-                <property name="xalign">0</property>
-                <binding name="label">
-                  <lookup name="error" type="BzContentSection">
-                    <lookup name="section">BzSectionView</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </child>
-            <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
+        <child>
+          <object class="GtkLabel">
+            <style>
+              <class name="heading"/>
+              <class name="error"/>
+            </style>
+            <property name="wrap">TRUE</property>
+            <property name="wrap-mode">word-char</property>
+            <property name="xalign">0</property>
+            <binding name="label">
+              <lookup name="error" type="BzContentSection">
+                <lookup name="section">BzSectionView</lookup>
+              </lookup>
+            </binding>
+          </object>
+        </child>
+        <child>
+          <object class="GtkOverlay">
+            <property name="hexpand">TRUE</property>
+            <property name="child">
               <object class="GtkListView">
-                <style>
-                  <class name="navigation-sidebar"/>
-                </style>
                 <property name="model">
                   <object class="GtkNoSelection">
                     <binding name="model">
-                      <lookup name="groups" type="BzContentSection">
+                      <lookup name="images" type="BzContentSection">
                         <lookup name="section">BzSectionView</lookup>
                       </lookup>
                     </binding>
                   </object>
                 </property>
                 <property name="factory">
-                  <object class="GtkBuilderListItemFactory" id="factory">
+                  <object class="GtkBuilderListItemFactory">
                     <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
     <property name="child">
-      <object class="GtkCenterBox">
-        <property name="orientation">horizontal</property>
-        <property name="margin-start">5</property>
-        <property name="margin-end">5</property>
-        <property name="margin-top">5</property>
-        <property name="margin-bottom">5</property>
-        <property name="start-widget">
-          <object class="GtkLabel">
-            <style>
-              <class name="heading"/>
-            </style>
-            <property name="hexpand">TRUE</property>
-            <property name="xalign">0</property>
-            <property name="ellipsize">end</property>
-            <property name="single-line-mode">true</property>
-            <binding name="label">
-              <lookup name="title" type="BzEntry">
-                <lookup name="ui-entry" type="BzEntryGroup">
-                  <lookup name="item">GtkListItem</lookup>
-                </lookup>
-              </lookup>
-            </binding>
+      <object class="GtkPicture">
+        <style>
+          <class name="browser-banner"/>
+        </style>
+        <property name="height-request">300</property>
+        <property name="content-fit">cover</property>
+        <property name="can-shrink">TRUE</property>
+        <binding name="paintable">
+          <lookup name="item">GtkListItem</lookup>
+        </binding>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+            <child type="overlay">
+              <object class="GtkBox">
+                <property name="margin-top">30</property>
+                <property name="margin-bottom">30</property>
+                <property name="margin-start">30</property>
+                <property name="margin-end">30</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">5</property>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="browser-banner-title"/>
+                    </style>
+                    <property name="wrap">TRUE</property>
+                    <property name="wrap-mode">word-char</property>
+                    <property name="xalign">0</property>
+                    <binding name="label">
+                      <lookup name="title" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="browser-banner-subtitle"/>
+                    </style>
+                    <property name="wrap">TRUE</property>
+                    <property name="wrap-mode">word-char</property>
+                    <property name="xalign">0</property>
+                    <binding name="label">
+                      <lookup name="subtitle" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="browser-banner-description"/>
+                    </style>
+                    <property name="wrap">TRUE</property>
+                    <property name="wrap-mode">word-char</property>
+                    <property name="xalign">0</property>
+                    <binding name="label">
+                      <lookup name="description" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
-        </property>
-        <property name="end-widget">
-          <object class="GtkImage">
-            <property name="icon-size">large</property>
-            <binding name="paintable">
-              <lookup name="icon-paintable" type="BzEntry">
-                <lookup name="ui-entry" type="BzEntryGroup">
-                  <lookup name="item">GtkListItem</lookup>
-                </lookup>
-              </lookup>
-            </binding>
+        </child>
+        <child>
+          <object class="GtkGridView">
+            <style>
+              <class name="navigation-sidebar"/>
+            </style>
+            <property name="min-columns">1</property>
+            <property name="max-columns">1</property>
+            <property name="model">
+              <object class="GtkNoSelection">
+                <binding name="model">
+                  <lookup name="groups" type="BzContentSection">
+                    <lookup name="section">BzSectionView</lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </property>
+            <property name="factory">
+              <object class="GtkBuilderListItemFactory" id="factory">
+                <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
+    <property name="child">
+      <object class="GtkFrame">
+        <style>
+          <class name="card"/>
+        </style>
+        <property name="width-request">250</property>
+        <property name="child">
+          <object class="GtkBox">
+            <property name="margin-top">15</property>
+            <property name="margin-bottom">15</property>
+            <property name="margin-start">15</property>
+            <property name="margin-end">15</property>
+            <property name="orientation">horizontal</property>
+            <property name="spacing">15</property>
+            <child>
+              <object class="GtkPicture">
+                <property name="height-request">64</property>
+                <property name="can-shrink">TRUE</property>
+                <binding name="paintable">
+                  <lookup name="icon-paintable" type="BzEntry">
+                    <lookup name="ui-entry" type="BzEntryGroup">
+                      <lookup name="item">GtkListItem</lookup>
+                    </lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">5</property>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="title-2"/>
+                    </style>
+                    <property name="xalign">0</property>
+                    <property name="ellipsize">end</property>
+                    <binding name="label">
+                      <lookup name="title" type="BzEntry">
+                        <lookup name="ui-entry" type="BzEntryGroup">
+                          <lookup name="item">GtkListItem</lookup>
+                        </lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <style>
+                      <class name="heading"/>
+                      <class name="dimmed"/>
+                    </style>
+                    <property name="xalign">0</property>
+                    <property name="ellipsize">end</property>
+                    <binding name="label">
+                      <lookup name="description" type="BzEntry">
+                        <lookup name="ui-entry" type="BzEntryGroup">
+                          <lookup name="item">GtkListItem</lookup>
+                        </lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </property>
       </object>
@@ -140,13 +218,11 @@
   </template>
 </interface>
 ]]> 
-                    </property>
-                  </object>
                 </property>
               </object>
-            </child>
+            </property>
           </object>
-        </property>
+        </child>
       </object>
     </property>
   </template>

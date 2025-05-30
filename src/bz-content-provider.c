@@ -26,6 +26,7 @@
 #include "bz-content-provider.h"
 #include "bz-content-section.h"
 #include "bz-entry-group.h"
+#include "bz-paintable-model.h"
 #include "bz-util.h"
 
 /* clang-format off */
@@ -39,6 +40,7 @@ enum
   SECTION_PROP_TITLE,
   SECTION_PROP_SUBTITLE,
   SECTION_PROP_DESCRIPTION,
+  SECTION_PROP_IMAGES,
   SECTION_PROP_GROUPS,
 
   SECTION_PROP_N_PROPS,
@@ -583,6 +585,7 @@ input_load_fiber (InputLoadData *data)
   int           inside_sections                 = NOT_INSIDE;
   g_autoptr (BzContentSection) current_section  = NULL;
   int current_section_prop                      = NOT_INSIDE;
+  g_autoptr (GListStore) current_section_images = NULL;
   g_autoptr (GListStore) current_section_groups = NULL;
 
   sections = g_ptr_array_new_with_free_func (g_object_unref);
@@ -596,6 +599,7 @@ input_load_fiber (InputLoadData *data)
   yaml_parser_initialize (&parser);
   yaml_parser_set_input_string (&parser, bytes_data, bytes_size);
 
+  /* TODO: completely rework this to take a schema or something */
   while (!done_parsing)
     {
       yaml_event_t event = { 0 };
@@ -663,6 +667,8 @@ input_load_fiber (InputLoadData *data)
                     current_section_prop = SECTION_PROP_SUBTITLE;
                   else if (g_strcmp0 ((const char *) event.data.scalar.value, "description") == 0)
                     current_section_prop = SECTION_PROP_DESCRIPTION;
+                  else if (g_strcmp0 ((const char *) event.data.scalar.value, "images") == 0)
+                    current_section_prop = SECTION_PROP_IMAGES;
                   else if (g_strcmp0 ((const char *) event.data.scalar.value, "appids") == 0)
                     current_section_prop = SECTION_PROP_GROUPS;
                   else
@@ -698,6 +704,36 @@ input_load_fiber (InputLoadData *data)
                           g_object_set (current_section, "description", event.data.scalar.value, NULL);
                           current_section_prop = INSIDE_KEY;
                         }
+                      break;
+                    case SECTION_PROP_IMAGES:
+                      if (current_section_images != NULL)
+                        {
+                          if (event.type == YAML_SEQUENCE_END_EVENT)
+                            {
+                              g_autoptr (BzPaintableModel) model = NULL;
+
+                              model = bz_paintable_model_new (
+                                  dex_thread_pool_scheduler_get_default (),
+                                  G_LIST_MODEL (current_section_images));
+                              g_object_set (current_section, "images", model, NULL);
+                              g_clear_object (&current_section_images);
+
+                              current_section_prop = INSIDE_KEY;
+                            }
+                          else if (event.type != YAML_SCALAR_EVENT)
+                            ERROR_OUT ("Expected a scalar");
+                          else
+                            {
+                              g_autoptr (GFile) url = NULL;
+
+                              url = g_file_new_for_uri ((const char *) event.data.scalar.value);
+                              g_list_store_append (current_section_images, url);
+                            }
+                        }
+                      else if (event.type != YAML_SEQUENCE_START_EVENT)
+                        ERROR_OUT ("Expected a start of a sequence");
+                      else
+                        current_section_images = g_list_store_new (G_TYPE_FILE);
                       break;
                     case SECTION_PROP_GROUPS:
                       if (current_section_groups != NULL)

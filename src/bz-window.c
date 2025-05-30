@@ -52,6 +52,7 @@ struct _BzWindow
   /* Template widgets */
   AdwStatusPage        *status;
   BzBackground         *background;
+  AdwViewStack         *main_stack;
   BzBrowseWidget       *browse;
   GtkButton            *refresh;
   GtkButton            *search;
@@ -278,6 +279,7 @@ bz_window_class_init (BzWindowClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, background);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, browse);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
@@ -671,9 +673,7 @@ static DexFuture *
 refresh_finally (DexFuture *future,
                  BzWindow  *self)
 {
-  gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->status), TRUE);
-  gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
+  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->status));
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
 
   bz_content_provider_unblock (self->content_provider);
@@ -812,10 +812,7 @@ refresh (BzWindow *self)
 
   bz_content_provider_block (self->content_provider);
 
-  gtk_widget_set_visible (GTK_WIDGET (self->spinner), TRUE);
-  gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->browse), FALSE);
-
+  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->spinner));
   gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
 
@@ -841,10 +838,7 @@ static void
 browse (BzWindow *self)
 {
   bz_background_set_entries (self->background, NULL);
-
-  gtk_widget_set_visible (GTK_WIDGET (self->spinner), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->status), FALSE);
-  gtk_widget_set_visible (GTK_WIDGET (self->browse), TRUE);
+  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->browse));
 }
 
 static void

@@ -88,68 +88,78 @@
                                   bind-property="bottom-bar-height"
                                   bind-flags="sync-create"/>
                         <property name="child">
-                          <object class="GtkBox">
+                          <object class="AdwViewStack" id="main_stack">
+                            <property name="enable-transitions">TRUE</property>
+                            <property name="transition-duration">400</property>
                             <child>
-                              <object class="AdwSpinner" id="spinner">
-                                <property name="visible">FALSE</property>
-                                <property name="hexpand">TRUE</property>
-                                <property name="vexpand">TRUE</property>
+                              <object class="AdwViewStackPage">
+                                <property name="name">loading</property>
+                                <property name="title" translatable="yes">Loading</property>
+                                <property name="child">
+                                  <object class="AdwSpinner" id="spinner"/>
+                                </property>
                               </object>
                             </child>
                             <child>
-                              <object class="AdwStatusPage" id="status">
-                                <property name="visible">FALSE</property>
-                                <property name="hexpand">TRUE</property>
-                                <property name="vexpand">TRUE</property>
-                                <property name="title">Welcome</property>
-                                <property name="description">Choose an action:</property>
+                              <object class="AdwViewStackPage">
+                                <property name="name">welcome</property>
+                                <property name="title" translatable="yes">Welcome</property>
                                 <property name="child">
-                                  <object class="GtkGrid">
-                                    <property name="halign">center</property>
-                                    <property name="column-spacing">48</property>
-                                    <property name="row-spacing">18</property>
-                                    <child>
-                                      <object class="GtkBox">
-                                        <property name="margin-top">12</property>
-                                        <property name="spacing">12</property>
-                                        <property name="homogeneous">true</property>
-                                        <layout>
-                                          <property name="row">4</property>
-                                          <property name="column">0</property>
-                                          <property name="column-span">2</property>
-                                        </layout>
+                                  <object class="AdwStatusPage" id="status">
+                                    <property name="title" translatable="yes">Welcome</property>
+                                    <property name="description" translatable="yes">Choose an action:</property>
+                                    <property name="child">
+                                      <object class="GtkGrid">
+                                        <property name="halign">center</property>
+                                        <property name="column-spacing">48</property>
+                                        <property name="row-spacing">18</property>
                                         <child>
-                                          <object class="GtkButton">
-                                            <property name="label" translatable="yes">Search</property>
-                                            <property name="action-name">app.search</property>
-                                            <style>
-                                              <class name="pill"/>
-                                            </style>
-                                          </object>
-                                        </child>
-                                        <child>
-                                          <object class="GtkButton">
-                                            <property name="label" translatable="yes">Browse</property>
-                                            <property name="action-name">app.browse</property>
-                                            <style>
-                                              <class name="pill"/>
-                                            </style>
+                                          <object class="GtkBox">
+                                            <property name="margin-top">12</property>
+                                            <property name="spacing">12</property>
+                                            <property name="homogeneous">true</property>
+                                            <layout>
+                                              <property name="row">4</property>
+                                              <property name="column">0</property>
+                                              <property name="column-span">2</property>
+                                            </layout>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <property name="label" translatable="yes">Search</property>
+                                                <property name="action-name">app.search</property>
+                                                <style>
+                                                  <class name="pill"/>
+                                                </style>
+                                              </object>
+                                            </child>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <property name="label" translatable="yes">Browse</property>
+                                                <property name="action-name">app.browse</property>
+                                                <style>
+                                                  <class name="pill"/>
+                                                </style>
+                                              </object>
+                                            </child>
                                           </object>
                                         </child>
                                       </object>
-                                    </child>
+                                    </property>
                                   </object>
                                 </property>
                               </object>
                             </child>
                             <child>
-                              <object class="BzBrowseWidget" id="browse">
-                                <property name="visible">FALSE</property>
-                                <property name="hexpand">TRUE</property>
-                                <property name="vexpand">TRUE</property>
-                                <binding name="content-provider">
-                                  <lookup name="content-provider">BzWindow</lookup>
-                                </binding>
+                              <object class="AdwViewStackPage">
+                                <property name="name">browse</property>
+                                <property name="title" translatable="yes">Browse</property>
+                                <property name="child">
+                                  <object class="BzBrowseWidget" id="browse">
+                                    <binding name="content-provider">
+                                      <lookup name="content-provider">BzWindow</lookup>
+                                    </binding>
+                                  </object>
+                                </property>
                               </object>
                             </child>
                           </object>

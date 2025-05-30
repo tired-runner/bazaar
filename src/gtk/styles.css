@@ -66,3 +66,19 @@
     border-top: 2px solid var(--border-color);
     border-bottom: 2px solid var(--border-color);
 }
+
+.browser-banner {
+    border-radius: 0px;
+}
+.browser-banner-title {
+    font-size: 3.2em;
+    font-weight: bolder;
+}
+.browser-banner-subtitle {
+    font-size: 2.0em;
+    font-weight: bold;
+}
+.browser-banner-description {
+    font-size: 1.33em;
+    font-weight: normal;
+}

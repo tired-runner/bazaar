@@ -20,9 +20,8 @@
 
 #include "config.h"
 
-#include <bz-entry-group.h>
-
 #include "bz-content-section.h"
+#include "bz-entry-group.h"
 
 typedef struct
 {
@@ -30,6 +29,7 @@ typedef struct
   char       *title;
   char       *subtitle;
   char       *description;
+  GListModel *images;
   GListModel *groups;
 } BzContentSectionPrivate;
 
@@ -43,6 +43,7 @@ enum
   PROP_TITLE,
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
+  PROP_IMAGES,
   PROP_GROUPS,
 
   LAST_PROP
@@ -59,6 +60,7 @@ bz_content_section_dispose (GObject *object)
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->subtitle, g_free);
   g_clear_pointer (&priv->description, g_free);
+  g_clear_object (&priv->images);
   g_clear_object (&priv->groups);
 
   G_OBJECT_CLASS (bz_content_section_parent_class)->dispose (object);
@@ -86,6 +88,9 @@ bz_content_section_get_property (GObject    *object,
       break;
     case PROP_DESCRIPTION:
       g_value_set_string (value, priv->description);
+      break;
+    case PROP_IMAGES:
+      g_value_set_object (value, priv->images);
       break;
     case PROP_GROUPS:
       g_value_set_object (value, priv->groups);
@@ -121,6 +126,10 @@ bz_content_section_set_property (GObject      *object,
     case PROP_DESCRIPTION:
       g_clear_pointer (&priv->description, g_free);
       priv->description = g_value_dup_string (value);
+      break;
+    case PROP_IMAGES:
+      g_clear_object (&priv->images);
+      priv->images = g_value_dup_object (value);
       break;
     case PROP_GROUPS:
       g_clear_object (&priv->groups);
@@ -162,6 +171,13 @@ bz_content_section_class_init (BzContentSectionClass *klass)
       g_param_spec_string (
           "description",
           NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_IMAGES] =
+      g_param_spec_object (
+          "images",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
   props[PROP_GROUPS] =
