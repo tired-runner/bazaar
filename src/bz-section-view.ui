@@ -75,6 +75,7 @@
                 <property name="spacing">5</property>
                 <child>
                   <object class="GtkLabel">
+                    <property name="css-name">title</property>
                     <style>
                       <class name="browser-banner-title"/>
                     </style>
@@ -90,6 +91,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
+                    <property name="css-name">subtitle</property>
                     <style>
                       <class name="browser-banner-subtitle"/>
                     </style>
@@ -105,6 +107,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
+                    <property name="css-name">description</property>
                     <style>
                       <class name="browser-banner-description"/>
                     </style>

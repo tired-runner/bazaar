@@ -28,6 +28,7 @@ struct _BzSectionView
   AdwBin parent_instance;
 
   BzContentSection *section;
+  GListModel       *classes;
 
   /* Template widgets */
 };
@@ -50,6 +51,7 @@ bz_section_view_dispose (GObject *object)
   BzSectionView *self = BZ_SECTION_VIEW (object);
 
   g_clear_object (&self->section);
+  g_clear_object (&self->classes);
 
   G_OBJECT_CLASS (bz_section_view_parent_class)->dispose (object);
 }
@@ -137,8 +139,47 @@ bz_section_view_set_section (BzSectionView    *self,
   g_return_if_fail (section == NULL || BZ_IS_CONTENT_SECTION (section));
 
   g_clear_object (&self->section);
+
+  if (self->classes != NULL)
+    {
+      guint n_classes = 0;
+
+      n_classes = g_list_model_get_n_items (self->classes);
+      for (guint i = 0; i < n_classes; i++)
+        {
+          g_autoptr (GtkStringObject) string = NULL;
+          const char *class                  = NULL;
+
+          string = g_list_model_get_item (self->classes, i);
+          class  = gtk_string_object_get_string (string);
+
+          gtk_widget_remove_css_class (GTK_WIDGET (self), class);
+        }
+    }
+  g_clear_object (&self->classes);
+
   if (section != NULL)
-    self->section = g_object_ref (section);
+    {
+      self->section = g_object_ref (section);
+      g_object_get (section, "classes", &self->classes, NULL);
+
+      if (self->classes != NULL)
+        {
+          guint n_classes = 0;
+
+          n_classes = g_list_model_get_n_items (self->classes);
+          for (guint i = 0; i < n_classes; i++)
+            {
+              g_autoptr (GtkStringObject) string = NULL;
+              const char *class                  = NULL;
+
+              string = g_list_model_get_item (self->classes, i);
+              class  = gtk_string_object_get_string (string);
+
+              gtk_widget_add_css_class (GTK_WIDGET (self), class);
+            }
+        }
+    }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SECTION]);
 }

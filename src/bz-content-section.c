@@ -26,6 +26,7 @@
 typedef struct
 {
   char       *error;
+  GListModel *classes;
   char       *title;
   char       *subtitle;
   char       *description;
@@ -40,6 +41,7 @@ enum
   PROP_0,
 
   PROP_ERROR,
+  PROP_CLASSES,
   PROP_TITLE,
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
@@ -57,6 +59,7 @@ bz_content_section_dispose (GObject *object)
   BzContentSectionPrivate *priv = bz_content_section_get_instance_private (self);
 
   g_clear_pointer (&priv->error, g_free);
+  g_clear_object (&priv->classes);
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->subtitle, g_free);
   g_clear_pointer (&priv->description, g_free);
@@ -79,6 +82,9 @@ bz_content_section_get_property (GObject    *object,
     {
     case PROP_ERROR:
       g_value_set_string (value, priv->error);
+      break;
+    case PROP_CLASSES:
+      g_value_set_object (value, priv->classes);
       break;
     case PROP_TITLE:
       g_value_set_string (value, priv->title);
@@ -114,6 +120,10 @@ bz_content_section_set_property (GObject      *object,
     case PROP_ERROR:
       g_clear_pointer (&priv->error, g_free);
       priv->error = g_value_dup_string (value);
+      break;
+    case PROP_CLASSES:
+      g_clear_object (&priv->classes);
+      priv->classes = g_value_dup_object (value);
       break;
     case PROP_TITLE:
       g_clear_pointer (&priv->title, g_free);
@@ -153,6 +163,13 @@ bz_content_section_class_init (BzContentSectionClass *klass)
       g_param_spec_string (
           "error",
           NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_CLASSES] =
+      g_param_spec_object (
+          "classes",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
   props[PROP_TITLE] =

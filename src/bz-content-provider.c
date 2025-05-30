@@ -34,19 +34,6 @@
 G_DEFINE_QUARK (bz-content-yaml-error-quark, bz_content_yaml_error);
 /* clang-format on */
 
-enum
-{
-  SECTION_PROP_0 = 0,
-
-  SECTION_PROP_TITLE,
-  SECTION_PROP_SUBTITLE,
-  SECTION_PROP_DESCRIPTION,
-  SECTION_PROP_IMAGES,
-  SECTION_PROP_GROUPS,
-
-  SECTION_PROP_N_PROPS,
-};
-
 BZ_DEFINE_DATA (
     block_counter,
     BlockCounter,
@@ -112,6 +99,9 @@ BZ_DEFINE_DATA (
 static DexFuture *
 input_load_fiber (InputLoadData *data);
 
+static void
+destroy_css (GtkCssProvider *css);
+
 BZ_DEFINE_DATA (
     input_tracking,
     InputTracking,
@@ -123,6 +113,7 @@ BZ_DEFINE_DATA (
       GFileMonitor     *monitor;
       DexFuture        *task;
       GListStore       *output;
+      GtkCssProvider   *css;
     },
     BZ_RELEASE_DATA (block, block_counter_data_unref);
     BZ_RELEASE_DATA (group_hash, g_hash_table_unref);
@@ -130,7 +121,8 @@ BZ_DEFINE_DATA (
     BZ_RELEASE_DATA (path, g_free);
     BZ_RELEASE_DATA (monitor, g_object_unref);
     BZ_RELEASE_DATA (task, dex_unref);
-    BZ_RELEASE_DATA (output, g_object_unref))
+    BZ_RELEASE_DATA (output, g_object_unref);
+    BZ_RELEASE_DATA (css, destroy_css))
 static DexFuture *
 input_init_finally (DexFuture         *future,
                     InputTrackingData *data);
@@ -582,11 +574,14 @@ input_load_fiber (InputLoadData *data)
   GFile        *file                   = data->file;
   GHashTable   *group_hash             = data->group_hash;
   BzYamlParser *parser                 = data->parser;
+  g_autoptr (GPtrArray) css            = NULL;
   g_autoptr (GPtrArray) sections       = NULL;
   g_autoptr (GError) local_error       = NULL;
   g_autoptr (GBytes) bytes             = NULL;
   g_autoptr (GHashTable) parse_results = NULL;
+  g_autoptr (GHashTable) dict          = NULL;
 
+  css      = g_ptr_array_new_with_free_func (g_free);
   sections = g_ptr_array_new_with_free_func (g_object_unref);
 
   bytes = dex_await_boxed (dex_file_load_contents_bytes (file), &local_error);
@@ -596,6 +591,18 @@ input_load_fiber (InputLoadData *data)
   parse_results = bz_yaml_parser_process_bytes (parser, bytes, &local_error);
   if (parse_results == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  if (g_hash_table_contains (parse_results, "/css"))
+    {
+      const char *css_string = NULL;
+
+      css_string = g_variant_get_string (
+          g_value_get_variant (
+              g_hash_table_lookup (
+                  parse_results, "/css")),
+          NULL);
+      g_ptr_array_add (css, g_strdup (css_string));
+    }
 
   if (g_hash_table_contains (parse_results, "/sections"))
     {
@@ -614,6 +621,30 @@ input_load_fiber (InputLoadData *data)
                       g_ptr_array_index (list, i)),
                   "/"));
           section = g_object_new (BZ_TYPE_CONTENT_SECTION, NULL);
+
+          if (g_hash_table_contains (section_props, "classes"))
+            {
+              GPtrArray *classes                = NULL;
+              g_autoptr (GtkStringList) strlist = NULL;
+
+              classes = g_value_get_boxed (
+                  g_hash_table_lookup (section_props, "classes"));
+              strlist = gtk_string_list_new (NULL);
+
+              for (guint j = 0; j < classes->len; j++)
+                {
+                  const char *class = NULL;
+
+                  class = g_variant_get_string (
+                      g_value_get_variant (
+                          g_ptr_array_index (classes, j)),
+                      NULL);
+
+                  gtk_string_list_append (strlist, class);
+                }
+
+              g_object_set (section, "classes", strlist, NULL);
+            }
 
 #define GRAB_STRING(s)                            \
   if (g_hash_table_contains (section_props, (s))) \
@@ -699,9 +730,19 @@ input_load_fiber (InputLoadData *data)
         }
     }
 
-  return dex_future_new_take_boxed (
-      G_TYPE_PTR_ARRAY,
+  dict = g_hash_table_new_full (
+      g_str_hash, g_str_equal,
+      g_free, (GDestroyNotify) g_ptr_array_unref);
+  g_hash_table_replace (
+      dict, g_strdup ("css"),
+      g_steal_pointer (&css));
+  g_hash_table_replace (
+      dict, g_strdup ("sections"),
       g_steal_pointer (&sections));
+
+  return dex_future_new_take_boxed (
+      G_TYPE_HASH_TABLE,
+      g_steal_pointer (&dict));
 }
 
 static DexFuture *
@@ -713,13 +754,37 @@ input_load_finally (DexFuture         *future,
 
   dex_clear (&data->task);
   g_list_store_remove_all (data->output);
+  g_clear_pointer (&data->css, destroy_css);
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
     {
-      GPtrArray *sections = NULL;
+      GHashTable *dict     = NULL;
+      GPtrArray  *css      = NULL;
+      GPtrArray  *sections = NULL;
 
-      sections = g_value_get_boxed (value);
+      dict     = g_value_get_boxed (value);
+      css      = g_hash_table_lookup (dict, "css");
+      sections = g_hash_table_lookup (dict, "sections");
+
+      g_assert (css != NULL);
+      g_assert (sections != NULL);
+
+      if (css->pdata != NULL && css->len > 0)
+        {
+          const char *css_string = NULL;
+
+          css_string = g_ptr_array_index (css, 0);
+
+          data->css = gtk_css_provider_new ();
+          gtk_css_provider_load_from_string (
+              data->css, css_string);
+          gtk_style_context_add_provider_for_display (
+              gdk_display_get_default (),
+              GTK_STYLE_PROVIDER (data->css),
+              GTK_STYLE_PROVIDER_PRIORITY_USER);
+        }
+
       if (sections->pdata != NULL && sections->len > 0)
         g_list_store_splice (data->output, 0, 0, sections->pdata, sections->len);
     }
@@ -766,4 +831,13 @@ commence_reload (InputTrackingData *data)
 
 done:
   return G_SOURCE_REMOVE;
+}
+
+static void
+destroy_css (GtkCssProvider *css)
+{
+  gtk_style_context_remove_provider_for_display (
+      gdk_display_get_default (),
+      GTK_STYLE_PROVIDER (css));
+  g_object_unref (css);
 }

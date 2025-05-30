@@ -149,7 +149,7 @@ bz_application_activate (GApplication *app)
       gtk_style_context_add_provider_for_display (
           gdk_display_get_default (),
           GTK_STYLE_PROVIDER (css),
-          GTK_STYLE_PROVIDER_PRIORITY_USER);
+          GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
       window = g_object_new (
           BZ_TYPE_WINDOW,
