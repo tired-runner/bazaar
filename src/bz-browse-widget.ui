@@ -8,9 +8,6 @@
         <property name="hscrollbar-policy">never</property>
         <property name="child">
           <object class="GtkListView">
-            <style>
-              <class name="navigation-sidebar"/>
-            </style>
             <property name="model">
               <object class="GtkNoSelection">
                 <binding name="model">
@@ -27,7 +24,6 @@
     <property name="activatable">FALSE</property>
     <property name="child">
       <object class="BzSectionView">
-        <property name="vexpand">FALSE</property>
         <binding name="section">
           <lookup name="item">GtkListItem</lookup>
         </binding>

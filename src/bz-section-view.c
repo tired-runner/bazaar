@@ -104,14 +104,20 @@ static void
 entries_left_clicked_cb (BzSectionView *self,
                          GtkButton     *button)
 {
-  move_entries (self, -gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.5);
+  double width = 0.0;
+
+  width = gtk_widget_get_width (GTK_WIDGET (self->entry_scroll));
+  move_entries (self, -width * 0.8);
 }
 
 static void
 entries_right_clicked_cb (BzSectionView *self,
                           GtkButton     *button)
 {
-  move_entries (self, gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.5);
+  double width = 0.0;
+
+  width = gtk_widget_get_width (GTK_WIDGET (self->entry_scroll));
+  move_entries (self, width * 0.8);
 }
 
 static void
@@ -282,7 +288,7 @@ move_entries (BzSectionView *self,
   if (self->scroll_animation == NULL)
     {
       target = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
-      spring = adw_spring_params_new (0.75, 1.0, 80.0);
+      spring = adw_spring_params_new (0.9, 1.5, 150.0);
 
       self->scroll_animation = adw_spring_animation_new (
           GTK_WIDGET (self),
@@ -291,7 +297,7 @@ move_entries (BzSectionView *self,
           spring,
           target);
       adw_spring_animation_set_epsilon (
-          ADW_SPRING_ANIMATION (self->scroll_animation), 0.0005);
+          ADW_SPRING_ANIMATION (self->scroll_animation), 0.00025);
     }
   else
     {

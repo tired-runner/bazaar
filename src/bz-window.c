@@ -50,7 +50,8 @@ struct _BzWindow
   BzEntryGroup *pending_group;
 
   /* Template widgets */
-  AdwStatusPage        *status;
+  AdwOverlaySplitView  *split_view;
+  GtkOverlay           *status;
   BzBackground         *background;
   AdwViewStack         *main_stack;
   BzBrowseWidget       *browse;
@@ -58,7 +59,6 @@ struct _BzWindow
   GtkButton            *search;
   AdwToastOverlay      *toasts;
   AdwSpinner           *spinner;
-  AdwBottomSheet       *sheet;
   BzTransactionManager *transaction_mgr;
 };
 
@@ -278,13 +278,13 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, background);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, browse);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, sheet);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transaction_mgr);
@@ -859,7 +859,7 @@ transact (BzWindow *self,
         NULL, 0);
 
   bz_transaction_manager_add (self->transaction_mgr, transaction);
-  adw_bottom_sheet_set_open (self->sheet, TRUE);
+  adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
 static void
@@ -1013,7 +1013,7 @@ update (BzWindow *self,
       updates, n_updates,
       NULL, 0);
   bz_transaction_manager_add (self->transaction_mgr, transaction);
-  adw_bottom_sheet_set_open (self->sheet, TRUE);
+  adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
 static void

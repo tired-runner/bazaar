@@ -28,5 +28,6 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/starred-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/left-large-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/right-large-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/sidebar-show-symbolic.svg</file>
   </gresource>
 </gresources>
