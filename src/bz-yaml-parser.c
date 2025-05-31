@@ -528,12 +528,40 @@ parse (BzYamlParser   *self,
               }
             else
               {
-                GValue *append = NULL;
+                const GVariantType *type   = NULL;
+                GValue             *append = NULL;
 
                 EXPECT (YAML_SCALAR_EVENT, "scalar value");
 
+                switch (spec->value_type)
+                  {
+                  case G_TYPE_BOOLEAN:
+                    type = G_VARIANT_TYPE_BOOLEAN;
+                    break;
+                  case G_TYPE_INT:
+                    type = G_VARIANT_TYPE_INT32;
+                    break;
+                  case G_TYPE_INT64:
+                    type = G_VARIANT_TYPE_INT64;
+                    break;
+                  case G_TYPE_UINT:
+                    type = G_VARIANT_TYPE_UINT32;
+                    break;
+                  case G_TYPE_UINT64:
+                    type = G_VARIANT_TYPE_UINT64;
+                    break;
+                  case G_TYPE_DOUBLE:
+                  case G_TYPE_FLOAT:
+                    type = G_VARIANT_TYPE_DOUBLE;
+                    break;
+                  case G_TYPE_STRING:
+                  default:
+                    type = G_VARIANT_TYPE_STRING;
+                    break;
+                  }
+
                 append = parse_scalar (
-                    G_VARIANT_TYPE_STRING,
+                    type,
                     event->data.scalar.value,
                     event,
                     error);

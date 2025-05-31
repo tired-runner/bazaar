@@ -32,6 +32,7 @@ typedef struct
   char       *description;
   GListModel *images;
   GListModel *groups;
+  int         rows;
 } BzContentSectionPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (BzContentSection, bz_content_section, G_TYPE_OBJECT)
@@ -47,6 +48,7 @@ enum
   PROP_DESCRIPTION,
   PROP_IMAGES,
   PROP_APPIDS,
+  PROP_ROWS,
 
   LAST_PROP
 };
@@ -101,6 +103,9 @@ bz_content_section_get_property (GObject    *object,
     case PROP_APPIDS:
       g_value_set_object (value, priv->groups);
       break;
+    case PROP_ROWS:
+      g_value_set_int (value, priv->rows);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -144,6 +149,9 @@ bz_content_section_set_property (GObject      *object,
     case PROP_APPIDS:
       g_clear_object (&priv->groups);
       priv->groups = g_value_dup_object (value);
+      break;
+    case PROP_ROWS:
+      priv->rows = g_value_get_int (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -204,10 +212,20 @@ bz_content_section_class_init (BzContentSectionClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
+  props[PROP_ROWS] =
+      g_param_spec_int (
+          "rows",
+          NULL, NULL,
+          1, 16, 3,
+          G_PARAM_READWRITE);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 }
 
 static void
 bz_content_section_init (BzContentSection *self)
 {
+  BzContentSectionPrivate *priv = bz_content_section_get_instance_private (self);
+
+  priv->rows = 3;
 }

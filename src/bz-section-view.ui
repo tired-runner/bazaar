@@ -147,8 +147,16 @@
                     <signal name="activate" handler="entry_activated_cb" swapped="true"/>
                     <property name="orientation">horizontal</property>
                     <property name="single-click-activate">TRUE</property>
-                    <property name="min-columns">3</property>
-                    <property name="max-columns">3</property>
+                    <binding name="min-columns">
+                      <lookup name="rows" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
+                    <binding name="max-columns">
+                      <lookup name="rows" type="BzContentSection">
+                        <lookup name="section">BzSectionView</lookup>
+                      </lookup>
+                    </binding>
                     <property name="model">
                       <object class="GtkNoSelection">
                         <binding name="model">

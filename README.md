@@ -69,6 +69,7 @@ sections:
   - title: "Section #1"
     subtitle: "The first section"
     description: "These are some of my favorite apps!"
+    rows: 3
     images:
       - https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
     appids:
@@ -103,6 +104,7 @@ sections:
   - title: "Section #1"
     subtitle: "The first section"
     description: "These are some of my favorite apps!"
+    rows: 3
     images:
       - https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
     appids:

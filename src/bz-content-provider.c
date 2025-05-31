@@ -622,30 +622,6 @@ input_load_fiber (InputLoadData *data)
                   "/"));
           section = g_object_new (BZ_TYPE_CONTENT_SECTION, NULL);
 
-          if (g_hash_table_contains (section_props, "classes"))
-            {
-              GPtrArray *classes                = NULL;
-              g_autoptr (GtkStringList) strlist = NULL;
-
-              classes = g_value_get_boxed (
-                  g_hash_table_lookup (section_props, "classes"));
-              strlist = gtk_string_list_new (NULL);
-
-              for (guint j = 0; j < classes->len; j++)
-                {
-                  const char *class = NULL;
-
-                  class = g_variant_get_string (
-                      g_value_get_variant (
-                          g_ptr_array_index (classes, j)),
-                      NULL);
-
-                  gtk_string_list_append (strlist, class);
-                }
-
-              g_object_set (section, "classes", strlist, NULL);
-            }
-
 #define GRAB_STRING(s)                            \
   if (g_hash_table_contains (section_props, (s))) \
     g_object_set (                                \
@@ -663,6 +639,21 @@ input_load_fiber (InputLoadData *data)
           GRAB_STRING ("description");
 
 #undef GRAB_STRING
+
+#define GRAB_INT(s)                               \
+  if (g_hash_table_contains (section_props, (s))) \
+    g_object_set (                                \
+        section,                                  \
+        (s),                                      \
+        g_variant_get_int32 (                     \
+            g_value_get_variant (                 \
+                g_hash_table_lookup (             \
+                    section_props, (s)))),        \
+        NULL);
+
+          GRAB_INT ("rows");
+
+#undef GRAB_INT
 
           if (g_hash_table_contains (section_props, "images"))
             {
@@ -724,6 +715,30 @@ input_load_fiber (InputLoadData *data)
                 }
 
               g_object_set (section, "appids", store, NULL);
+            }
+
+          if (g_hash_table_contains (section_props, "classes"))
+            {
+              GPtrArray *classes                = NULL;
+              g_autoptr (GtkStringList) strlist = NULL;
+
+              classes = g_value_get_boxed (
+                  g_hash_table_lookup (section_props, "classes"));
+              strlist = gtk_string_list_new (NULL);
+
+              for (guint j = 0; j < classes->len; j++)
+                {
+                  const char *class = NULL;
+
+                  class = g_variant_get_string (
+                      g_value_get_variant (
+                          g_ptr_array_index (classes, j)),
+                      NULL);
+
+                  gtk_string_list_append (strlist, class);
+                }
+
+              g_object_set (section, "classes", strlist, NULL);
             }
 
           g_ptr_array_add (sections, g_steal_pointer (&section));
