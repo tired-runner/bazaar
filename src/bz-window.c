@@ -446,7 +446,6 @@ static void
 gather_entries_progress (BzEntry  *entry,
                          BzWindow *self)
 {
-
   const char   *id        = NULL;
   BzEntryGroup *group     = NULL;
   const char   *unique_id = NULL;

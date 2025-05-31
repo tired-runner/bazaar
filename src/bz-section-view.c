@@ -30,7 +30,10 @@ struct _BzSectionView
   BzContentSection *section;
   GListModel       *classes;
 
+  AdwAnimation *scroll_animation;
+
   /* Template widgets */
+  GtkScrolledWindow *entry_scroll;
 };
 
 G_DEFINE_FINAL_TYPE (BzSectionView, bz_section_view, ADW_TYPE_BIN)
@@ -46,12 +49,17 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
+move_entries (BzSectionView *self,
+              double         delta);
+
+static void
 bz_section_view_dispose (GObject *object)
 {
   BzSectionView *self = BZ_SECTION_VIEW (object);
 
   g_clear_object (&self->section);
   g_clear_object (&self->classes);
+  g_clear_object (&self->scroll_animation);
 
   G_OBJECT_CLASS (bz_section_view_parent_class)->dispose (object);
 }
@@ -93,6 +101,20 @@ bz_section_view_set_property (GObject      *object,
 }
 
 static void
+entries_left_clicked_cb (BzSectionView *self,
+                         GtkButton     *button)
+{
+  move_entries (self, -gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.0);
+}
+
+static void
+entries_right_clicked_cb (BzSectionView *self,
+                          GtkButton     *button)
+{
+  move_entries (self, gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.0);
+}
+
+static void
 bz_section_view_class_init (BzSectionViewClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -114,12 +136,37 @@ bz_section_view_class_init (BzSectionViewClass *klass)
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-section-view.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, entry_scroll);
+  gtk_widget_class_bind_template_callback (widget_class, entries_left_clicked_cb);
+  gtk_widget_class_bind_template_callback (widget_class, entries_right_clicked_cb);
 }
 
 static void
 bz_section_view_init (BzSectionView *self)
 {
+  g_autoptr (GListModel) entry_scroll_controllers = NULL;
+  guint               n_controllers               = 0;
+  GtkEventController *scroll_controller           = NULL;
+
   gtk_widget_init_template (GTK_WIDGET (self));
+
+  entry_scroll_controllers = gtk_widget_observe_controllers (GTK_WIDGET (self->entry_scroll));
+  n_controllers            = g_list_model_get_n_items (entry_scroll_controllers);
+
+  for (guint i = 0; i < n_controllers; i++)
+    {
+      g_autoptr (GtkEventController) controller = NULL;
+
+      controller = g_list_model_get_item (entry_scroll_controllers, i);
+
+      if (GTK_IS_EVENT_CONTROLLER_SCROLL (controller))
+        /* Here to prevent the entry scrolled
+         * window from interfering with the
+         * main browser scrolled window
+         */
+        gtk_event_controller_set_propagation_phase (
+            controller, GTK_PHASE_NONE);
+    }
 }
 
 GtkWidget *
@@ -189,4 +236,56 @@ bz_section_view_get_section (BzSectionView *self)
 {
   g_return_val_if_fail (BZ_IS_SECTION_VIEW (self), NULL);
   return self->section;
+}
+
+static void
+move_entries (BzSectionView *self,
+              double         delta)
+{
+  GtkAdjustment      *hadjust = NULL;
+  double              current = 0.0;
+  double              lower   = 0.0;
+  double              upper   = 0.0;
+  AdwAnimationTarget *target  = NULL;
+  AdwSpringParams    *spring  = NULL;
+
+  hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
+  current = gtk_adjustment_get_value (hadjust);
+  lower   = gtk_adjustment_get_lower (hadjust);
+  upper   = gtk_adjustment_get_upper (hadjust) - gtk_adjustment_get_page_size (hadjust);
+
+  if (self->scroll_animation == NULL)
+    {
+      target = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
+      spring = adw_spring_params_new (0.75, 1.0, 80.0);
+
+      self->scroll_animation = adw_spring_animation_new (
+          GTK_WIDGET (self),
+          current,
+          CLAMP (current + delta, lower, upper),
+          spring,
+          target);
+      adw_spring_animation_set_epsilon (
+          ADW_SPRING_ANIMATION (self->scroll_animation), 0.0005);
+    }
+  else
+    {
+      double next = 0.0;
+
+      next = adw_spring_animation_get_value_to (
+                 ADW_SPRING_ANIMATION (self->scroll_animation)) +
+             delta;
+
+      adw_spring_animation_set_value_from (
+          ADW_SPRING_ANIMATION (self->scroll_animation),
+          current);
+      adw_spring_animation_set_value_to (
+          ADW_SPRING_ANIMATION (self->scroll_animation),
+          CLAMP (next, lower, upper));
+      adw_spring_animation_set_initial_velocity (
+          ADW_SPRING_ANIMATION (self->scroll_animation),
+          adw_spring_animation_get_velocity (ADW_SPRING_ANIMATION (self->scroll_animation)));
+    }
+
+  adw_animation_play (self->scroll_animation);
 }

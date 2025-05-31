@@ -132,30 +132,33 @@
           </object>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
-            <property name="propagate-natural-width">TRUE</property>
-            <property name="vscrollbar-policy">never</property>
+          <object class="GtkOverlay">
+            <property name="hexpand">TRUE</property>
             <property name="child">
-              <object class="GtkGridView">
-                <property name="css-name">entry-grid</property>
-                <style>
-                  <class name="navigation-sidebar"/>
-                </style>
-                <property name="orientation">horizontal</property>
-                <property name="min-columns">3</property>
-                <property name="max-columns">3</property>
-                <property name="model">
-                  <object class="GtkNoSelection">
-                    <binding name="model">
-                      <lookup name="appids" type="BzContentSection">
-                        <lookup name="section">BzSectionView</lookup>
-                      </lookup>
-                    </binding>
-                  </object>
-                </property>
-                <property name="factory">
-                  <object class="GtkBuilderListItemFactory" id="factory">
-                    <property name="bytes"><![CDATA[
+              <object class="GtkScrolledWindow" id="entry_scroll">
+                <property name="hscrollbar-policy">external</property>
+                <property name="vscrollbar-policy">never</property>
+                <property name="child">
+                  <object class="GtkGridView">
+                    <property name="css-name">entry-grid</property>
+                    <style>
+                      <class name="navigation-sidebar"/>
+                    </style>
+                    <property name="orientation">horizontal</property>
+                    <property name="min-columns">3</property>
+                    <property name="max-columns">3</property>
+                    <property name="model">
+                      <object class="GtkNoSelection">
+                        <binding name="model">
+                          <lookup name="appids" type="BzContentSection">
+                            <lookup name="section">BzSectionView</lookup>
+                          </lookup>
+                        </binding>
+                      </object>
+                    </property>
+                    <property name="factory">
+                      <object class="GtkBuilderListItemFactory" id="factory">
+                        <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -234,11 +237,37 @@
   </template>
 </interface>
 ]]> 
+                        </property>
+                      </object>
                     </property>
                   </object>
                 </property>
               </object>
             </property>
+            <child type="overlay">
+              <object class="GtkButton">
+                <style>
+                  <class name="osd"/>
+                </style>
+                <property name="halign">start</property>
+                <property name="valign">center</property>
+                <property name="margin-start">20</property>
+                <property name="icon-name">left-large-symbolic</property>
+                <signal name="clicked" handler="entries_left_clicked_cb" swapped="true" object="BzSectionView"/>
+              </object>
+            </child>
+            <child type="overlay">
+              <object class="GtkButton">
+                <style>
+                  <class name="osd"/>
+                </style>
+                <property name="halign">end</property>
+                <property name="valign">center</property>
+                <property name="margin-end">20</property>
+                <property name="icon-name">right-large-symbolic</property>
+                <signal name="clicked" handler="entries_right_clicked_cb" swapped="true" object="BzSectionView"/>
+              </object>
+            </child>
           </object>
         </child>
       </object>
