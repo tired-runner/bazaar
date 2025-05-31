@@ -144,7 +144,9 @@
                     <style>
                       <class name="navigation-sidebar"/>
                     </style>
+                    <signal name="activate" handler="entry_activated_cb" swapped="true"/>
                     <property name="orientation">horizontal</property>
+                    <property name="single-click-activate">TRUE</property>
                     <property name="min-columns">3</property>
                     <property name="max-columns">3</property>
                     <property name="model">
@@ -162,7 +164,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
-    <property name="activatable">FALSE</property>
     <property name="child">
       <object class="GtkFrame">
         <property name="css-name">entry</property>

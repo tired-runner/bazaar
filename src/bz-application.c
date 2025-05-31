@@ -264,14 +264,18 @@ bz_application_search_action (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)
 {
-  BzApplication *self   = user_data;
-  GtkWindow     *window = NULL;
+  BzApplication *self         = user_data;
+  GtkWindow     *window       = NULL;
+  const char    *initial_text = NULL;
 
   g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  bz_window_search (BZ_WINDOW (window), NULL);
+  if (parameter != NULL)
+    initial_text = g_variant_get_string (parameter, NULL);
+
+  bz_window_search (BZ_WINDOW (window), initial_text);
 }
 
 static void
@@ -329,12 +333,12 @@ bz_application_quit_action (GSimpleAction *action,
 }
 
 static const GActionEntry app_actions[] = {
-  {        "quit",        bz_application_quit_action },
-  { "preferences", bz_application_preferences_action },
-  {       "about",       bz_application_about_action },
-  {      "search",      bz_application_search_action },
-  {      "browse",      bz_application_browse_action },
-  {     "refresh",     bz_application_refresh_action },
+  {        "quit",        bz_application_quit_action, NULL },
+  { "preferences", bz_application_preferences_action, NULL },
+  {       "about",       bz_application_about_action, NULL },
+  {      "search",      bz_application_search_action,  "s" },
+  {      "browse",      bz_application_browse_action, NULL },
+  {     "refresh",     bz_application_refresh_action, NULL },
 };
 
 static gpointer
@@ -368,7 +372,7 @@ bz_application_init (BzApplication *self)
       (const char *[]) { "<primary>q", NULL });
   gtk_application_set_accels_for_action (
       GTK_APPLICATION (self),
-      "app.search",
+      "app.search('')",
       (const char *[]) { "<primary>f", NULL });
   gtk_application_set_accels_for_action (
       GTK_APPLICATION (self),

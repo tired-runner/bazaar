@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "bz-progress-bar.h"
+#include "bz-entry-group.h"
 #include "bz-section-view.h"
 
 struct _BzSectionView
@@ -104,14 +104,38 @@ static void
 entries_left_clicked_cb (BzSectionView *self,
                          GtkButton     *button)
 {
-  move_entries (self, -gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.0);
+  move_entries (self, -gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.5);
 }
 
 static void
 entries_right_clicked_cb (BzSectionView *self,
                           GtkButton     *button)
 {
-  move_entries (self, gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.0);
+  move_entries (self, gtk_widget_get_width (GTK_WIDGET (self->entry_scroll)) / 2.5);
+}
+
+static void
+entry_activated_cb (BzSectionView *self,
+                    guint          position,
+                    GtkListView   *list_view)
+{
+  g_autoptr (GListModel) groups  = NULL;
+  g_autoptr (BzEntryGroup) group = NULL;
+  BzEntry *ui_entry              = NULL;
+
+  g_object_get (self->section, "appids", &groups, NULL);
+  g_assert (groups != NULL);
+
+  group    = g_list_model_get_item (groups, position);
+  ui_entry = bz_entry_group_get_ui_entry (group);
+
+  if (ui_entry != NULL)
+    {
+      const char *id = NULL;
+
+      id = bz_entry_get_id (ui_entry);
+      gtk_widget_activate_action (GTK_WIDGET (self), "app.search", "s", id);
+    }
 }
 
 static void
@@ -139,6 +163,7 @@ bz_section_view_class_init (BzSectionViewClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, entry_scroll);
   gtk_widget_class_bind_template_callback (widget_class, entries_left_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, entries_right_clicked_cb);
+  gtk_widget_class_bind_template_callback (widget_class, entry_activated_cb);
 }
 
 static void
