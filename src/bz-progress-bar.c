@@ -140,7 +140,8 @@ bz_progress_bar_set_fraction (BzProgressBar *self,
 
   g_clear_object (&self->animation);
 
-  if (G_APPROX_VALUE (last_fraction, self->fraction, 0.001))
+  if (self->fraction < last_fraction ||
+      G_APPROX_VALUE (last_fraction, self->fraction, 0.001))
     gtk_progress_bar_set_fraction (self->bar, self->fraction);
   else
     {
