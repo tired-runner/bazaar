@@ -330,19 +330,24 @@ transaction_progress (BzEntry            *entry,
                       guint64             start_time,
                       QueuedScheduleData *data)
 {
-  BzTransaction *transaction     = NULL;
-  double         progress_double = 0.0;
-
-  transaction = g_hash_table_lookup (data->entry_to_transaction_hash, entry);
-  g_assert (transaction != NULL);
+  double progress_double = 0.0;
 
   progress_double = (double) progress / 100.0;
-  g_object_set (
-      transaction,
-      "pending", is_estimating,
-      "status", status,
-      "progress", progress_double,
-      NULL);
+
+  if (entry != NULL)
+    {
+      BzTransaction *transaction = NULL;
+
+      transaction = g_hash_table_lookup (data->entry_to_transaction_hash, entry);
+      g_assert (transaction != NULL);
+
+      g_object_set (
+          transaction,
+          "pending", is_estimating,
+          "status", status,
+          "progress", progress_double,
+          NULL);
+    }
 
   data->self->current_progress = progress_double;
   g_object_notify_by_pspec (G_OBJECT (data->self), props[PROP_CURRENT_PROGRESS]);

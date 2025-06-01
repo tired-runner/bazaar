@@ -946,11 +946,10 @@ transaction_new_operation (FlatpakTransaction          *transaction,
       g_autoptr (TransactionOperationData) operation_data = NULL;
 
       entry = find_entry_from_operation (data, operation);
-      g_assert (entry != NULL);
 
       operation_data                 = transaction_operation_data_new ();
       operation_data->parent         = transaction_data_ref (data);
-      operation_data->entry          = g_object_ref (entry);
+      operation_data->entry          = entry != NULL ? g_object_ref (entry) : NULL;
       operation_data->timeout_handle = 0;
 
       g_signal_connect_data (
@@ -976,6 +975,9 @@ find_entry_from_operation (TransactionData             *data,
     return entry;
 
   related_to_ops = flatpak_transaction_operation_get_related_to_ops (operation);
+  if (related_to_ops == NULL)
+    return NULL;
+
   for (guint i = 0; i < related_to_ops->len; i++)
     {
       FlatpakTransactionOperation *related_op = NULL;
@@ -1029,7 +1031,9 @@ static gboolean
 transaction_progress_idle (IdleTransactionData *data)
 {
   data->parent->parent->progress_func (
-      BZ_ENTRY (data->parent->entry),
+      data->parent->entry != NULL
+          ? BZ_ENTRY (data->parent->entry)
+          : NULL,
       data->status,
       data->is_estimating,
       data->progress_num,
@@ -1044,7 +1048,9 @@ static gboolean
 transaction_progress_timeout (IdleTransactionData *data)
 {
   data->parent->parent->progress_func (
-      BZ_ENTRY (data->parent->entry),
+      data->parent->entry != NULL
+          ? BZ_ENTRY (data->parent->entry)
+          : NULL,
       data->status,
       data->is_estimating,
       data->progress_num,
