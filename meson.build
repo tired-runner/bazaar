@@ -1,5 +1,5 @@
 project('bazaar', 'c',
-          version: '0.1.0',
+          version: run_command('version.sh', 'get-vcs').stdout().strip(),
     meson_version: '>= 1.0.0',
   default_options: [ 'warning_level=2', 'werror=false', 'c_std=gnu11', ],
 )
@@ -13,6 +13,7 @@ config_h = configuration_data()
 config_h.set_quoted('PACKAGE_VERSION', meson.project_version())
 config_h.set_quoted('GETTEXT_PACKAGE', 'bazaar')
 config_h.set_quoted('LOCALEDIR', get_option('prefix') / get_option('localedir'))
+config_h.set_quoted('DONATE_LINK', 'https://ko-fi.com/kolunmi')
 
 if get_option('hardcoded_blocklist_path') != ''
   config_h.set_quoted('HARDCODED_BLOCKLIST', get_option('hardcoded_blocklist_path'))

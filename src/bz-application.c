@@ -230,6 +230,19 @@ bz_application_new (const char       *application_id,
 }
 
 static void
+bz_application_donate_action (GSimpleAction *action,
+                              GVariant      *parameter,
+                              gpointer       user_data)
+{
+  BzApplication *self = user_data;
+
+  g_assert (BZ_IS_APPLICATION (self));
+
+  g_app_info_launch_default_for_uri (
+      DONATE_LINK, NULL, NULL);
+}
+
+static void
 bz_application_refresh_action (GSimpleAction *action,
                                GVariant      *parameter,
                                gpointer       user_data)
@@ -286,21 +299,28 @@ bz_application_about_action (GSimpleAction *action,
   static const char *developers[] = { "Adam Masciola", NULL };
   BzApplication     *self         = user_data;
   GtkWindow         *window       = NULL;
+  AdwDialog         *dialog       = NULL;
 
   g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
 
-  adw_show_about_dialog (
-      GTK_WIDGET (window),
+  dialog = adw_about_dialog_new ();
+  g_object_set (
+      dialog,
       "application-name", "Bazaar",
       "application-icon", "io.github.kolunmi.bazaar",
       "developer-name", "Adam Masciola",
       "translator-credits", _ ("translator-credits"),
-      "version", "0.1.0",
+      "version", PACKAGE_VERSION,
       "developers", developers,
       "copyright", "© 2025 Adam Masciola",
+      "license-type", GTK_LICENSE_GPL_3_0,
+      "website", "https://github.com/kolunmi/bazaar",
+      "issue-url", "https://github.com/kolunmi/bazaar/issues",
       NULL);
+
+  adw_dialog_present (dialog, GTK_WIDGET (window));
 }
 
 static void
@@ -339,6 +359,7 @@ static const GActionEntry app_actions[] = {
   {      "search",      bz_application_search_action,  "s" },
   {      "browse",      bz_application_browse_action, NULL },
   {     "refresh",     bz_application_refresh_action, NULL },
+  {      "donate",      bz_application_donate_action, NULL },
 };
 
 static gpointer
