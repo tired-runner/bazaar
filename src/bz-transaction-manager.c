@@ -66,10 +66,12 @@ BZ_DEFINE_DATA (
       BzTransactionManager *self;
       GPtrArray            *transactions;
       GHashTable           *entry_to_transaction_hash;
+      GTimer               *timer;
     },
     BZ_RELEASE_DATA (self, g_object_unref);
     BZ_RELEASE_DATA (transactions, g_ptr_array_unref);
-    BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref));
+    BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref);
+    BZ_RELEASE_DATA (timer, g_timer_destroy));
 
 static void
 transaction_progress (BzEntry            *entry,
@@ -358,9 +360,15 @@ transaction_finally (DexFuture          *future,
                      QueuedScheduleData *data)
 {
   g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
+  const GValue    *value         = NULL;
+  g_autofree char *status        = NULL;
 
   value = dex_future_get_value (future, &local_error);
+
+  g_timer_stop (data->timer);
+  status = g_strdup_printf (
+      _ ("Finished in %.02f seconds"),
+      g_timer_elapsed (data->timer, NULL));
 
   for (guint i = 0; i < data->transactions->len; i++)
     {
@@ -369,7 +377,7 @@ transaction_finally (DexFuture          *future,
       transaction = g_ptr_array_index (data->transactions, i);
       g_object_set (
           transaction,
-          "status", _ ("Finished!"),
+          "status", status,
           "progress", 1.0,
           "finished", TRUE,
           "success", value != NULL,
@@ -402,8 +410,9 @@ dispatch_next (BzTransactionManager *self)
 
   if (self->queue.length == 0)
     goto done;
-  data       = g_queue_pop_tail (&self->queue);
-  data->self = g_object_ref (self);
+  data        = g_queue_pop_tail (&self->queue);
+  data->self  = g_object_ref (self);
+  data->timer = g_timer_new ();
 
   store = g_list_store_new (BZ_TYPE_TRANSACTION);
   for (guint i = 0; i < data->transactions->len; i++)
