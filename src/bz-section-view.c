@@ -177,7 +177,9 @@ bz_section_view_init (BzSectionView *self)
 {
   g_autoptr (GListModel) entry_scroll_controllers = NULL;
   guint               n_controllers               = 0;
-  GtkEventController *scroll_controller           = NULL;
+  GtkAdjustment      *hadjust                     = NULL;
+  AdwAnimationTarget *target                      = NULL;
+  AdwSpringParams    *spring                      = NULL;
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
@@ -198,6 +200,19 @@ bz_section_view_init (BzSectionView *self)
         gtk_event_controller_set_propagation_phase (
             controller, GTK_PHASE_NONE);
     }
+
+  hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
+  target  = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
+  spring  = adw_spring_params_new (0.9, 1.5, 150.0);
+
+  self->scroll_animation = adw_spring_animation_new (
+      GTK_WIDGET (self),
+      0.0,
+      0.0,
+      spring,
+      target);
+  adw_spring_animation_set_epsilon (
+      ADW_SPRING_ANIMATION (self->scroll_animation), 0.00025);
 }
 
 GtkWidget *
@@ -273,50 +288,30 @@ static void
 move_entries (BzSectionView *self,
               double         delta)
 {
-  GtkAdjustment      *hadjust = NULL;
-  double              current = 0.0;
-  double              lower   = 0.0;
-  double              upper   = 0.0;
-  AdwAnimationTarget *target  = NULL;
-  AdwSpringParams    *spring  = NULL;
+  GtkAdjustment *hadjust = NULL;
+  double         current = 0.0;
+  double         lower   = 0.0;
+  double         upper   = 0.0;
+  double         next    = 0.0;
 
   hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
   current = gtk_adjustment_get_value (hadjust);
   lower   = gtk_adjustment_get_lower (hadjust);
   upper   = gtk_adjustment_get_upper (hadjust) - gtk_adjustment_get_page_size (hadjust);
+  next    = adw_spring_animation_get_value_to (
+             ADW_SPRING_ANIMATION (self->scroll_animation)) +
+         delta;
 
-  if (self->scroll_animation == NULL)
-    {
-      target = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
-      spring = adw_spring_params_new (0.9, 1.5, 150.0);
-
-      self->scroll_animation = adw_spring_animation_new (
-          GTK_WIDGET (self),
-          current,
-          CLAMP (current + delta, lower, upper),
-          spring,
-          target);
-      adw_spring_animation_set_epsilon (
-          ADW_SPRING_ANIMATION (self->scroll_animation), 0.00025);
-    }
-  else
-    {
-      double next = 0.0;
-
-      next = adw_spring_animation_get_value_to (
-                 ADW_SPRING_ANIMATION (self->scroll_animation)) +
-             delta;
-
-      adw_spring_animation_set_value_from (
-          ADW_SPRING_ANIMATION (self->scroll_animation),
-          current);
-      adw_spring_animation_set_value_to (
-          ADW_SPRING_ANIMATION (self->scroll_animation),
-          CLAMP (next, lower, upper));
-      adw_spring_animation_set_initial_velocity (
-          ADW_SPRING_ANIMATION (self->scroll_animation),
-          adw_spring_animation_get_velocity (ADW_SPRING_ANIMATION (self->scroll_animation)));
-    }
+  adw_spring_animation_set_value_from (
+      ADW_SPRING_ANIMATION (self->scroll_animation),
+      current);
+  adw_spring_animation_set_value_to (
+      ADW_SPRING_ANIMATION (self->scroll_animation),
+      CLAMP (next, lower, upper));
+  adw_spring_animation_set_initial_velocity (
+      ADW_SPRING_ANIMATION (self->scroll_animation),
+      adw_spring_animation_get_velocity (
+          ADW_SPRING_ANIMATION (self->scroll_animation)));
 
   adw_animation_play (self->scroll_animation);
 }

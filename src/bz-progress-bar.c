@@ -118,7 +118,22 @@ bz_progress_bar_class_init (BzProgressBarClass *klass)
 static void
 bz_progress_bar_init (BzProgressBar *self)
 {
+  AdwAnimationTarget *target = NULL;
+  AdwSpringParams    *spring = NULL;
+
   gtk_widget_init_template (GTK_WIDGET (self));
+
+  target = adw_property_animation_target_new (G_OBJECT (self->bar), "fraction");
+  spring = adw_spring_params_new (1.0, 0.5, 200.0);
+
+  self->animation = adw_spring_animation_new (
+      GTK_WIDGET (self),
+      0.0,
+      0.0,
+      spring,
+      target);
+  adw_spring_animation_set_epsilon (
+      ADW_SPRING_ANIMATION (self->animation), 0.00025);
 }
 
 GtkWidget *
@@ -131,25 +146,31 @@ void
 bz_progress_bar_set_fraction (BzProgressBar *self,
                               double         fraction)
 {
-  double last_fraction = 0.0;
+  double current = 0.0;
 
   g_return_if_fail (BZ_IS_PROGRESS_BAR (self));
 
-  last_fraction  = self->fraction;
   self->fraction = CLAMP (fraction, 0.0, 1.0);
+  current        = gtk_progress_bar_get_fraction (self->bar);
 
-  g_clear_object (&self->animation);
-
-  if (self->fraction < last_fraction ||
-      G_APPROX_VALUE (last_fraction, self->fraction, 0.001))
-    gtk_progress_bar_set_fraction (self->bar, self->fraction);
+  if (self->fraction < current ||
+      G_APPROX_VALUE (current, self->fraction, 0.001))
+    {
+      adw_animation_reset (self->animation);
+      gtk_progress_bar_set_fraction (self->bar, self->fraction);
+    }
   else
     {
-      AdwAnimationTarget *target = NULL;
-
-      target          = adw_property_animation_target_new (G_OBJECT (self->bar), "fraction");
-      self->animation = adw_timed_animation_new (GTK_WIDGET (self), last_fraction, self->fraction, 50, target);
-      // adw_timed_animation_set_easing (ADW_TIMED_ANIMATION (self->animation), ADW_EASE_IN_OUT_QUAD);
+      adw_spring_animation_set_value_from (
+          ADW_SPRING_ANIMATION (self->animation),
+          current);
+      adw_spring_animation_set_value_to (
+          ADW_SPRING_ANIMATION (self->animation),
+          self->fraction);
+      adw_spring_animation_set_initial_velocity (
+          ADW_SPRING_ANIMATION (self->animation),
+          adw_spring_animation_get_velocity (
+              ADW_SPRING_ANIMATION (self->animation)));
 
       adw_animation_play (self->animation);
     }
