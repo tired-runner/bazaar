@@ -55,6 +55,7 @@ struct _BzWindow
   BzBackground         *background;
   AdwViewStack         *main_stack;
   BzBrowseWidget       *browse;
+  GtkToggleButton      *toggle_transactions;
   GtkButton            *refresh;
   GtkButton            *search;
   AdwToastOverlay      *toasts;
@@ -285,6 +286,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transaction_mgr);
@@ -791,7 +793,6 @@ void
 bz_window_browse (BzWindow *self)
 {
   g_return_if_fail (BZ_IS_WINDOW (self));
-
   browse (self);
 }
 
@@ -800,8 +801,17 @@ bz_window_search (BzWindow   *self,
                   const char *text)
 {
   g_return_if_fail (BZ_IS_WINDOW (self));
-
   search (self, text);
+}
+
+void
+bz_window_toggle_transactions (BzWindow *self)
+{
+  g_return_if_fail (BZ_IS_WINDOW (self));
+  gtk_toggle_button_set_active (
+      self->toggle_transactions,
+      !gtk_toggle_button_get_active (
+          self->toggle_transactions));
 }
 
 static void

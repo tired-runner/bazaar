@@ -243,6 +243,21 @@ bz_application_donate_action (GSimpleAction *action,
 }
 
 static void
+bz_application_toggle_transactions_action (GSimpleAction *action,
+                                           GVariant      *parameter,
+                                           gpointer       user_data)
+{
+  BzApplication *self   = user_data;
+  GtkWindow     *window = NULL;
+
+  g_assert (BZ_IS_APPLICATION (self));
+
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+
+  bz_window_toggle_transactions (BZ_WINDOW (window));
+}
+
+static void
 bz_application_refresh_action (GSimpleAction *action,
                                GVariant      *parameter,
                                gpointer       user_data)
@@ -353,13 +368,14 @@ bz_application_quit_action (GSimpleAction *action,
 }
 
 static const GActionEntry app_actions[] = {
-  {        "quit",        bz_application_quit_action, NULL },
-  { "preferences", bz_application_preferences_action, NULL },
-  {       "about",       bz_application_about_action, NULL },
-  {      "search",      bz_application_search_action,  "s" },
-  {      "browse",      bz_application_browse_action, NULL },
-  {     "refresh",     bz_application_refresh_action, NULL },
-  {      "donate",      bz_application_donate_action, NULL },
+  {                "quit",                bz_application_quit_action, NULL },
+  {         "preferences",         bz_application_preferences_action, NULL },
+  {               "about",               bz_application_about_action, NULL },
+  {              "search",              bz_application_search_action,  "s" },
+  {              "browse",              bz_application_browse_action, NULL },
+  {             "refresh",             bz_application_refresh_action, NULL },
+  { "toggle-transactions", bz_application_toggle_transactions_action, NULL },
+  {              "donate",              bz_application_donate_action, NULL },
 };
 
 static gpointer
@@ -403,4 +419,8 @@ bz_application_init (BzApplication *self)
       GTK_APPLICATION (self),
       "app.refresh",
       (const char *[]) { "<primary>r", NULL });
+  gtk_application_set_accels_for_action (
+      GTK_APPLICATION (self),
+      "app.toggle-transactions",
+      (const char *[]) { "<primary>d", NULL });
 }

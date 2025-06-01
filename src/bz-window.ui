@@ -130,7 +130,7 @@
         <child type="top">
           <object class="AdwHeaderBar">
             <child type="start">
-              <object class="GtkToggleButton">
+              <object class="GtkToggleButton" id="toggle_transactions">
                 <property name="icon-name">sidebar-show-symbolic</property>
                 <property name="active"
                           bind-source="split_view"
