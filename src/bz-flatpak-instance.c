@@ -20,7 +20,6 @@
 
 #include "config.h"
 
-#include <flatpak.h>
 #include <glycin-gtk4.h>
 #include <xmlb.h>
 

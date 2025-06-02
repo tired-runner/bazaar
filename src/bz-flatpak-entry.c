@@ -20,8 +20,6 @@
 
 #include "config.h"
 
-#include <appstream.h>
-#include <glycin-gtk4.h>
 #include <xmlb.h>
 
 #include "bz-flatpak-private.h"
