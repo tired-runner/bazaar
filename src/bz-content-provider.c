@@ -23,6 +23,7 @@
 #include <libdex.h>
 #include <yaml.h>
 
+#include "bz-async-texture.h"
 #include "bz-content-provider.h"
 #include "bz-content-section.h"
 #include "bz-entry-group.h"
@@ -655,34 +656,39 @@ input_load_fiber (InputLoadData *data)
 
 #undef GRAB_INT
 
-          if (g_hash_table_contains (section_props, "images"))
+#define GRAB_ENUM(s)                              \
+  if (g_hash_table_contains (section_props, (s))) \
+    g_object_set (                                \
+        section,                                  \
+        (s),                                      \
+        g_value_get_enum (                        \
+            g_hash_table_lookup (                 \
+                section_props, (s))),             \
+        NULL);
+
+          GRAB_ENUM ("banner-fit");
+
+#undef GRAB_ENUM
+
+          if (g_hash_table_contains (section_props, "banner"))
             {
-              GPtrArray *urls                    = NULL;
-              g_autoptr (GListStore) store       = NULL;
-              g_autoptr (BzPaintableModel) model = NULL;
+              const char *string       = NULL;
+              g_autoptr (GFile) source = NULL;
 
-              urls = g_value_get_boxed (
-                  g_hash_table_lookup (section_props, "images"));
-              store = g_list_store_new (G_TYPE_FILE);
+              string = g_variant_get_string (
+                  g_value_get_variant (
+                      g_hash_table_lookup (
+                          section_props, "banner")),
+                  NULL);
+              source = g_file_new_for_uri (string);
 
-              for (guint j = 0; j < urls->len; j++)
+              if (source != NULL)
                 {
-                  const char *url         = NULL;
-                  g_autoptr (GFile) image = NULL;
+                  g_autoptr (BzAsyncTexture) texture = NULL;
 
-                  url = g_variant_get_string (
-                      g_value_get_variant (
-                          g_ptr_array_index (urls, j)),
-                      NULL);
-                  image = g_file_new_for_uri (url);
-
-                  g_list_store_append (store, image);
+                  texture = bz_async_texture_new (source);
+                  g_object_set (section, "banner", texture, NULL);
                 }
-
-              model = bz_paintable_model_new (
-                  dex_thread_pool_scheduler_get_default (),
-                  G_LIST_MODEL (store));
-              g_object_set (section, "images", model, NULL);
             }
 
           if (g_hash_table_contains (section_props, "appids"))

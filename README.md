@@ -70,8 +70,10 @@ sections:
     subtitle: "The first section"
     description: "These are some of my favorite apps!"
     rows: 3
-    images:
-      - https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
+    # use the file:// prefix for a local file
+    banner: https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
+    # can be "fill", "contain", "cover", or "scale-down"
+    banner-fit: cover
     appids:
       - com.usebottles.bottles
       - io.mgba.mGBA
@@ -105,8 +107,10 @@ sections:
     subtitle: "The first section"
     description: "These are some of my favorite apps!"
     rows: 3
-    images:
-      - https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
+    # use the file:// prefix for a local file
+    banner: https://pixls.us/articles/processing-a-nightscape-in-siril/resultat_03_final.jpg
+    # can be "fill", "contain", "cover", or "scale-down"
+    banner-fit: cover
     appids:
       - com.usebottles.bottles
       - io.mgba.mGBA

@@ -526,6 +526,43 @@ parse (BzYamlParser   *self,
                 g_value_set_boxed (append, list);
                 g_hash_table_replace (mappings, g_steal_pointer (&property), append);
               }
+            else if (g_type_is_a (spec->value_type, G_TYPE_ENUM))
+              {
+                g_autoptr (GEnumClass) class = NULL;
+                GEnumValue *enum_value       = NULL;
+                GValue     *append           = NULL;
+
+                EXPECT (YAML_SCALAR_EVENT, "scalar enum value");
+
+                class = g_type_class_ref (spec->value_type);
+
+                enum_value = g_enum_get_value_by_nick (
+                    class, (const char *) event->data.scalar.value);
+                if (enum_value == NULL)
+                  enum_value = g_enum_get_value_by_name (
+                      class, (const char *) event->data.scalar.value);
+
+                if (enum_value == NULL)
+                  {
+                    g_set_error (
+                        error,
+                        BZ_YAML_ERROR,
+                        BZ_YAML_ERROR_BAD_SCALAR,
+                        "Failed to parse scalar enum at line %zu, column %zu: "
+                        "'%s' does not exist in type %s",
+                        event->start_mark.line,
+                        event->start_mark.column,
+                        (const char *) event->data.scalar.value,
+                        g_type_name (spec->value_type));
+                    yaml_event_delete (event);
+                    return FALSE;
+                  }
+
+                append = g_new0 (typeof (*append), 1);
+                g_value_init (append, spec->value_type);
+                g_value_set_enum (append, enum_value->value);
+                g_hash_table_replace (mappings, g_steal_pointer (&property), append);
+              }
             else
               {
                 const GVariantType *type   = NULL;

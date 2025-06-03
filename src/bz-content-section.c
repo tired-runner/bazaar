@@ -25,14 +25,15 @@
 
 typedef struct
 {
-  char       *error;
-  GListModel *classes;
-  char       *title;
-  char       *subtitle;
-  char       *description;
-  GListModel *images;
-  GListModel *groups;
-  int         rows;
+  char         *error;
+  GListModel   *classes;
+  char         *title;
+  char         *subtitle;
+  char         *description;
+  GdkPaintable *banner;
+  GtkContentFit banner_fit;
+  GListModel   *groups;
+  int           rows;
 } BzContentSectionPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (BzContentSection, bz_content_section, G_TYPE_OBJECT)
@@ -46,7 +47,8 @@ enum
   PROP_TITLE,
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
-  PROP_IMAGES,
+  PROP_BANNER,
+  PROP_BANNER_FIT,
   PROP_APPIDS,
   PROP_ROWS,
 
@@ -65,7 +67,7 @@ bz_content_section_dispose (GObject *object)
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->subtitle, g_free);
   g_clear_pointer (&priv->description, g_free);
-  g_clear_object (&priv->images);
+  g_clear_object (&priv->banner);
   g_clear_object (&priv->groups);
 
   G_OBJECT_CLASS (bz_content_section_parent_class)->dispose (object);
@@ -97,8 +99,11 @@ bz_content_section_get_property (GObject    *object,
     case PROP_DESCRIPTION:
       g_value_set_string (value, priv->description);
       break;
-    case PROP_IMAGES:
-      g_value_set_object (value, priv->images);
+    case PROP_BANNER:
+      g_value_set_object (value, priv->banner);
+      break;
+    case PROP_BANNER_FIT:
+      g_value_set_enum (value, priv->banner_fit);
       break;
     case PROP_APPIDS:
       g_value_set_object (value, priv->groups);
@@ -142,9 +147,12 @@ bz_content_section_set_property (GObject      *object,
       g_clear_pointer (&priv->description, g_free);
       priv->description = g_value_dup_string (value);
       break;
-    case PROP_IMAGES:
-      g_clear_object (&priv->images);
-      priv->images = g_value_dup_object (value);
+    case PROP_BANNER:
+      g_clear_object (&priv->banner);
+      priv->banner = g_value_dup_object (value);
+      break;
+    case PROP_BANNER_FIT:
+      priv->banner_fit = g_value_get_enum (value);
       break;
     case PROP_APPIDS:
       g_clear_object (&priv->groups);
@@ -198,11 +206,19 @@ bz_content_section_class_init (BzContentSectionClass *klass)
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
-  props[PROP_IMAGES] =
+  props[PROP_BANNER] =
       g_param_spec_object (
-          "images",
+          "banner",
           NULL, NULL,
-          G_TYPE_LIST_MODEL,
+          GDK_TYPE_PAINTABLE,
+          G_PARAM_READWRITE);
+
+  props[PROP_BANNER_FIT] =
+      g_param_spec_enum (
+          "banner-fit",
+          NULL, NULL,
+          GTK_TYPE_CONTENT_FIT,
+          GTK_CONTENT_FIT_COVER,
           G_PARAM_READWRITE);
 
   props[PROP_APPIDS] =
