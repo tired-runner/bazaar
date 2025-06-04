@@ -28,7 +28,7 @@
 
 struct _BzTransactionManager
 {
-  AdwBin parent_instance;
+  GObject parent_instance;
 
   BzBackend     *backend;
   GListStore    *transactions;
@@ -37,19 +37,16 @@ struct _BzTransactionManager
 
   DexFuture *current_task;
   GQueue     queue;
-
-  /* Template widgets */
-  GtkListView    *list_view;
-  GtkNoSelection *no_selection;
 };
 
-G_DEFINE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, ADW_TYPE_BIN)
+G_DEFINE_FINAL_TYPE_WITH_CODE (BzTransactionManager, bz_transaction_manager, G_TYPE_OBJECT, )
 
 enum
 {
   PROP_0,
 
   PROP_BACKEND,
+  PROP_TRANSACTIONS,
   PROP_HAS_TRANSACTIONS,
   PROP_ACTIVE,
   PROP_CURRENT_PROGRESS,
@@ -116,6 +113,9 @@ bz_transaction_manager_get_property (GObject    *object,
     case PROP_BACKEND:
       g_value_set_object (value, bz_transaction_manager_get_backend (self));
       break;
+    case PROP_TRANSACTIONS:
+      g_value_set_object (value, self->transactions);
+      break;
     case PROP_HAS_TRANSACTIONS:
       g_value_set_boolean (value, g_list_model_get_n_items (G_LIST_MODEL (self->transactions)) > 0);
       break;
@@ -146,6 +146,7 @@ bz_transaction_manager_set_property (GObject      *object,
     case PROP_BACKEND:
       bz_transaction_manager_set_backend (self, g_value_get_object (value));
       break;
+    case PROP_TRANSACTIONS:
     case PROP_HAS_TRANSACTIONS:
     case PROP_ACTIVE:
     case PROP_CURRENT_PROGRESS:
@@ -155,18 +156,10 @@ bz_transaction_manager_set_property (GObject      *object,
     }
 }
 
-static gboolean
-invert_boolean (gpointer object,
-                gboolean value)
-{
-  return !value;
-}
-
 static void
 bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
 {
-  GObjectClass   *object_class = G_OBJECT_CLASS (klass);
-  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->dispose      = bz_transaction_manager_dispose;
   object_class->get_property = bz_transaction_manager_get_property;
@@ -178,6 +171,13 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
           NULL, NULL,
           BZ_TYPE_BACKEND,
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_TRANSACTIONS] =
+      g_param_spec_object (
+          "transactions",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READABLE);
 
   props[PROP_HAS_TRANSACTIONS] =
       g_param_spec_boolean (
@@ -209,31 +209,19 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
 
   g_type_ensure (BZ_TYPE_TRANSACTION_VIEW);
   g_object_class_install_properties (object_class, LAST_PROP, props);
-
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-transaction-manager.ui");
-  gtk_widget_class_bind_template_child (widget_class, BzTransactionManager, list_view);
-  gtk_widget_class_bind_template_child (widget_class, BzTransactionManager, no_selection);
-  gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 }
 
 static void
 bz_transaction_manager_init (BzTransactionManager *self)
 {
-  gtk_widget_init_template (GTK_WIDGET (self));
-
   self->transactions = g_list_store_new (BZ_TYPE_TRANSACTION);
   g_queue_init (&self->queue);
-
-  gtk_no_selection_set_model (self->no_selection, G_LIST_MODEL (self->transactions));
 }
 
-GtkWidget *
-bz_transaction_manager_new (GListModel *model)
+BzTransactionManager *
+bz_transaction_manager_new (void)
 {
-  return g_object_new (
-      BZ_TYPE_TRANSACTION_MANAGER,
-      "model", model,
-      NULL);
+  return g_object_new (BZ_TYPE_TRANSACTION_MANAGER, NULL);
 }
 
 void
@@ -318,8 +306,6 @@ bz_transaction_manager_add (BzTransactionManager *self,
     dispatch_next (self);
 
   g_list_store_insert (self->transactions, 0, transaction);
-  gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_FOCUS, NULL);
-
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
 }
 

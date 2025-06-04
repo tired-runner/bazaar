@@ -18,7 +18,8 @@ on the cli and type these commands inside the project root:
 meson setup build --prefix=/usr/local
 ninja -C build
 sudo ninja -C build install
-bazaar
+bazaar service
+bazaar window
 ```
 
 ## Supporting

@@ -836,7 +836,7 @@ commence_reload (InputTrackingData *data)
   load_data             = input_load_data_new ();
   load_data->file       = g_file_new_for_path (data->path);
   load_data->parser     = g_object_ref (data->parser);
-  load_data->group_hash = g_hash_table_ref (data->group_hash);
+  load_data->group_hash = data->group_hash != NULL ? g_hash_table_ref (data->group_hash) : NULL;
 
   future = dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),

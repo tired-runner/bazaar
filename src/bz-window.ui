@@ -20,8 +20,51 @@
                 <property name="show-sidebar">FALSE</property>
                 <property name="pin-sidebar">TRUE</property>
                 <property name="sidebar">
-                  <object class="BzTransactionManager" id="transaction_mgr">
+                  <object class="GtkScrolledWindow" id="transactions">
                     <property name="width-request">500</property>
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="propagate-natural-height">TRUE</property>
+                    <property name="child">
+                      <object class="GtkListView" id="list_view">
+                        <style>
+                          <class name="navigation-sidebar"/>
+                        </style>
+                        <property name="model">
+                          <object class="GtkNoSelection" id="no_selection">
+                            <binding name="model">
+                              <lookup name="transactions" type="BzTransactionManager">
+                                <lookup name="transaction-manager">BzWindow</lookup>
+                              </lookup>
+                            </binding>
+                          </object>
+                        </property>
+                        <property name="factory">
+                          <object class="GtkBuilderListItemFactory">
+                            <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="activatable">FALSE</property>
+    <property name="child">
+      <object class="BzTransactionView">
+        <property name="margin-start">5</property>
+        <property name="margin-end">5</property>
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
+        <property name="width-request">350</property>
+        <binding name="transaction">
+          <lookup name="item">GtkListItem</lookup>
+        </binding>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                            </property>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
                   </object>
                 </property>
                 <property name="content">
@@ -38,62 +81,6 @@
                                 <property name="title" translatable="yes">Loading</property>
                                 <property name="child">
                                   <object class="AdwSpinner" id="spinner"/>
-                                </property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">welcome</property>
-                                <property name="title" translatable="yes">Welcome</property>
-                                <property name="child">
-                                  <object class="GtkOverlay" id="status">
-                                    <property name="child">
-                                      <object class="BzBackground" id="background"/>
-                                    </property>
-                                    <child type="overlay">
-                                      <object class="AdwStatusPage">
-                                        <property name="title" translatable="yes">Welcome</property>
-                                        <property name="description" translatable="yes">Choose an action:</property>
-                                        <property name="child">
-                                          <object class="GtkGrid">
-                                            <property name="halign">center</property>
-                                            <property name="column-spacing">48</property>
-                                            <property name="row-spacing">18</property>
-                                            <child>
-                                              <object class="GtkBox">
-                                                <property name="margin-top">12</property>
-                                                <property name="spacing">12</property>
-                                                <property name="homogeneous">true</property>
-                                                <layout>
-                                                  <property name="row">4</property>
-                                                  <property name="column">0</property>
-                                                  <property name="column-span">2</property>
-                                                </layout>
-                                                <child>
-                                                  <object class="GtkButton">
-                                                    <property name="label" translatable="yes">Search</property>
-                                                    <property name="action-name">app.search('')</property>
-                                                    <style>
-                                                      <class name="pill"/>
-                                                    </style>
-                                                  </object>
-                                                </child>
-                                                <child>
-                                                  <object class="GtkButton">
-                                                    <property name="label" translatable="yes">Browse</property>
-                                                    <property name="action-name">app.browse</property>
-                                                    <style>
-                                                      <class name="pill"/>
-                                                    </style>
-                                                  </object>
-                                                </child>
-                                              </object>
-                                            </child>
-                                          </object>
-                                        </property>
-                                      </object>
-                                    </child>
-                                  </object>
                                 </property>
                               </object>
                             </child>
@@ -122,7 +109,7 @@
               <object class="AdwBreakpoint" id="breakpoint">
                 <condition>max-width: 750px</condition>
                 <setter object="split_view" property="collapsed">TRUE</setter>
-                <setter object="transaction_mgr" property="width-request">300</setter>
+                <setter object="transactions" property="width-request">300</setter>
               </object>
             </child>
           </object>
@@ -164,12 +151,16 @@
                   <object class="BzProgressBar">
                     <property name="valign">center</property>
                     <binding name="fraction">
-                      <lookup name="current-progress">transaction_mgr</lookup>
+                      <lookup name="current-progress">
+                        <lookup name="transaction-manager">BzWindow</lookup>
+                      </lookup>
                     </binding>
                   </object>
                 </property>
                 <binding name="reveal-child">
-                  <lookup name="active">transaction_mgr</lookup>
+                  <lookup name="active">
+                    <lookup name="transaction-manager">BzWindow</lookup>
+                  </lookup>
                 </binding>
               </object>
             </child>

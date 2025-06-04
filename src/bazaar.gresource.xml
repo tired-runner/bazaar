@@ -5,7 +5,6 @@
     <file preprocess="xml-stripblanks">bz-progress-bar.ui</file>
     <file preprocess="xml-stripblanks">bz-window.ui</file>
     <file preprocess="xml-stripblanks">bz-transaction-view.ui</file>
-    <file preprocess="xml-stripblanks">bz-transaction-manager.ui</file>
     <file preprocess="xml-stripblanks">bz-search-widget.ui</file>
     <file preprocess="xml-stripblanks">bz-browse-widget.ui</file>
     <file preprocess="xml-stripblanks">bz-section-view.ui</file>

@@ -43,4 +43,24 @@ bz_entry_group_add (BzEntryGroup *self,
                     gboolean      updatable,
                     gboolean      removable);
 
+void
+bz_entry_group_install (BzEntryGroup *self,
+                        BzEntry      *entry);
+
+void
+bz_entry_group_remove (BzEntryGroup *self,
+                       BzEntry      *entry);
+
+gboolean
+bz_entry_group_query_installable (BzEntryGroup *self,
+                                  BzEntry      *entry);
+
+gboolean
+bz_entry_group_query_updatable (BzEntryGroup *self,
+                                BzEntry      *entry);
+
+gboolean
+bz_entry_group_query_removable (BzEntryGroup *self,
+                                BzEntry      *entry);
+
 G_END_DECLS

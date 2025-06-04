@@ -29,9 +29,9 @@ struct _BzEntryGroup
   GListStore *store;
   BzEntry    *ui_entry;
 
-  int installable;
-  int updatable;
-  int removable;
+  GPtrArray *installable;
+  GPtrArray *updatable;
+  GPtrArray *removable;
 };
 
 G_DEFINE_FINAL_TYPE (BzEntryGroup, bz_entry_group, G_TYPE_OBJECT)
@@ -58,6 +58,9 @@ bz_entry_group_dispose (GObject *object)
 
   g_clear_object (&self->store);
   g_clear_object (&self->ui_entry);
+  g_clear_pointer (&self->installable, g_ptr_array_unref);
+  g_clear_pointer (&self->updatable, g_ptr_array_unref);
+  g_clear_pointer (&self->removable, g_ptr_array_unref);
 
   G_OBJECT_CLASS (bz_entry_group_parent_class)->dispose (object);
 }
@@ -117,13 +120,13 @@ bz_entry_group_get_property (GObject    *object,
       }
       break;
     case PROP_INSTALLABLE:
-      g_value_set_int (value, self->installable);
+      g_value_set_int (value, self->installable->len);
       break;
     case PROP_UPDATABLE:
-      g_value_set_int (value, self->updatable);
+      g_value_set_int (value, self->updatable->len);
       break;
     case PROP_REMOVABLE:
-      g_value_set_int (value, self->removable);
+      g_value_set_int (value, self->removable->len);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -136,19 +139,13 @@ bz_entry_group_set_property (GObject      *object,
                              const GValue *value,
                              GParamSpec   *pspec)
 {
-  BzEntryGroup *self = BZ_ENTRY_GROUP (object);
+  // BzEntryGroup *self = BZ_ENTRY_GROUP (object);
 
   switch (prop_id)
     {
     case PROP_INSTALLABLE:
-      self->installable = g_value_get_int (value);
-      break;
     case PROP_UPDATABLE:
-      self->updatable = g_value_get_int (value);
-      break;
     case PROP_REMOVABLE:
-      self->removable = g_value_get_int (value);
-      break;
     case PROP_MODEL:
     case PROP_UI_ENTRY:
     case PROP_REMOTE_REPOS_STRING:
@@ -213,7 +210,10 @@ bz_entry_group_class_init (BzEntryGroupClass *klass)
 static void
 bz_entry_group_init (BzEntryGroup *self)
 {
-  self->store = g_list_store_new (BZ_TYPE_ENTRY);
+  self->store       = g_list_store_new (BZ_TYPE_ENTRY);
+  self->installable = g_ptr_array_new_with_free_func (g_object_unref);
+  self->updatable   = g_ptr_array_new_with_free_func (g_object_unref);
+  self->removable   = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
 BzEntryGroup *
@@ -253,20 +253,94 @@ bz_entry_group_add (BzEntryGroup *self,
 
   if (installable)
     {
-      self->installable++;
+      g_ptr_array_add (self->installable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
     }
   if (updatable)
     {
-      self->updatable++;
+      g_ptr_array_add (self->updatable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UPDATABLE]);
     }
   if (removable)
     {
-      self->removable++;
+      g_ptr_array_add (self->removable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
     }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UI_ENTRY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOTE_REPOS_STRING]);
+}
+
+void
+bz_entry_group_install (BzEntryGroup *self,
+                        BzEntry      *entry)
+{
+  guint idx = 0;
+
+  g_return_if_fail (BZ_IS_ENTRY_GROUP (self));
+  g_return_if_fail (BZ_IS_ENTRY (entry));
+
+  if (!g_ptr_array_find (self->installable, entry, &idx))
+    {
+      g_critical ("Entry %s not found to be installable!", bz_entry_get_unique_id (entry));
+      return;
+    }
+
+  g_ptr_array_remove_fast (self->installable, entry);
+  g_ptr_array_add (self->removable, g_object_ref (entry));
+}
+
+void
+bz_entry_group_remove (BzEntryGroup *self,
+                       BzEntry      *entry)
+{
+  guint idx = 0;
+
+  g_return_if_fail (BZ_IS_ENTRY_GROUP (self));
+  g_return_if_fail (BZ_IS_ENTRY (entry));
+
+  if (!g_ptr_array_find (self->removable, entry, &idx))
+    {
+      g_critical ("Entry %s not found to be removable!", bz_entry_get_unique_id (entry));
+      return;
+    }
+
+  g_ptr_array_remove_fast (self->removable, entry);
+  g_ptr_array_add (self->installable, g_object_ref (entry));
+}
+
+gboolean
+bz_entry_group_query_installable (BzEntryGroup *self,
+                                  BzEntry      *entry)
+{
+  guint idx = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), FALSE);
+  g_return_val_if_fail (BZ_IS_ENTRY (entry), FALSE);
+
+  return g_ptr_array_find (self->installable, entry, &idx);
+}
+
+gboolean
+bz_entry_group_query_updatable (BzEntryGroup *self,
+                                BzEntry      *entry)
+{
+  guint idx = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), FALSE);
+  g_return_val_if_fail (BZ_IS_ENTRY (entry), FALSE);
+
+  return g_ptr_array_find (self->updatable, entry, &idx);
+}
+
+gboolean
+bz_entry_group_query_removable (BzEntryGroup *self,
+                                BzEntry      *entry)
+{
+  guint idx = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), FALSE);
+  g_return_val_if_fail (BZ_IS_ENTRY (entry), FALSE);
+
+  return g_ptr_array_find (self->removable, entry, &idx);
 }

@@ -28,16 +28,14 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (BzWindow, bz_window, BZ, WINDOW, AdwApplicationWindow)
 
 void
-bz_window_refresh (BzWindow *self);
-
-void
-bz_window_browse (BzWindow *self);
-
-void
 bz_window_search (BzWindow   *self,
                   const char *text);
 
 void
 bz_window_toggle_transactions (BzWindow *self);
+
+void
+bz_window_push_update_dialog (BzWindow   *self,
+                              GListModel *updates);
 
 G_END_DECLS

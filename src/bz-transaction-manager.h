@@ -20,18 +20,16 @@
 
 #pragma once
 
-#include <adwaita.h>
-
 #include "bz-backend.h"
 #include "bz-transaction.h"
 
 G_BEGIN_DECLS
 
 #define BZ_TYPE_TRANSACTION_MANAGER (bz_transaction_manager_get_type ())
-G_DECLARE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, BZ, TRANSACTION_MANAGER, AdwBin)
+G_DECLARE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, BZ, TRANSACTION_MANAGER, GObject)
 
-GtkWidget *
-bz_transaction_manager_new (GListModel *model);
+BzTransactionManager *
+bz_transaction_manager_new (void);
 
 void
 bz_transaction_manager_set_backend (BzTransactionManager *self,

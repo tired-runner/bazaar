@@ -22,11 +22,9 @@
 
 #include <glib/gi18n.h>
 
-#include "bz-backend.h"
 #include "bz-background.h"
 #include "bz-browse-widget.h"
 #include "bz-entry-group.h"
-#include "bz-flatpak-instance.h"
 #include "bz-progress-bar.h"
 #include "bz-search-widget.h"
 #include "bz-transaction-manager.h"
@@ -37,30 +35,22 @@ struct _BzWindow
 {
   AdwApplicationWindow parent_instance;
 
-  GSettings         *settings;
-  BzContentProvider *content_provider;
-
-  BzFlatpakInstance *flatpak;
-  GListStore        *remote_groups;
-  GHashTable        *id_to_entry_group_hash;
-  GHashTable        *unique_id_to_entry_hash;
-  GHashTable        *installed_unique_ids_set;
+  GSettings            *settings;
+  BzContentProvider    *content_provider;
+  BzTransactionManager *transaction_manager;
+  GListModel           *remote_groups;
+  gboolean              busy;
 
   GListStore   *bg_entries;
   BzEntryGroup *pending_group;
 
   /* Template widgets */
-  AdwOverlaySplitView  *split_view;
-  GtkOverlay           *status;
-  BzBackground         *background;
-  AdwViewStack         *main_stack;
-  BzBrowseWidget       *browse;
-  GtkToggleButton      *toggle_transactions;
-  GtkButton            *refresh;
-  GtkButton            *search;
-  AdwToastOverlay      *toasts;
-  AdwSpinner           *spinner;
-  BzTransactionManager *transaction_mgr;
+  AdwOverlaySplitView *split_view;
+  AdwViewStack        *main_stack;
+  GtkToggleButton     *toggle_transactions;
+  GtkButton           *refresh;
+  GtkButton           *search;
+  AdwToastOverlay     *toasts;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -70,8 +60,10 @@ enum
   PROP_0,
 
   PROP_SETTINGS,
+  PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
-  PROP_CONTENT_CONFIGS,
+  PROP_REMOTE_GROUPS,
+  PROP_BUSY,
 
   LAST_PROP
 };
@@ -83,39 +75,11 @@ setting_changed (GSettings   *settings,
                  BzWindow    *self);
 
 static void
-last_success_changed (BzTransactionManager *manager,
-                      GParamSpec           *pspec,
-                      BzWindow             *self);
-
-static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self);
 static void
 search_clicked (GtkButton *button,
                 BzWindow  *self);
-
-static void
-gather_entries_progress (BzEntry  *entry,
-                         BzWindow *self);
-
-static DexFuture *
-refresh_then (DexFuture *future,
-              BzWindow  *self);
-static DexFuture *
-fetch_refs_then (DexFuture *future,
-                 BzWindow  *self);
-static DexFuture *
-fetch_installs_then (DexFuture *future,
-                     BzWindow  *self);
-static DexFuture *
-fetch_updates_then (DexFuture *future,
-                    BzWindow  *self);
-static DexFuture *
-refresh_catch (DexFuture *future,
-               BzWindow  *self);
-static DexFuture *
-refresh_finally (DexFuture *future,
-                 BzWindow  *self);
 
 static void
 search_selected_changed (BzSearchWidget *search,
@@ -131,12 +95,6 @@ static void
 update_dialog_response (BzUpdateDialog *dialog,
                         const char     *response,
                         BzWindow       *self);
-
-static void
-refresh (BzWindow *self);
-
-static void
-browse (BzWindow *self);
 
 static void
 transact (BzWindow *self,
@@ -166,13 +124,11 @@ bz_window_dispose (GObject *object)
     g_signal_handlers_disconnect_by_func (
         self->settings, setting_changed, self);
   g_clear_object (&self->settings);
+  g_clear_object (&self->content_provider);
+  g_clear_object (&self->transaction_manager);
+  g_clear_object (&self->remote_groups);
 
   g_clear_object (&self->content_provider);
-  g_clear_pointer (&self->id_to_entry_group_hash, g_hash_table_unref);
-  g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
-  g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
-  g_clear_object (&self->remote_groups);
-  g_clear_object (&self->flatpak);
   g_clear_object (&self->pending_group);
   g_clear_object (&self->bg_entries);
 
@@ -192,13 +148,17 @@ bz_window_get_property (GObject    *object,
     case PROP_SETTINGS:
       g_value_set_object (value, self->settings);
       break;
+    case PROP_TRANSACTION_MANAGER:
+      g_value_set_object (value, self->transaction_manager);
+      break;
     case PROP_CONTENT_PROVIDER:
       g_value_set_object (value, self->content_provider);
       break;
-    case PROP_CONTENT_CONFIGS:
-      g_value_set_object (
-          value,
-          bz_content_provider_get_input_files (self->content_provider));
+    case PROP_REMOTE_GROUPS:
+      g_value_set_object (value, self->remote_groups);
+      break;
+    case PROP_BUSY:
+      g_value_set_boolean (value, self->busy);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -229,12 +189,22 @@ bz_window_set_property (GObject      *object,
           setting_changed (self->settings, "show-animated-background", self);
         }
       break;
-    case PROP_CONTENT_CONFIGS:
-      bz_content_provider_set_input_files (
-          self->content_provider,
-          g_value_get_object (value));
+    case PROP_TRANSACTION_MANAGER:
+      g_clear_object (&self->transaction_manager);
+      self->transaction_manager = g_value_dup_object (value);
       break;
     case PROP_CONTENT_PROVIDER:
+      g_clear_object (&self->content_provider);
+      self->content_provider = g_value_dup_object (value);
+    case PROP_REMOTE_GROUPS:
+      g_clear_object (&self->remote_groups);
+      self->remote_groups = g_value_dup_object (value);
+      break;
+    case PROP_BUSY:
+      self->busy = g_value_get_boolean (value);
+      adw_view_stack_set_visible_child_name (
+          self->main_stack, self->busy ? "loading" : "browse");
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -257,75 +227,65 @@ bz_window_class_init (BzWindowClass *klass)
           G_TYPE_SETTINGS,
           G_PARAM_READWRITE);
 
+  props[PROP_TRANSACTION_MANAGER] =
+      g_param_spec_object (
+          "transaction-manager",
+          NULL, NULL,
+          BZ_TYPE_TRANSACTION_MANAGER,
+          G_PARAM_READWRITE);
+
   props[PROP_CONTENT_PROVIDER] =
       g_param_spec_object (
           "content-provider",
           NULL, NULL,
           BZ_TYPE_CONTENT_PROVIDER,
-          G_PARAM_READABLE);
+          G_PARAM_READWRITE);
 
-  props[PROP_CONTENT_CONFIGS] =
+  props[PROP_REMOTE_GROUPS] =
       g_param_spec_object (
-          "content-configs",
+          "remote-groups",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_BUSY] =
+      g_param_spec_boolean (
+          "busy",
+          NULL, NULL,
+          FALSE,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
   g_type_ensure (BZ_TYPE_BACKGROUND);
-  g_type_ensure (BZ_TYPE_TRANSACTION_MANAGER);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, background);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, browse);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, spinner);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, status);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, transaction_mgr);
 }
 
 static void
 bz_window_init (BzWindow *self)
 {
-  GtkEventController *motion_controller = NULL;
-
-  self->remote_groups          = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
-  self->id_to_entry_group_hash = g_hash_table_new_full (
-      g_str_hash, g_str_equal, g_free, g_object_unref);
-  self->unique_id_to_entry_hash = g_hash_table_new_full (
-      g_str_hash, g_str_equal, g_free, g_object_unref);
-  self->installed_unique_ids_set = g_hash_table_new_full (
-      g_str_hash, g_str_equal, g_free, NULL);
-
-  self->content_provider = bz_content_provider_new ();
-  bz_content_provider_set_group_hash (
-      self->content_provider, self->id_to_entry_group_hash);
+  // GtkEventController *motion_controller = NULL;
 
   gtk_widget_init_template (GTK_WIDGET (self));
-  // bz_browse_widget_set_model (self->browse, G_LIST_MODEL (self->remote));
-
-  g_signal_connect (self->transaction_mgr, "notify::last-success",
-                    G_CALLBACK (last_success_changed), self);
 
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
 
-  motion_controller = gtk_event_controller_motion_new ();
-  gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
-  bz_background_set_motion_controller (
-      self->background,
-      GTK_EVENT_CONTROLLER_MOTION (motion_controller));
-  gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
-
-  refresh (self);
+  // motion_controller = gtk_event_controller_motion_new ();
+  // gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
+  // bz_background_set_motion_controller (
+  //     self->background,
+  //     GTK_EVENT_CONTROLLER_MOTION (motion_controller));
+  // gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
 }
 
 static void
@@ -334,99 +294,12 @@ setting_changed (GSettings   *settings,
                  BzWindow    *self)
 {
   if (g_strcmp0 (pkey, "show-animated-background") == 0)
-    gtk_widget_set_visible (
-        GTK_WIDGET (self->background),
-        g_settings_get_boolean (
-            settings,
-            "show-animated-background"));
-}
-
-static void
-last_success_changed (BzTransactionManager *manager,
-                      GParamSpec           *pspec,
-                      BzWindow             *self)
-{
-  BzTransaction *transaction = NULL;
-
-  transaction = bz_transaction_manager_get_last_success (manager);
-  if (transaction != NULL)
     {
-      GListModel *installs   = NULL;
-      GListModel *removals   = NULL;
-      guint       n_installs = 0;
-      guint       n_removals = 0;
-
-      installs = bz_transaction_get_installs (transaction);
-      removals = bz_transaction_get_removals (transaction);
-
-      if (installs != NULL)
-        n_installs = g_list_model_get_n_items (installs);
-      if (removals != NULL)
-        n_removals = g_list_model_get_n_items (removals);
-
-      for (guint i = 0; i < n_installs; i++)
-        {
-          g_autoptr (BzEntry) entry = NULL;
-          const char   *unique_id   = NULL;
-          const char   *id          = NULL;
-          BzEntryGroup *group       = NULL;
-
-          entry     = g_list_model_get_item (installs, i);
-          unique_id = bz_entry_get_unique_id (entry);
-          g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
-
-          id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
-          if (group != NULL)
-            {
-              int installable = 0;
-              int removable   = 0;
-
-              g_object_get (
-                  group,
-                  "installable", &installable,
-                  "removable", &removable,
-                  NULL);
-              g_object_set (
-                  group,
-                  "installable", installable - 1,
-                  "removable", removable + 1,
-                  NULL);
-            }
-        }
-
-      for (guint i = 0; i < n_removals; i++)
-        {
-          g_autoptr (BzEntry) entry = NULL;
-          const char   *unique_id   = NULL;
-          const char   *id          = NULL;
-          BzEntryGroup *group       = NULL;
-
-          entry     = g_list_model_get_item (removals, i);
-          unique_id = bz_entry_get_unique_id (entry);
-          g_hash_table_remove (self->installed_unique_ids_set, unique_id);
-
-          id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
-          if (group != NULL)
-            {
-              int installable = 0;
-              int removable   = 0;
-
-              g_object_get (
-                  group,
-                  "installable", &installable,
-                  "removable", &removable,
-                  NULL);
-              g_object_set (
-                  group,
-                  "installable", installable + 1,
-                  "removable", removable - 1,
-                  NULL);
-            }
-        }
+      // gtk_widget_set_visible (
+      //     GTK_WIDGET (self->background),
+      //     g_settings_get_boolean (
+      //         settings,
+      //         "show-animated-background"));
     }
 }
 
@@ -434,7 +307,7 @@ static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self)
 {
-  refresh (self);
+  gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
 }
 
 static void
@@ -442,244 +315,6 @@ search_clicked (GtkButton *button,
                 BzWindow  *self)
 {
   search (self, NULL);
-}
-
-static void
-gather_entries_progress (BzEntry  *entry,
-                         BzWindow *self)
-{
-  const char   *id        = NULL;
-  BzEntryGroup *group     = NULL;
-  const char   *unique_id = NULL;
-
-  id    = bz_entry_get_id (entry);
-  group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
-  if (group == NULL)
-    {
-      group = bz_entry_group_new ();
-      g_hash_table_replace (
-          self->id_to_entry_group_hash,
-          g_strdup (id),
-          group);
-      g_list_store_append (
-          self->remote_groups, group);
-    }
-  bz_entry_group_add (group, entry, FALSE, FALSE, FALSE);
-
-  unique_id = bz_entry_get_unique_id (entry);
-  g_hash_table_replace (
-      self->unique_id_to_entry_hash,
-      g_strdup (unique_id),
-      g_object_ref (entry));
-}
-
-static DexFuture *
-refresh_then (DexFuture *future,
-              BzWindow  *self)
-{
-  g_autoptr (GError) local_error    = NULL;
-  const GValue   *value             = NULL;
-  GtkApplication *application       = NULL;
-  g_autoptr (GListModel) blocklists = NULL;
-  DexFuture *ref_remote_future      = NULL;
-
-  value         = dex_future_get_value (future, &local_error);
-  self->flatpak = g_value_dup_object (value);
-  bz_transaction_manager_set_backend (self->transaction_mgr, BZ_BACKEND (self->flatpak));
-
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), self->remote_groups != NULL);
-
-  application = gtk_window_get_application (GTK_WINDOW (self));
-  g_object_get (application, "blocklists", &blocklists, NULL);
-
-  ref_remote_future = bz_backend_retrieve_remote_entries_with_blocklists (
-      BZ_BACKEND (self->flatpak),
-      NULL,
-      blocklists,
-      (BzBackendGatherEntriesFunc) gather_entries_progress,
-      g_object_ref (self), g_object_unref);
-  ref_remote_future = dex_future_then (
-      ref_remote_future, (DexFutureCallback) fetch_refs_then,
-      g_object_ref (self), g_object_unref);
-  ref_remote_future = dex_future_then (
-      ref_remote_future, (DexFutureCallback) fetch_installs_then,
-      g_object_ref (self), g_object_unref);
-  ref_remote_future = dex_future_then (
-      ref_remote_future, (DexFutureCallback) fetch_updates_then,
-      g_object_ref (self), g_object_unref);
-
-  return ref_remote_future;
-}
-
-static DexFuture *
-fetch_refs_then (DexFuture *future,
-                 BzWindow  *self)
-{
-  guint n_groups             = 0;
-  g_autoptr (GHashTable) set = NULL;
-
-  n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->remote_groups));
-
-  g_clear_object (&self->bg_entries);
-  self->bg_entries = g_list_store_new (BZ_TYPE_ENTRY);
-  set              = g_hash_table_new (g_direct_hash, g_direct_equal);
-
-  for (guint safe = 0, found = 0;
-       safe < 1000 && found < MIN (20, n_groups);
-       safe++)
-    {
-      guint i                        = 0;
-      g_autoptr (BzEntryGroup) group = NULL;
-      BzEntry *entry                 = NULL;
-
-      i = g_random_int_range (0, n_groups);
-      if (g_hash_table_contains (set, GUINT_TO_POINTER (i)))
-        continue;
-
-      group = g_list_model_get_item (G_LIST_MODEL (self->remote_groups), i);
-      entry = bz_entry_group_get_ui_entry (group);
-
-      if (bz_entry_get_icon_paintable (entry) == NULL)
-        continue;
-      if (!g_str_has_prefix (bz_entry_get_id (entry), "org.gnome."))
-        continue;
-
-      g_list_store_append (self->bg_entries, entry);
-      g_hash_table_add (set, GUINT_TO_POINTER (i));
-      found++;
-    }
-
-  bz_background_set_entries (self->background, G_LIST_MODEL (self->bg_entries));
-
-  adw_toast_overlay_add_toast (
-      self->toasts,
-      adw_toast_new_format ("Discovered %d Apps", n_groups));
-
-  return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak));
-}
-
-static DexFuture *
-fetch_installs_then (DexFuture *future,
-                     BzWindow  *self)
-{
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  guint         n_groups         = 0;
-
-  g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
-
-  value                          = dex_future_get_value (future, NULL);
-  self->installed_unique_ids_set = g_value_dup_boxed (value);
-
-  n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->remote_groups));
-
-  for (guint i = 0; i < n_groups; i++)
-    {
-      g_autoptr (BzEntryGroup) group = NULL;
-      GListModel *entries            = NULL;
-      guint       n_entries          = 0;
-      int         installable        = 0;
-      int         removable          = 0;
-
-      group     = g_list_model_get_item (G_LIST_MODEL (self->remote_groups), i);
-      entries   = bz_entry_group_get_model (group);
-      n_entries = g_list_model_get_n_items (entries);
-
-      for (guint j = 0; j < n_entries; j++)
-        {
-          g_autoptr (BzEntry) entry = NULL;
-          const char *unique_id     = NULL;
-
-          entry     = g_list_model_get_item (entries, j);
-          unique_id = bz_entry_get_unique_id (entry);
-
-          if (g_hash_table_contains (
-                  self->installed_unique_ids_set,
-                  unique_id))
-            removable++;
-          else
-            installable++;
-        }
-
-      g_object_set (
-          group,
-          "installable", installable,
-          "removable", removable,
-          NULL);
-    }
-
-  return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak));
-}
-
-static DexFuture *
-fetch_updates_then (DexFuture *future,
-                    BzWindow  *self)
-{
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  g_autoptr (GPtrArray) names    = NULL;
-
-  value = dex_future_get_value (future, NULL);
-  names = g_value_dup_boxed (value);
-
-  if (names->len > 0)
-    {
-      g_autoptr (GListStore) updates = NULL;
-
-      updates = g_list_store_new (BZ_TYPE_ENTRY);
-      for (guint i = 0; i < names->len; i++)
-        {
-          const char *unique_id = NULL;
-          BzEntry    *entry     = NULL;
-
-          unique_id = g_ptr_array_index (names, i);
-          entry     = g_hash_table_lookup (
-              self->unique_id_to_entry_hash, unique_id);
-
-          /* FIXME address all refs */
-          if (entry != NULL)
-            g_list_store_append (updates, entry);
-        }
-
-      if (g_list_model_get_n_items (G_LIST_MODEL (updates)) > 0)
-        {
-          AdwDialog *update_dialog = NULL;
-
-          update_dialog = bz_update_dialog_new (G_LIST_MODEL (updates));
-          g_signal_connect (update_dialog, "response", G_CALLBACK (update_dialog_response), self);
-
-          adw_dialog_present (update_dialog, GTK_WIDGET (self));
-        }
-    }
-
-  return dex_future_new_true ();
-}
-
-static DexFuture *
-refresh_catch (DexFuture *future,
-               BzWindow  *self)
-{
-  g_autoptr (GError) local_error = NULL;
-
-  dex_future_get_value (future, &local_error);
-  adw_toast_overlay_add_toast (
-      self->toasts,
-      adw_toast_new_format (_ ("Failed! %s"), local_error->message));
-
-  return dex_future_new_true ();
-}
-
-static DexFuture *
-refresh_finally (DexFuture *future,
-                 BzWindow  *self)
-{
-  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->status));
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), TRUE);
-
-  bz_content_provider_unblock (self->content_provider);
-
-  return dex_future_new_true ();
 }
 
 static void
@@ -777,26 +412,6 @@ update_dialog_response (BzUpdateDialog *dialog,
 }
 
 void
-bz_window_refresh (BzWindow *self)
-{
-  g_return_if_fail (BZ_IS_WINDOW (self));
-
-  if (gtk_widget_get_sensitive (GTK_WIDGET (self->refresh)))
-    refresh (self);
-  else
-    adw_toast_overlay_add_toast (
-        self->toasts,
-        adw_toast_new_format ("Can't refresh right now!"));
-}
-
-void
-bz_window_browse (BzWindow *self)
-{
-  g_return_if_fail (BZ_IS_WINDOW (self));
-  browse (self);
-}
-
-void
 bz_window_search (BzWindow   *self,
                   const char *text)
 {
@@ -814,40 +429,18 @@ bz_window_toggle_transactions (BzWindow *self)
           self->toggle_transactions));
 }
 
-static void
-refresh (BzWindow *self)
+void
+bz_window_push_update_dialog (BzWindow   *self,
+                              GListModel *updates)
 {
-  DexFuture *future = NULL;
+  AdwDialog *update_dialog = NULL;
 
-  bz_content_provider_block (self->content_provider);
+  g_return_if_fail (BZ_IS_WINDOW (self));
 
-  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->spinner));
-  gtk_widget_set_sensitive (GTK_WIDGET (self->refresh), FALSE);
-  gtk_widget_set_sensitive (GTK_WIDGET (self->search), FALSE);
+  update_dialog = bz_update_dialog_new (G_LIST_MODEL (updates));
+  g_signal_connect (update_dialog, "response", G_CALLBACK (update_dialog_response), self);
 
-  g_hash_table_remove_all (self->id_to_entry_group_hash);
-  g_hash_table_remove_all (self->unique_id_to_entry_hash);
-  g_list_store_remove_all (self->remote_groups);
-  g_clear_object (&self->flatpak);
-
-  future = bz_flatpak_instance_new ();
-  future = dex_future_then (
-      future, (DexFutureCallback) refresh_then,
-      g_object_ref (self), g_object_unref);
-  future = dex_future_catch (
-      future, (DexFutureCallback) refresh_catch,
-      g_object_ref (self), g_object_unref);
-  future = dex_future_finally (
-      future, (DexFutureCallback) refresh_finally,
-      g_object_ref (self), g_object_unref);
-  dex_future_disown (future);
-}
-
-static void
-browse (BzWindow *self)
-{
-  bz_background_set_entries (self->background, NULL);
-  adw_view_stack_set_visible_child (self->main_stack, GTK_WIDGET (self->browse));
+  adw_dialog_present (update_dialog, GTK_WIDGET (self));
 }
 
 static void
@@ -868,7 +461,7 @@ transact (BzWindow *self,
         NULL, 0,
         NULL, 0);
 
-  bz_transaction_manager_add (self->transaction_mgr, transaction);
+  bz_transaction_manager_add (self->transaction_manager, transaction);
   adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
@@ -883,6 +476,15 @@ try_transact (BzWindow     *self,
   guint       n_entries = 0;
 
   g_clear_object (&self->pending_group);
+
+  if (self->busy)
+    {
+      adw_toast_overlay_add_toast (
+          self->toasts,
+          adw_toast_new_format (_ ("Can't do that right now!")));
+      return;
+    }
+
   ui_entry = bz_entry_group_get_ui_entry (group);
   if (ui_entry == NULL)
     return;
@@ -949,15 +551,13 @@ try_transact (BzWindow     *self,
       for (guint i = 0; i < n_entries; i++)
         {
           g_autoptr (BzEntry) variant   = NULL;
-          const char      *unique_id    = NULL;
           gboolean         is_installed = FALSE;
           g_autofree char *label        = NULL;
           GtkWidget       *check        = NULL;
           GtkWidget       *check_label  = NULL;
 
           variant      = g_list_model_get_item (entries, i);
-          unique_id    = bz_entry_get_unique_id (variant);
-          is_installed = g_hash_table_contains (self->installed_unique_ids_set, unique_id);
+          is_installed = bz_entry_group_query_removable (group, variant);
 
           if ((!remove && is_installed) ||
               (remove && !is_installed))
@@ -1022,7 +622,7 @@ update (BzWindow *self,
       NULL, 0,
       updates, n_updates,
       NULL, 0);
-  bz_transaction_manager_add (self->transaction_mgr, transaction);
+  bz_transaction_manager_add (self->transaction_manager, transaction);
   adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
