@@ -288,6 +288,9 @@ bz_entry_group_install (BzEntryGroup *self,
 
   g_ptr_array_remove_fast (self->installable, entry);
   g_ptr_array_add (self->removable, g_object_ref (entry));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
 }
 
 void
@@ -307,6 +310,9 @@ bz_entry_group_remove (BzEntryGroup *self,
 
   g_ptr_array_remove_fast (self->removable, entry);
   g_ptr_array_add (self->installable, g_object_ref (entry));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
 }
 
 gboolean
