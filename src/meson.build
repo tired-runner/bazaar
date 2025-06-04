@@ -42,7 +42,7 @@ bz_deps = [
 
 bz_sources += gnome.compile_resources('bz-resources',
   'bazaar.gresource.xml',
-  c_name: 'ga'
+  c_name: 'bz'
 )
 
 executable('bazaar', bz_sources,
