@@ -200,7 +200,7 @@ bz_application_command_line (GApplication            *app,
   gint           argc                = 0;
   g_auto (GStrv) argv                = NULL;
   g_autoptr (GOptionContext) context = NULL;
-  g_autoptr (GError) error           = NULL;
+  g_autoptr (GError) local_error     = NULL;
 
   argv = g_application_command_line_get_arguments (cmdline, &argc);
   if (argv == NULL || argc <= 1 || g_strcmp0 (argv[1], "--help") == 0)
@@ -240,9 +240,9 @@ bz_application_command_line (GApplication            *app,
       };
 
       g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &error))
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
         {
-          g_application_command_line_printerr (cmdline, "%s\n", error->message);
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
           return EXIT_FAILURE;
         }
 
@@ -346,9 +346,9 @@ bz_application_command_line (GApplication            *app,
       };
 
       g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &error))
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
         {
-          g_application_command_line_printerr (cmdline, "%s\n", error->message);
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
           return EXIT_FAILURE;
         }
 
@@ -384,6 +384,102 @@ bz_application_command_line (GApplication            *app,
     }
   else if (g_strcmp0 (argv[1], "status") == 0)
     {
+      gboolean help                            = FALSE;
+      gboolean current_only                    = FALSE;
+      g_autoptr (GListModel) transaction_model = NULL;
+      guint    n_transactions                  = 0;
+      gboolean current_found_candidate         = FALSE;
+
+      GOptionEntry main_entries[] = {
+        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+        { "current-only", 0, 0, G_OPTION_ARG_NONE, &current_only, "Only output the currently active transaction" },
+        { NULL }
+      };
+
+      g_option_context_add_main_entries (context, main_entries, NULL);
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+        {
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+          return EXIT_FAILURE;
+        }
+
+      if (help)
+        {
+          g_autofree char *help_text = NULL;
+
+          g_option_context_set_summary (context, "Options for command \"status\"");
+
+          help_text = g_option_context_get_help (context, TRUE, NULL);
+          g_application_command_line_printerr (cmdline, "%s\n", help_text);
+          return EXIT_SUCCESS;
+        }
+
+      g_object_get (self->transactions, "transactions", &transaction_model, NULL);
+      n_transactions = g_list_model_get_n_items (G_LIST_MODEL (transaction_model));
+
+      for (guint i = 0; i < n_transactions; i++)
+        {
+          g_autoptr (BzTransaction) transaction = NULL;
+          g_autofree char *name                 = NULL;
+          g_autoptr (GListModel) installs       = NULL;
+          g_autoptr (GListModel) updates        = NULL;
+          g_autoptr (GListModel) removals       = NULL;
+          gboolean         pending              = FALSE;
+          g_autofree char *status               = NULL;
+          double           progress             = 0.0;
+          gboolean         finished             = FALSE;
+          gboolean         success              = FALSE;
+          g_autofree char *error                = NULL;
+
+          transaction = g_list_model_get_item (transaction_model, i);
+          g_object_get (
+              transaction,
+              "name", &name,
+              "installs", &installs,
+              "updates", &updates,
+              "removals", &removals,
+              "pending", &pending,
+              "status", &status,
+              "progress", &progress,
+              "finished", &finished,
+              "success", &success,
+              "error", &error,
+              NULL);
+
+          if (current_only)
+            {
+              if (pending || finished)
+                continue;
+              current_found_candidate = TRUE;
+            }
+
+          g_application_command_line_print (
+              cmdline,
+              "%s:\n"
+              "  number of installs: %d\n"
+              "  number of updates: %d\n"
+              "  number of removals: %d\n"
+              "  status: %s\n"
+              "  progress: %.02f%%\n"
+              "  finished: %s\n"
+              "  success: %s\n"
+              "  error: %s\n\n",
+              name,
+              g_list_model_get_n_items (installs),
+              g_list_model_get_n_items (updates),
+              g_list_model_get_n_items (removals),
+              status != NULL ? status : "N/A",
+              progress * 100.0,
+              finished ? "true" : "false",
+              success ? "true" : "false",
+              error != NULL ? error : "N/A");
+
+          if (current_only)
+            break;
+        }
+
+      if (n_transactions == 0 || (current_only && !current_found_candidate))
+        g_application_command_line_printerr (cmdline, "No active transactions\n");
     }
   else if (g_strcmp0 (argv[1], "query") == 0)
     {
