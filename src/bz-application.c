@@ -483,12 +483,145 @@ bz_application_command_line (GApplication            *app,
     }
   else if (g_strcmp0 (argv[1], "query") == 0)
     {
+      gboolean         help  = FALSE;
+      g_autofree char *match = NULL;
+      g_auto (GStrv) fields  = NULL;
+      BzEntry *entry         = NULL;
+
+      GOptionEntry main_entries[] = {
+        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+        { "match", 0, 0, G_OPTION_ARG_STRING, &match, "The application name or ID to match against" },
+        { "field", 0, 0, G_OPTION_ARG_STRING_ARRAY, &fields, "(Advanced) Add a field to print if the query is found" },
+        { NULL }
+      };
+
+      g_option_context_add_main_entries (context, main_entries, NULL);
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+        {
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+          return EXIT_FAILURE;
+        }
+
+      if (help)
+        {
+          g_autofree char *help_text = NULL;
+
+          g_option_context_set_summary (context, "Options for command \"query\"");
+
+          help_text = g_option_context_get_help (context, TRUE, NULL);
+          g_application_command_line_printerr (cmdline, "%s\n", help_text);
+          return EXIT_SUCCESS;
+        }
+
+      if (match == NULL)
+        {
+          g_application_command_line_printerr (
+              cmdline,
+              "option --match is required for command \"query\"\n");
+          return EXIT_FAILURE;
+        }
+
+      if (fields != NULL)
+        {
+          g_autoptr (GTypeClass) class = NULL;
+
+          class = g_type_class_ref (BZ_TYPE_ENTRY);
+          for (char **field = fields; *field != NULL; field++)
+            {
+              GParamSpec *spec = NULL;
+
+              spec = g_object_class_find_property (G_OBJECT_CLASS (class), *field);
+              if (spec == NULL || spec->value_type != G_TYPE_STRING)
+                {
+                  g_application_command_line_printerr (
+                      cmdline,
+                      "\"%s\" is not a valid query field\n",
+                      *field);
+                  return EXIT_FAILURE;
+                }
+            }
+        }
+      else
+        {
+          g_autoptr (GStrvBuilder) builder = NULL;
+
+          builder = g_strv_builder_new ();
+          g_strv_builder_add_many (
+              builder,
+              "id",
+              "remote-repo-name",
+              "title",
+              "description",
+              NULL);
+          fields = g_strv_builder_end (builder);
+        }
+
+      entry = g_hash_table_lookup (self->unique_id_to_entry_hash, match);
+      if (entry != NULL)
+        {
+          g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (entry));
+          for (char **field = fields; *field != NULL; field++)
+            {
+              g_autofree char *string = NULL;
+
+              g_object_get (entry, *field, &string, NULL);
+              g_application_command_line_print (
+                  cmdline,
+                  "  %s = %s\n",
+                  *field,
+                  string != NULL ? string : "(empty)");
+            }
+          g_application_command_line_print (cmdline, "\n");
+        }
+      else
+        {
+          BzEntryGroup *group = NULL;
+
+          group = g_hash_table_lookup (self->id_to_entry_group_hash, match);
+          if (group != NULL)
+            {
+              GListModel *entries   = NULL;
+              guint       n_entries = 0;
+
+              entries   = bz_entry_group_get_model (group);
+              n_entries = g_list_model_get_n_items (entries);
+
+              for (guint i = 0; i < n_entries; i++)
+                {
+                  g_autoptr (BzEntry) variant = NULL;
+
+                  variant = g_list_model_get_item (entries, i);
+                  g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (variant));
+                  for (char **field = fields; *field != NULL; field++)
+                    {
+                      g_autofree char *string = NULL;
+
+                      g_object_get (variant, *field, &string, NULL);
+                      g_application_command_line_print (
+                          cmdline,
+                          "  %s = %s\n",
+                          *field,
+                          string != NULL ? string : "(empty)");
+                    }
+                  g_application_command_line_print (cmdline, "\n");
+                }
+            }
+          else
+            {
+              g_application_command_line_printerr (
+                  cmdline, "\"%s\": no matches found\n", match);
+              return EXIT_FAILURE;
+            }
+        }
     }
   else if (g_strcmp0 (argv[1], "transact") == 0)
     {
     }
   else if (g_strcmp0 (argv[1], "quit") == 0)
-    g_application_quit (G_APPLICATION (self));
+    {
+      g_application_quit (G_APPLICATION (self));
+      self->running = FALSE;
+    }
   else
     {
       g_application_command_line_printerr (
