@@ -39,7 +39,7 @@ struct _BzTransactionManager
   GQueue     queue;
 };
 
-G_DEFINE_FINAL_TYPE_WITH_CODE (BzTransactionManager, bz_transaction_manager, G_TYPE_OBJECT, )
+G_DEFINE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, G_TYPE_OBJECT)
 
 enum
 {

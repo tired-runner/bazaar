@@ -39,7 +39,6 @@ enum
 {
   PROP_0,
 
-  PROP_MODEL,
   PROP_CONTENT_PROVIDER,
 
   LAST_PROP
@@ -67,9 +66,6 @@ bz_browse_widget_get_property (GObject    *object,
 
   switch (prop_id)
     {
-    case PROP_MODEL:
-      g_value_set_object (value, bz_browse_widget_get_model (self));
-      break;
     case PROP_CONTENT_PROVIDER:
       g_value_set_object (value, bz_browse_widget_get_content_provider (self));
       break;
@@ -88,9 +84,6 @@ bz_browse_widget_set_property (GObject      *object,
 
   switch (prop_id)
     {
-    case PROP_MODEL:
-      bz_browse_widget_set_model (self, g_value_get_object (value));
-      break;
     case PROP_CONTENT_PROVIDER:
       bz_browse_widget_set_content_provider (self, g_value_get_object (value));
       break;
@@ -108,13 +101,6 @@ bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
   object_class->dispose      = bz_browse_widget_dispose;
   object_class->get_property = bz_browse_widget_get_property;
   object_class->set_property = bz_browse_widget_set_property;
-
-  props[PROP_MODEL] =
-      g_param_spec_object (
-          "model",
-          NULL, NULL,
-          G_TYPE_LIST_MODEL,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_CONTENT_PROVIDER] =
       g_param_spec_object (
@@ -138,35 +124,9 @@ bz_browse_widget_init (BzBrowseWidget *self)
 }
 
 GtkWidget *
-bz_browse_widget_new (GListModel *model)
+bz_browse_widget_new (void)
 {
-  return g_object_new (
-      BZ_TYPE_BROWSE_WIDGET,
-      "model", model,
-      NULL);
-}
-
-void
-bz_browse_widget_set_model (BzBrowseWidget *self,
-                            GListModel     *model)
-{
-  g_return_if_fail (BZ_IS_BROWSE_WIDGET (self));
-  g_return_if_fail (model == NULL ||
-                    (G_IS_LIST_MODEL (model) &&
-                     g_list_model_get_item_type (model) == BZ_TYPE_ENTRY));
-
-  g_clear_object (&self->model);
-  if (model != NULL)
-    self->model = g_object_ref (model);
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_MODEL]);
-}
-
-GListModel *
-bz_browse_widget_get_model (BzBrowseWidget *self)
-{
-  g_return_val_if_fail (BZ_IS_BROWSE_WIDGET (self), NULL);
-  return self->model;
+  return g_object_new (BZ_TYPE_BROWSE_WIDGET, NULL);
 }
 
 void

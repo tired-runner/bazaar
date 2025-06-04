@@ -30,14 +30,7 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (BzBrowseWidget, bz_browse_widget, BZ, BROWSE_WIDGET, AdwBin)
 
 GtkWidget *
-bz_browse_widget_new (GListModel *model);
-
-void
-bz_browse_widget_set_model (BzBrowseWidget *self,
-                            GListModel     *model);
-
-GListModel *
-bz_browse_widget_get_model (BzBrowseWidget *self);
+bz_browse_widget_new (void);
 
 void
 bz_browse_widget_set_content_provider (BzBrowseWidget    *self,
