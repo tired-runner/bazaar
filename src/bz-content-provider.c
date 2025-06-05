@@ -27,7 +27,6 @@
 #include "bz-content-provider.h"
 #include "bz-content-section.h"
 #include "bz-entry-group.h"
-#include "bz-paintable-model.h"
 #include "bz-util.h"
 #include "bz-yaml-parser.h"
 
@@ -472,7 +471,7 @@ input_files_changed (GListModel        *input_files,
     {
       g_autoptr (InputInitData) init_data = NULL;
       g_autoptr (InputTrackingData) data  = NULL;
-      DexFuture *future                   = NULL;
+      g_autoptr (DexFuture) future        = NULL;
 
       init_data       = input_init_data_new ();
       init_data->file = g_object_ref (additions[i]);
@@ -495,7 +494,7 @@ input_files_changed (GListModel        *input_files,
           (DexFutureCallback) input_init_finally,
           input_tracking_data_ref (data),
           input_tracking_data_unref);
-      data->task = future;
+      dex_future_disown (g_steal_pointer (&future));
 
       g_hash_table_replace (
           self->input_tracking,
