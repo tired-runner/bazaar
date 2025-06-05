@@ -28,6 +28,7 @@
 #include "bz-flatpak-instance.h"
 #include "bz-preferences-dialog.h"
 #include "bz-transaction-manager.h"
+#include "bz-util.h"
 #include "bz-window.h"
 
 struct _BzApplication
@@ -98,6 +99,27 @@ refresh_finally (DexFuture     *future,
 
 static void
 refresh (BzApplication *self);
+
+BZ_DEFINE_DATA (
+    cli_transact,
+    CliTransact,
+    {
+      GApplicationCommandLine *cmdline;
+      BzBackend               *backend;
+      GPtrArray               *installs;
+      GPtrArray               *updates;
+      GPtrArray               *removals;
+    },
+    BZ_RELEASE_DATA (cmdline, g_object_unref);
+    BZ_RELEASE_DATA (backend, g_object_unref);
+    BZ_RELEASE_DATA (installs, g_ptr_array_unref);
+    BZ_RELEASE_DATA (updates, g_ptr_array_unref);
+    BZ_RELEASE_DATA (removals, g_ptr_array_unref))
+static DexFuture *
+cli_transact_fiber (CliTransactData *data);
+static DexFuture *
+cli_transact_then (DexFuture     *future,
+                   BzApplication *self);
 
 static void
 bz_application_dispose (GObject *object)
@@ -490,8 +512,8 @@ bz_application_command_line (GApplication            *app,
 
       GOptionEntry main_entries[] = {
         { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "match", 0, 0, G_OPTION_ARG_STRING, &match, "The application name or ID to match against" },
-        { "field", 0, 0, G_OPTION_ARG_STRING_ARRAY, &fields, "(Advanced) Add a field to print if the query is found" },
+        { "match", 'm', 0, G_OPTION_ARG_STRING, &match, "The application name or ID to match against" },
+        { "field", 'f', 0, G_OPTION_ARG_STRING_ARRAY, &fields, "(Advanced) Add a field to print if the query is found" },
         { NULL }
       };
 
@@ -616,6 +638,102 @@ bz_application_command_line (GApplication            *app,
     }
   else if (g_strcmp0 (argv[1], "transact") == 0)
     {
+      gboolean help                    = FALSE;
+      g_auto (GStrv) installs_strv     = NULL;
+      g_auto (GStrv) updates_strv      = NULL;
+      g_auto (GStrv) removals_strv     = NULL;
+      g_autoptr (GPtrArray) installs   = NULL;
+      g_autoptr (GPtrArray) updates    = NULL;
+      g_autoptr (GPtrArray) removals   = NULL;
+      g_autoptr (CliTransactData) data = NULL;
+      g_autoptr (DexFuture) future     = NULL;
+
+      GOptionEntry main_entries[] = {
+        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+        { "install", 'i', 0, G_OPTION_ARG_STRING_ARRAY, &installs_strv, "Add an application to install" },
+        { "update", 'u', 0, G_OPTION_ARG_STRING_ARRAY, &updates_strv, "Add an application to update" },
+        { "remove", 'r', 0, G_OPTION_ARG_STRING_ARRAY, &removals_strv, "Add an application to remove" },
+        { NULL }
+      };
+
+      g_option_context_add_main_entries (context, main_entries, NULL);
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+        {
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+          return EXIT_FAILURE;
+        }
+
+      if (help)
+        {
+          g_autofree char *help_text = NULL;
+
+          g_option_context_set_summary (context, "Options for command \"transact\"");
+
+          help_text = g_option_context_get_help (context, TRUE, NULL);
+          g_application_command_line_printerr (cmdline, "%s\n", help_text);
+          return EXIT_SUCCESS;
+        }
+
+      if (installs_strv == NULL && updates_strv == NULL && removals_strv == NULL)
+        {
+          g_application_command_line_printerr (cmdline, "Command \"transact\" requires options\n");
+          return EXIT_FAILURE;
+        }
+
+#define GATHER_REQUESTS(which)                                                                    \
+  G_STMT_START                                                                                    \
+  {                                                                                               \
+    if (which##_strv != NULL)                                                                     \
+      {                                                                                           \
+        which = g_ptr_array_new_with_free_func (g_object_unref);                                  \
+                                                                                                  \
+        for (char **id = which##_strv; *id != NULL; id++)                                         \
+          {                                                                                       \
+            BzEntry *entry = NULL;                                                                \
+                                                                                                  \
+            entry = g_hash_table_lookup (self->unique_id_to_entry_hash, *id);                     \
+            if (entry != NULL)                                                                    \
+              g_ptr_array_add (which, g_object_ref (entry));                                      \
+            else                                                                                  \
+              {                                                                                   \
+                BzEntryGroup *group = NULL;                                                       \
+                                                                                                  \
+                group = g_hash_table_lookup (self->id_to_entry_group_hash, *id);                  \
+                if (group != NULL)                                                                \
+                  g_ptr_array_add (which, g_object_ref (group));                                  \
+                else                                                                              \
+                  {                                                                               \
+                    g_application_command_line_printerr (cmdline, "\"%s\" was not found\n", *id); \
+                    return EXIT_FAILURE;                                                          \
+                  }                                                                               \
+              }                                                                                   \
+          }                                                                                       \
+      }                                                                                           \
+  }                                                                                               \
+  G_STMT_END
+
+      GATHER_REQUESTS (installs);
+      GATHER_REQUESTS (updates);
+      GATHER_REQUESTS (removals);
+
+#undef GATHER_REQUESTS
+
+      data           = cli_transact_data_new ();
+      data->cmdline  = g_object_ref (cmdline);
+      data->backend  = g_object_ref (BZ_BACKEND (self->flatpak));
+      data->installs = g_steal_pointer (&installs);
+      data->updates  = g_steal_pointer (&updates);
+      data->removals = g_steal_pointer (&removals);
+
+      future = dex_scheduler_spawn (
+          dex_thread_pool_scheduler_get_default (),
+          0, (DexFiberFunc) cli_transact_fiber,
+          cli_transact_data_ref (data),
+          cli_transact_data_unref);
+      future = dex_future_then (
+          future, (DexFutureCallback) cli_transact_then,
+          g_object_ref (self), g_object_unref);
+      dex_future_disown (g_steal_pointer (&future));
     }
   else if (g_strcmp0 (argv[1], "quit") == 0)
     {
@@ -1029,9 +1147,8 @@ static DexFuture *
 fetch_installs_then (DexFuture     *future,
                      BzApplication *self)
 {
-  g_autoptr (GError) local_error = NULL;
-  const GValue *value            = NULL;
-  guint         n_groups         = 0;
+  const GValue *value    = NULL;
+  guint         n_groups = 0;
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
 
@@ -1039,7 +1156,6 @@ fetch_installs_then (DexFuture     *future,
   self->installed_unique_ids_set = g_value_dup_boxed (value);
 
   n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->remote_groups));
-
   for (guint i = 0; i < n_groups; i++)
     {
       g_autoptr (BzEntryGroup) group = NULL;
@@ -1150,4 +1266,143 @@ refresh (BzApplication *self)
       future, (DexFutureCallback) refresh_finally,
       g_object_ref (self), g_object_unref);
   dex_future_disown (future);
+}
+
+static DexFuture *
+cli_transact_fiber (CliTransactData *data)
+{
+  GApplicationCommandLine *cmdline = data->cmdline;
+  g_autoptr (GError) local_error   = NULL;
+  g_autoptr (GInputStream) input   = NULL;
+  char buf[2]                      = { 0 };
+
+  input = g_application_command_line_get_stdin (cmdline);
+
+#define GET_INPUT()                                                       \
+  G_STMT_START                                                            \
+  {                                                                       \
+    gssize bytes_read = 0;                                                \
+                                                                          \
+    bytes_read = g_input_stream_read (input, buf, 2, NULL, &local_error); \
+    if (bytes_read < 0)                                                   \
+      return dex_future_new_for_error (g_steal_pointer (&local_error));   \
+    if (bytes_read == 0)                                                  \
+      return dex_future_new_false ();                                     \
+  }                                                                       \
+  G_STMT_END
+
+#define ENSURE(which)                                                                        \
+  G_STMT_START                                                                               \
+  {                                                                                          \
+    if (data->which != NULL)                                                                 \
+      {                                                                                      \
+        for (guint i = 0; i < data->which->len; i++)                                         \
+          {                                                                                  \
+            gpointer *address = NULL;                                                        \
+                                                                                             \
+            address = &g_ptr_array_index (data->which, i);                                   \
+            if (BZ_IS_ENTRY_GROUP (*address))                                                \
+              {                                                                              \
+                BzEntryGroup *group     = BZ_ENTRY_GROUP (*address);                         \
+                GListModel   *model     = NULL;                                              \
+                guint         n_entries = 0;                                                 \
+                BzEntry      *ui_entry  = NULL;                                              \
+                                                                                             \
+                model     = bz_entry_group_get_model (group);                                \
+                n_entries = g_list_model_get_n_items (model);                                \
+                ui_entry  = bz_entry_group_get_ui_entry (group);                             \
+                                                                                             \
+                g_application_command_line_printerr (                                        \
+                    cmdline,                                                                 \
+                    "Found %d matches for %s\n",                                             \
+                    n_entries,                                                               \
+                    bz_entry_get_id (ui_entry));                                             \
+                                                                                             \
+                for (guint j = 0; j < n_entries; j++)                                        \
+                  {                                                                          \
+                    g_autoptr (BzEntry) entry = NULL;                                        \
+                                                                                             \
+                    entry = g_list_model_get_item (model, j);                                \
+                    g_application_command_line_printerr (                                    \
+                        cmdline,                                                             \
+                        "  %d) %20s -> %s\n",                                                \
+                        j,                                                                   \
+                        bz_entry_get_remote_repo_name (entry),                               \
+                        bz_entry_get_unique_id (entry));                                     \
+                  }                                                                          \
+                                                                                             \
+                g_application_command_line_printerr (                                        \
+                    cmdline,                                                                 \
+                    "\nPlease press the corresponding number on your keyboard to select\n"); \
+                                                                                             \
+                do                                                                           \
+                  {                                                                          \
+                    GET_INPUT ();                                                            \
+                  }                                                                          \
+                while (buf[0] < '0' || buf[0] > MIN ('0' + n_entries, '9'));                 \
+                                                                                             \
+                g_clear_object (address);                                                    \
+                *address = g_list_model_get_item (model, buf[0] - '0');                      \
+              }                                                                              \
+          }                                                                                  \
+      }                                                                                      \
+  }                                                                                          \
+  G_STMT_END
+
+  ENSURE (installs);
+  ENSURE (updates);
+  ENSURE (removals);
+
+#undef ENSURE
+
+  g_application_command_line_printerr (cmdline, "\nYour transaction will:\n");
+
+  if (data->installs != NULL)
+    g_application_command_line_printerr (cmdline, "  install %d application(s)\n", data->installs->len);
+  if (data->updates != NULL)
+    g_application_command_line_printerr (cmdline, "  update %d application(s)\n", data->updates->len);
+  if (data->removals != NULL)
+    g_application_command_line_printerr (cmdline, "  remove %d application(s)\n", data->removals->len);
+
+  g_application_command_line_printerr (cmdline, "\nAre you sure? (N/y)\n");
+
+  GET_INPUT ();
+
+  if (buf[0] == 'y' || buf[0] == 'Y')
+    {
+      g_autoptr (BzTransaction) transaction = NULL;
+
+      transaction = bz_transaction_new_full (
+          data->installs != NULL ? (BzEntry **) data->installs->pdata : NULL,
+          data->installs != NULL ? data->installs->len : 0,
+          data->updates != NULL ? (BzEntry **) data->updates->pdata : NULL,
+          data->updates != NULL ? data->updates->len : 0,
+          data->removals != NULL ? (BzEntry **) data->removals->pdata : NULL,
+          data->removals != NULL ? data->removals->len : 0);
+
+      return dex_future_new_for_object (transaction);
+    }
+  else
+    return dex_future_new_false ();
+
+#undef GET_INPUT
+}
+
+static DexFuture *
+cli_transact_then (DexFuture     *future,
+                   BzApplication *self)
+{
+  const GValue *value = NULL;
+
+  value = dex_future_get_value (future, NULL);
+
+  if (G_VALUE_HOLDS_OBJECT (value))
+    {
+      BzTransaction *transaction = NULL;
+
+      transaction = g_value_get_object (value);
+      bz_transaction_manager_add (self->transactions, transaction);
+    }
+
+  return NULL;
 }
