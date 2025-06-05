@@ -80,6 +80,10 @@ bz_paintable_model_dispose (GObject *object)
 {
   BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->model, items_changed, self);
+
   g_clear_pointer (&self->scheduler, dex_unref);
   g_clear_object (&self->model);
   g_clear_pointer (&self->tracking, g_hash_table_unref);

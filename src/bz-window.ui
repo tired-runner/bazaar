@@ -20,27 +20,47 @@
                 <property name="show-sidebar">FALSE</property>
                 <property name="pin-sidebar">TRUE</property>
                 <property name="sidebar">
-                  <object class="GtkScrolledWindow" id="transactions">
-                    <property name="width-request">500</property>
-                    <property name="hscrollbar-policy">never</property>
-                    <property name="propagate-natural-height">TRUE</property>
-                    <property name="child">
-                      <object class="GtkListView" id="list_view">
-                        <style>
-                          <class name="navigation-sidebar"/>
-                        </style>
-                        <property name="model">
-                          <object class="GtkNoSelection" id="no_selection">
-                            <binding name="model">
-                              <lookup name="transactions" type="BzTransactionManager">
-                                <lookup name="transaction-manager">BzWindow</lookup>
-                              </lookup>
-                            </binding>
+                  <object class="AdwViewStack" id="transactions_stack">
+                    <property name="enable-transitions">TRUE</property>
+                    <property name="transition-duration">400</property>
+                    <child>
+                      <object class="AdwViewStackPage">
+                        <property name="name">empty</property>
+                        <property name="title" translatable="yes">Empty</property>
+                        <property name="child">
+                          <object class="AdwStatusPage">
+                            <property name="icon-name">folder-download-symbolic</property>
+                            <property name="title">Transactions Will Appear Here</property>
                           </object>
                         </property>
-                        <property name="factory">
-                          <object class="GtkBuilderListItemFactory">
-                            <property name="bytes"><![CDATA[
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwViewStackPage">
+                        <property name="name">content</property>
+                        <property name="title" translatable="yes">Content</property>
+                        <property name="child">
+                          <object class="GtkScrolledWindow" id="transactions">
+                            <property name="width-request">500</property>
+                            <property name="hscrollbar-policy">never</property>
+                            <property name="propagate-natural-height">TRUE</property>
+                            <property name="child">
+                              <object class="GtkListView" id="list_view">
+                                <style>
+                                  <class name="navigation-sidebar"/>
+                                </style>
+                                <property name="model">
+                                  <object class="GtkNoSelection" id="no_selection">
+                                    <binding name="model">
+                                      <lookup name="transactions" type="BzTransactionManager">
+                                        <lookup name="transaction-manager">BzWindow</lookup>
+                                      </lookup>
+                                    </binding>
+                                  </object>
+                                </property>
+                                <property name="factory">
+                                  <object class="GtkBuilderListItemFactory">
+                                    <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -60,11 +80,15 @@
   </template>
 </interface>
 ]]>
+                                    </property>
+                                  </object>
+                                </property>
+                              </object>
                             </property>
                           </object>
                         </property>
                       </object>
-                    </property>
+                    </child>
                   </object>
                 </property>
                 <property name="content">

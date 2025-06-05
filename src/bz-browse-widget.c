@@ -27,10 +27,10 @@ struct _BzBrowseWidget
 {
   AdwBin parent_instance;
 
-  GListModel        *model;
   BzContentProvider *provider;
 
   /* Template widgets */
+  AdwViewStack *stack;
 };
 
 G_DEFINE_FINAL_TYPE (BzBrowseWidget, bz_browse_widget, ADW_TYPE_BIN)
@@ -46,11 +46,23 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
+items_changed (GListModel     *model,
+               guint           position,
+               guint           removed,
+               guint           added,
+               BzBrowseWidget *self);
+
+static void
+set_page (BzBrowseWidget *self);
+
+static void
 bz_browse_widget_dispose (GObject *object)
 {
   BzBrowseWidget *self = BZ_BROWSE_WIDGET (object);
 
-  g_clear_object (&self->model);
+  if (self->provider != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->provider, items_changed, self);
   g_clear_object (&self->provider);
 
   G_OBJECT_CLASS (bz_browse_widget_parent_class)->dispose (object);
@@ -114,12 +126,12 @@ bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-browse-widget.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzBrowseWidget, stack);
 }
 
 static void
 bz_browse_widget_init (BzBrowseWidget *self)
 {
-
   gtk_widget_init_template (GTK_WIDGET (self));
 }
 
@@ -136,9 +148,20 @@ bz_browse_widget_set_content_provider (BzBrowseWidget    *self,
   g_return_if_fail (BZ_IS_BROWSE_WIDGET (self));
   g_return_if_fail (provider == NULL || BZ_IS_CONTENT_PROVIDER (provider));
 
+  if (self->provider != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->provider, items_changed, self);
   g_clear_object (&self->provider);
+
   if (provider != NULL)
-    self->provider = g_object_ref (provider);
+    {
+      self->provider = g_object_ref (provider);
+      g_signal_connect (
+          self->provider, "items-changed",
+          G_CALLBACK (items_changed), self);
+    }
+
+  set_page (self);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CONTENT_PROVIDER]);
 }
@@ -148,4 +171,25 @@ bz_browse_widget_get_content_provider (BzBrowseWidget *self)
 {
   g_return_val_if_fail (BZ_IS_BROWSE_WIDGET (self), NULL);
   return self->provider;
+}
+
+static void
+items_changed (GListModel     *model,
+               guint           position,
+               guint           removed,
+               guint           added,
+               BzBrowseWidget *self)
+{
+  set_page (self);
+}
+
+static void
+set_page (BzBrowseWidget *self)
+{
+  adw_view_stack_set_visible_child_name (
+      self->stack,
+      self->provider != NULL &&
+              g_list_model_get_n_items (G_LIST_MODEL (self->provider)) > 0
+          ? "content"
+          : "empty");
 }

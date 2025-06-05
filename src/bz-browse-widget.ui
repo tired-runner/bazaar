@@ -4,20 +4,41 @@
   <requires lib="Adw" version="1.0"/>
   <template class="BzBrowseWidget" parent="AdwBin">
     <property name="child">
-      <object class="GtkScrolledWindow">
-        <property name="hscrollbar-policy">never</property>
-        <property name="child">
-          <object class="GtkListView">
-            <property name="model">
-              <object class="GtkNoSelection">
-                <binding name="model">
-                  <lookup name="content-provider">BzBrowseWidget</lookup>
-                </binding>
+      <object class="AdwViewStack" id="stack">
+        <property name="enable-transitions">TRUE</property>
+        <property name="transition-duration">400</property>
+        <child>
+          <object class="AdwViewStackPage">
+            <property name="name">empty</property>
+            <property name="title" translatable="yes">Empty</property>
+            <property name="child">
+              <object class="AdwStatusPage">
+                <property name="icon-name">horizontal-arrows-disabled-symbolic</property>
+                <property name="title">No Configuration</property>
+                <property name="description">Bazaar was not provided a content configuration. Contact your operating system's support channels for assistance.</property>
               </object>
             </property>
-            <property name="factory">
-              <object class="GtkBuilderListItemFactory">
-                <property name="bytes"><![CDATA[
+          </object>
+        </child>
+        <child>
+          <object class="AdwViewStackPage">
+            <property name="name">content</property>
+            <property name="title" translatable="yes">Browser</property>
+            <property name="child">
+              <object class="GtkScrolledWindow">
+                <property name="hscrollbar-policy">never</property>
+                <property name="child">
+                  <object class="GtkListView">
+                    <property name="model">
+                      <object class="GtkNoSelection">
+                        <binding name="model">
+                          <lookup name="content-provider">BzBrowseWidget</lookup>
+                        </binding>
+                      </object>
+                    </property>
+                    <property name="factory">
+                      <object class="GtkBuilderListItemFactory">
+                        <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -32,11 +53,15 @@
   </template>
 </interface>
 ]]>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
                 </property>
               </object>
             </property>
           </object>
-        </property>
+        </child>
       </object>
     </property>
   </template>

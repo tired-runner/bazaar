@@ -46,6 +46,7 @@ struct _BzWindow
 
   /* Template widgets */
   AdwOverlaySplitView *split_view;
+  AdwViewStack        *transactions_stack;
   AdwViewStack        *main_stack;
   GtkToggleButton     *toggle_transactions;
   GtkButton           *refresh;
@@ -73,6 +74,11 @@ static void
 setting_changed (GSettings   *settings,
                  const gchar *pkey,
                  BzWindow    *self);
+
+static void
+has_transactions_changed (BzTransactionManager *manager,
+                          GParamSpec           *pspec,
+                          BzWindow             *self);
 
 static void
 refresh_clicked (GtkButton *button,
@@ -116,6 +122,9 @@ search (BzWindow   *self,
         const char *text);
 
 static void
+check_transactions (BzWindow *self);
+
+static void
 bz_window_dispose (GObject *object)
 {
   BzWindow *self = BZ_WINDOW (object);
@@ -123,6 +132,10 @@ bz_window_dispose (GObject *object)
   if (self->settings != NULL)
     g_signal_handlers_disconnect_by_func (
         self->settings, setting_changed, self);
+  if (self->transaction_manager != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->transaction_manager, has_transactions_changed, self);
+
   g_clear_object (&self->settings);
   g_clear_object (&self->content_provider);
   g_clear_object (&self->transaction_manager);
@@ -190,8 +203,16 @@ bz_window_set_property (GObject      *object,
         }
       break;
     case PROP_TRANSACTION_MANAGER:
+      if (self->transaction_manager != NULL)
+        g_signal_handlers_disconnect_by_func (
+            self->transaction_manager, has_transactions_changed, self);
       g_clear_object (&self->transaction_manager);
       self->transaction_manager = g_value_dup_object (value);
+      if (self->transaction_manager != NULL)
+        g_signal_connect (
+            self->transaction_manager, "notify::has-transactions",
+            G_CALLBACK (has_transactions_changed), self);
+      check_transactions (self);
       break;
     case PROP_CONTENT_PROVIDER:
       g_clear_object (&self->content_provider);
@@ -263,6 +284,7 @@ bz_window_class_init (BzWindowClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
@@ -301,6 +323,14 @@ setting_changed (GSettings   *settings,
       //         settings,
       //         "show-animated-background"));
     }
+}
+
+static void
+has_transactions_changed (BzTransactionManager *manager,
+                          GParamSpec           *pspec,
+                          BzWindow             *self)
+{
+  check_transactions (self);
 }
 
 static void
@@ -651,4 +681,19 @@ search (BzWindow   *self,
   adw_dialog_set_content_height (dialog, 1200);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
+}
+
+static void
+check_transactions (BzWindow *self)
+{
+  gboolean has_transactions = FALSE;
+
+  if (self->transaction_manager != NULL)
+    g_object_get (self->transaction_manager, "has-transactions", &has_transactions, NULL);
+
+  adw_view_stack_set_visible_child_name (
+      self->transactions_stack,
+      has_transactions
+          ? "content"
+          : "empty");
 }
