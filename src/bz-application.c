@@ -1328,6 +1328,7 @@ refresh (BzApplication *self)
   g_hash_table_remove_all (self->id_to_entry_group_hash);
   g_hash_table_remove_all (self->unique_id_to_entry_hash);
   g_list_store_remove_all (self->remote_groups);
+  g_list_store_remove_all (self->updates);
   g_clear_object (&self->flatpak);
 
   self->busy   = TRUE;
