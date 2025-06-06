@@ -39,6 +39,7 @@ struct _BzWindow
   BzContentProvider    *content_provider;
   BzTransactionManager *transaction_manager;
   GListModel           *remote_groups;
+  GListStore           *updates;
   gboolean              busy;
   gboolean              online;
 
@@ -52,6 +53,7 @@ struct _BzWindow
   GtkToggleButton     *toggle_transactions;
   GtkButton           *refresh;
   GtkButton           *search;
+  GtkButton           *update_button;
   AdwToastOverlay     *toasts;
 };
 
@@ -65,6 +67,7 @@ enum
   PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
   PROP_REMOTE_GROUPS,
+  PROP_UPDATES,
   PROP_BUSY,
   PROP_ONLINE,
 
@@ -83,10 +86,21 @@ has_transactions_changed (BzTransactionManager *manager,
                           BzWindow             *self);
 
 static void
+updates_changed (GListModel *model,
+                 guint       position,
+                 guint       removed,
+                 guint       added,
+                 BzWindow   *self);
+
+static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self);
 static void
 search_clicked (GtkButton *button,
+                BzWindow  *self);
+
+static void
+update_clicked (GtkButton *button,
                 BzWindow  *self);
 
 static void
@@ -137,13 +151,16 @@ bz_window_dispose (GObject *object)
   if (self->transaction_manager != NULL)
     g_signal_handlers_disconnect_by_func (
         self->transaction_manager, has_transactions_changed, self);
+  if (self->updates != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->updates, updates_changed, self);
 
   g_clear_object (&self->settings);
   g_clear_object (&self->content_provider);
   g_clear_object (&self->transaction_manager);
   g_clear_object (&self->remote_groups);
+  g_clear_object (&self->updates);
 
-  g_clear_object (&self->content_provider);
   g_clear_object (&self->pending_group);
   g_clear_object (&self->bg_entries);
 
@@ -171,6 +188,9 @@ bz_window_get_property (GObject    *object,
       break;
     case PROP_REMOTE_GROUPS:
       g_value_set_object (value, self->remote_groups);
+      break;
+    case PROP_UPDATES:
+      g_value_set_object (value, self->updates);
       break;
     case PROP_BUSY:
       g_value_set_boolean (value, self->busy);
@@ -225,6 +245,24 @@ bz_window_set_property (GObject      *object,
     case PROP_REMOTE_GROUPS:
       g_clear_object (&self->remote_groups);
       self->remote_groups = g_value_dup_object (value);
+      break;
+    case PROP_UPDATES:
+      if (self->updates != NULL)
+        g_signal_handlers_disconnect_by_func (
+            self->updates, updates_changed, self);
+      g_clear_object (&self->updates);
+      self->updates = g_value_dup_object (value);
+      if (self->updates != NULL)
+        {
+          g_signal_connect (
+              self->updates, "items-changed",
+              G_CALLBACK (updates_changed), self);
+          gtk_widget_set_visible (
+              GTK_WIDGET (self->update_button),
+              g_list_model_get_n_items (G_LIST_MODEL (self->updates)) > 0);
+        }
+      else
+        gtk_widget_set_visible (GTK_WIDGET (self->update_button), FALSE);
       break;
     case PROP_BUSY:
       self->busy = g_value_get_boolean (value);
@@ -292,6 +330,13 @@ bz_window_class_init (BzWindowClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
+  props[PROP_UPDATES] =
+      g_param_spec_object (
+          "updates",
+          NULL, NULL,
+          G_TYPE_LIST_STORE,
+          G_PARAM_READWRITE);
+
   props[PROP_BUSY] =
       g_param_spec_boolean (
           "busy",
@@ -320,6 +365,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 }
 
@@ -332,6 +378,7 @@ bz_window_init (BzWindow *self)
 
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
+  g_signal_connect (self->update_button, "clicked", G_CALLBACK (update_clicked), self);
 
   // motion_controller = gtk_event_controller_motion_new ();
   // gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
@@ -365,6 +412,18 @@ has_transactions_changed (BzTransactionManager *manager,
 }
 
 static void
+updates_changed (GListModel *model,
+                 guint       position,
+                 guint       removed,
+                 guint       added,
+                 BzWindow   *self)
+{
+  gtk_widget_set_visible (
+      GTK_WIDGET (self->update_button),
+      g_list_model_get_n_items (model) > 0);
+}
+
+static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self)
 {
@@ -376,6 +435,14 @@ search_clicked (GtkButton *button,
                 BzWindow  *self)
 {
   search (self, NULL);
+}
+
+static void
+update_clicked (GtkButton *button,
+                BzWindow  *self)
+{
+  /* if the button is clickable, there have to be updates */
+  bz_window_push_update_dialog (self, self->updates);
 }
 
 static void
@@ -469,6 +536,8 @@ update_dialog_response (BzUpdateDialog *dialog,
 
       for (guint i = 0; i < n_updates; i++)
         g_object_unref (updates_buf[i]);
+
+      g_list_store_remove_all (G_LIST_STORE (updates));
     }
 }
 
@@ -492,7 +561,7 @@ bz_window_toggle_transactions (BzWindow *self)
 
 void
 bz_window_push_update_dialog (BzWindow   *self,
-                              GListModel *updates)
+                              GListStore *updates)
 {
   AdwDialog *update_dialog = NULL;
 

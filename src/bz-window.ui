@@ -176,6 +176,14 @@
                 <property name="icon-name">system-search-symbolic</property>
               </object>
             </child>
+            <child type="start">
+              <object class="GtkButton" id="update_button">
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+                <property name="icon-name">software-update-available-symbolic</property>
+              </object>
+            </child>
             <child type="end">
               <object class="GtkMenuButton">
                 <property name="primary">True</property>

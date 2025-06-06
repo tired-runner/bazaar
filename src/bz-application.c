@@ -52,6 +52,7 @@ struct _BzApplication
 
   BzFlatpakInstance *flatpak;
   GListStore        *remote_groups;
+  GListStore        *updates;
   GHashTable        *id_to_entry_group_hash;
   GHashTable        *unique_id_to_entry_hash;
   GHashTable        *installed_unique_ids_set;
@@ -136,11 +137,12 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->content_provider);
   g_clear_object (&self->content_configs_to_files);
   g_clear_object (&self->css);
+  g_clear_object (&self->flatpak);
   g_clear_pointer (&self->id_to_entry_group_hash, g_hash_table_unref);
   g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_clear_object (&self->remote_groups);
-  g_clear_object (&self->flatpak);
+  g_clear_object (&self->updates);
 
   G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
 }
@@ -431,6 +433,7 @@ bz_application_command_line (GApplication            *app,
               "transaction-manager", self->transactions,
               "content-provider", self->content_provider,
               "remote-groups", self->remote_groups,
+              "updates", self->updates,
               "busy", self->busy,
               "online", self->online,
               NULL);
@@ -1026,7 +1029,9 @@ bz_application_init (BzApplication *self)
   g_signal_connect (self->transactions, "notify::last-success",
                     G_CALLBACK (last_success_changed), self);
 
-  self->remote_groups          = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
+  self->remote_groups = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
+  self->updates       = g_list_store_new (BZ_TYPE_ENTRY);
+
   self->id_to_entry_group_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
   self->unique_id_to_entry_hash = g_hash_table_new_full (
@@ -1249,9 +1254,6 @@ fetch_updates_then (DexFuture     *future,
 
   if (names->len > 0)
     {
-      g_autoptr (GListStore) updates = NULL;
-
-      updates = g_list_store_new (BZ_TYPE_ENTRY);
       for (guint i = 0; i < names->len; i++)
         {
           const char *unique_id = NULL;
@@ -1263,17 +1265,17 @@ fetch_updates_then (DexFuture     *future,
 
           /* FIXME address all refs */
           if (entry != NULL)
-            g_list_store_append (updates, entry);
+            g_list_store_append (self->updates, entry);
         }
 
-      if (g_list_model_get_n_items (G_LIST_MODEL (updates)) > 0)
+      if (g_list_model_get_n_items (G_LIST_MODEL (self->updates)) > 0)
         {
           GtkWindow *window = NULL;
 
           window = gtk_application_get_active_window (GTK_APPLICATION (self));
           if (window != NULL)
             bz_window_push_update_dialog (
-                BZ_WINDOW (window), G_LIST_MODEL (updates));
+                BZ_WINDOW (window), self->updates);
         }
     }
 
@@ -1323,15 +1325,15 @@ refresh (BzApplication *self)
 
   bz_content_provider_block (self->content_provider);
 
-  self->busy   = TRUE;
-  self->online = TRUE;
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
-
   g_hash_table_remove_all (self->id_to_entry_group_hash);
   g_hash_table_remove_all (self->unique_id_to_entry_hash);
   g_list_store_remove_all (self->remote_groups);
   g_clear_object (&self->flatpak);
+
+  self->busy   = TRUE;
+  self->online = TRUE;
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   future = bz_flatpak_instance_new ();
   future = dex_future_then (

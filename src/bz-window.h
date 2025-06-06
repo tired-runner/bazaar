@@ -36,6 +36,6 @@ bz_window_toggle_transactions (BzWindow *self);
 
 void
 bz_window_push_update_dialog (BzWindow   *self,
-                              GListModel *updates);
+                              GListStore *updates);
 
 G_END_DECLS
