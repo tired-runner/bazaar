@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Bazaar
-Exec=bazaar window
+Exec=bazaar window --auto-service
 Icon=io.github.kolunmi.bazaar
 Terminal=false
 Type=Application

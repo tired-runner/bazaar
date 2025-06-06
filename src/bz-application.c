@@ -223,6 +223,7 @@ bz_application_command_line (GApplication            *app,
   g_auto (GStrv) argv                = NULL;
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) local_error     = NULL;
+  gboolean window_autostart          = FALSE;
 
   argv = g_application_command_line_get_arguments (cmdline, &argc);
   if (argv == NULL || argc <= 1 || g_strcmp0 (argv[1], "--help") == 0)
@@ -241,10 +242,26 @@ bz_application_command_line (GApplication            *app,
       return EXIT_FAILURE;
     }
 
+  if (g_strcmp0 (argv[1], "window") == 0)
+    {
+      g_autoptr (GOptionContext) pre_context = NULL;
+
+      GOptionEntry entries[] = {
+        { "auto-service", 0, 0, G_OPTION_ARG_NONE, &window_autostart, NULL },
+        { NULL }
+      };
+
+      pre_context = g_option_context_new (NULL);
+      g_option_context_set_help_enabled (pre_context, FALSE);
+      g_option_context_set_ignore_unknown_options (pre_context, TRUE);
+      g_option_context_add_main_entries (pre_context, entries, NULL);
+      g_option_context_parse (pre_context, &argc, &argv, NULL);
+    }
+
   context = g_option_context_new ("- an app center for GNOME");
   g_option_context_set_help_enabled (context, FALSE);
 
-  if (g_strcmp0 (argv[1], "service") == 0)
+  if (window_autostart || g_strcmp0 (argv[1], "service") == 0)
     {
       gboolean help                             = FALSE;
       gboolean is_running                       = FALSE;
@@ -253,97 +270,103 @@ bz_application_command_line (GApplication            *app,
       g_auto (GStrv) content_configs_strv       = NULL;
       g_autoptr (GtkStringList) content_configs = NULL;
 
-      GOptionEntry main_entries[] = {
-        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "is-running", 0, 0, G_OPTION_ARG_NONE, &is_running, "Exit successfully if the Bazaar service is running" },
-        { "extra-blocklist", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "Add an extra blocklist to read from" },
-        { "extra-content-config", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "Add an extra yaml file with which to configure the app browser" },
-        { NULL }
-      };
-
-      g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+      if (!window_autostart)
         {
-          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-          return EXIT_FAILURE;
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { "is-running", 0, 0, G_OPTION_ARG_NONE, &is_running, "Exit successfully if the Bazaar service is running" },
+            { "extra-blocklist", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "Add an extra blocklist to read from" },
+            { "extra-content-config", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "Add an extra yaml file with which to configure the app browser" },
+            { NULL }
+          };
+
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+            {
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
+
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
+
+              g_option_context_set_summary (context, "Options for command \"service\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          if (is_running)
+            return self->running ? EXIT_SUCCESS : EXIT_FAILURE;
         }
 
-      if (help)
+      if (!self->running || !window_autostart)
         {
-          g_autofree char *help_text = NULL;
+          if (self->running)
+            {
+              g_application_command_line_printerr (
+                  cmdline,
+                  "The Bazzar service is already running.\n"
+                  "Invoke \"bazaar --help\" to for available commands.\n");
+              return EXIT_FAILURE;
+            }
 
-          g_option_context_set_summary (context, "Options for command \"service\"");
+          g_application_hold (G_APPLICATION (self));
+          self->running = TRUE;
 
-          help_text = g_option_context_get_help (context, TRUE, NULL);
-          g_application_command_line_printerr (cmdline, "%s\n", help_text);
-          return EXIT_SUCCESS;
-        }
+          if (self->settings == NULL)
+            {
+              const char *app_id = NULL;
 
-      if (is_running)
-        return self->running ? EXIT_SUCCESS : EXIT_FAILURE;
+              app_id = g_application_get_application_id (G_APPLICATION (self));
+              g_assert (app_id != NULL);
+              self->settings = g_settings_new (app_id);
+              g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
+            }
 
-      if (self->running)
-        {
-          g_application_command_line_printerr (
-              cmdline,
-              "The Bazzar service is already running.\n"
-              "Invoke \"bazaar --help\" to for available commands.\n");
-          return EXIT_FAILURE;
-        }
+          if (self->css == NULL)
+            {
+              self->css = gtk_css_provider_new ();
+              gtk_css_provider_load_from_resource (
+                  self->css, "/io/github/kolunmi/bazaar/gtk/styles.css");
+              gtk_style_context_add_provider_for_display (
+                  gdk_display_get_default (),
+                  GTK_STYLE_PROVIDER (self->css),
+                  GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+            }
 
-      g_application_hold (G_APPLICATION (self));
-      self->running = TRUE;
-
-      if (self->settings == NULL)
-        {
-          const char *app_id = NULL;
-
-          app_id = g_application_get_application_id (G_APPLICATION (self));
-          g_assert (app_id != NULL);
-          self->settings = g_settings_new (app_id);
-          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
-        }
-
-      if (self->css == NULL)
-        {
-          self->css = gtk_css_provider_new ();
-          gtk_css_provider_load_from_resource (
-              self->css, "/io/github/kolunmi/bazaar/gtk/styles.css");
-          gtk_style_context_add_provider_for_display (
-              gdk_display_get_default (),
-              GTK_STYLE_PROVIDER (self->css),
-              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-        }
-
-      blocklists = gtk_string_list_new (NULL);
+          blocklists = gtk_string_list_new (NULL);
 #ifdef HARDCODED_BLOCKLIST
-      gtk_string_list_append (blocklists, HARDCODED_BLOCKLIST);
+          gtk_string_list_append (blocklists, HARDCODED_BLOCKLIST);
 #endif
-      if (blocklists_strv != NULL)
-        gtk_string_list_splice (
-            blocklists,
-            g_list_model_get_n_items (G_LIST_MODEL (blocklists)),
-            0,
-            (const char *const *) blocklists_strv);
+          if (blocklists_strv != NULL)
+            gtk_string_list_splice (
+                blocklists,
+                g_list_model_get_n_items (G_LIST_MODEL (blocklists)),
+                0,
+                (const char *const *) blocklists_strv);
 
-      content_configs = gtk_string_list_new (NULL);
+          content_configs = gtk_string_list_new (NULL);
 #ifdef HARDCODED_CONTENT_CONFIG
-      gtk_string_list_append (content_configs, HARDCODED_CONTENT_CONFIG);
+          gtk_string_list_append (content_configs, HARDCODED_CONTENT_CONFIG);
 #endif
-      if (content_configs_strv != NULL)
-        gtk_string_list_splice (
-            content_configs,
-            g_list_model_get_n_items (G_LIST_MODEL (content_configs)),
-            0,
-            (const char *const *) content_configs_strv);
+          if (content_configs_strv != NULL)
+            gtk_string_list_splice (
+                content_configs,
+                g_list_model_get_n_items (G_LIST_MODEL (content_configs)),
+                0,
+                (const char *const *) content_configs_strv);
 
-      g_object_set (
-          self,
-          "blocklists", blocklists,
-          "content-configs", content_configs,
-          NULL);
+          g_object_set (
+              self,
+              "blocklists", blocklists,
+              "content-configs", content_configs,
+              NULL);
 
-      refresh (self);
+          refresh (self);
+        }
     }
   else if (!self->running)
     {
@@ -353,17 +376,20 @@ bz_application_command_line (GApplication            *app,
           "Invoke \"bazaar service\" to initialize the daemon.\n");
       return EXIT_FAILURE;
     }
-  else if (g_strcmp0 (argv[1], "window") == 0)
+
+  if (g_strcmp0 (argv[1], "window") == 0)
     {
-      gboolean         help        = FALSE;
-      gboolean         search      = FALSE;
-      g_autofree char *search_text = NULL;
-      GtkWindow       *window      = NULL;
+      gboolean         help         = FALSE;
+      gboolean         search       = FALSE;
+      g_autofree char *search_text  = NULL;
+      gboolean         auto_service = FALSE;
+      GtkWindow       *window       = NULL;
 
       GOptionEntry main_entries[] = {
         { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
         { "search", 0, 0, G_OPTION_ARG_NONE, &search, "Immediately open the search dialog upon startup" },
         { "search-text", 0, 0, G_OPTION_ARG_STRING, &search_text, "Specify the initial text used with --search" },
+        { "auto-service", 0, 0, G_OPTION_ARG_NONE, &auto_service, "Initialize the Bazaar service if not already running" },
         { NULL }
       };
 
