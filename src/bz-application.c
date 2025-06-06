@@ -25,6 +25,7 @@
 #include "bz-application.h"
 #include "bz-content-provider.h"
 #include "bz-entry-group.h"
+#include "bz-error.h"
 #include "bz-flatpak-instance.h"
 #include "bz-preferences-dialog.h"
 #include "bz-transaction-manager.h"
@@ -44,6 +45,7 @@ struct _BzApplication
 
   gboolean running;
   gboolean busy;
+  gboolean online;
 
   GtkCssProvider  *css;
   GtkMapListModel *content_configs_to_files;
@@ -67,6 +69,7 @@ enum
   PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
   PROP_BUSY,
+  PROP_ONLINE,
 
   LAST_PROP
 };
@@ -170,6 +173,9 @@ bz_application_get_property (GObject    *object,
     case PROP_BUSY:
       g_value_set_boolean (value, self->busy);
       break;
+    case PROP_ONLINE:
+      g_value_set_boolean (value, self->online);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -204,6 +210,7 @@ bz_application_set_property (GObject      *object,
     case PROP_TRANSACTION_MANAGER:
     case PROP_CONTENT_PROVIDER:
     case PROP_BUSY:
+    case PROP_ONLINE:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -425,10 +432,15 @@ bz_application_command_line (GApplication            *app,
               "content-provider", self->content_provider,
               "remote-groups", self->remote_groups,
               "busy", self->busy,
+              "online", self->online,
               NULL);
           g_object_bind_property (
               self, "busy",
               window, "busy",
+              G_BINDING_SYNC_CREATE);
+          g_object_bind_property (
+              self, "online",
+              window, "online",
               G_BINDING_SYNC_CREATE);
 
           gtk_window_present (window);
@@ -842,6 +854,13 @@ bz_application_class_init (BzApplicationClass *klass)
   props[PROP_BUSY] =
       g_param_spec_boolean (
           "busy",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READABLE);
+
+  props[PROP_ONLINE] =
+      g_param_spec_boolean (
+          "online",
           NULL, NULL,
           FALSE,
           G_PARAM_READABLE);
@@ -1265,26 +1284,49 @@ static DexFuture *
 refresh_finally (DexFuture     *future,
                  BzApplication *self)
 {
-  bz_content_provider_unblock (self->content_provider);
+  g_autoptr (GError) local_error = NULL;
+  const GValue *value            = NULL;
 
   self->busy = FALSE;
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
 
-  return dex_future_new_true ();
+  value = dex_future_get_value (future, &local_error);
+  if (value != NULL)
+    self->online = TRUE;
+  else
+    {
+      GtkWindow *window = NULL;
+
+      self->online = FALSE;
+
+      window = gtk_application_get_active_window (GTK_APPLICATION (self));
+      if (window != NULL)
+        bz_show_error_for_widget (
+            GTK_WIDGET (window),
+            "Could not retrieve remote content. Check your internet connection.");
+    }
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
+
+  bz_content_provider_unblock (self->content_provider);
+
+  return NULL;
 }
 
 static void
 refresh (BzApplication *self)
 {
-  DexFuture *future = NULL;
+  g_autoptr (DexFuture) future = NULL;
 
   if (self->busy)
     return;
 
   bz_content_provider_block (self->content_provider);
 
-  self->busy = TRUE;
+  self->busy   = TRUE;
+  self->online = TRUE;
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   g_hash_table_remove_all (self->id_to_entry_group_hash);
   g_hash_table_remove_all (self->unique_id_to_entry_hash);
@@ -1298,7 +1340,7 @@ refresh (BzApplication *self)
   future = dex_future_finally (
       future, (DexFutureCallback) refresh_finally,
       g_object_ref (self), g_object_unref);
-  dex_future_disown (future);
+  dex_future_disown (g_steal_pointer (&future));
 }
 
 static DexFuture *

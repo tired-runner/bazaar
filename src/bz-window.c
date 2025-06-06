@@ -40,6 +40,7 @@ struct _BzWindow
   BzTransactionManager *transaction_manager;
   GListModel           *remote_groups;
   gboolean              busy;
+  gboolean              online;
 
   GListStore   *bg_entries;
   BzEntryGroup *pending_group;
@@ -65,6 +66,7 @@ enum
   PROP_CONTENT_PROVIDER,
   PROP_REMOTE_GROUPS,
   PROP_BUSY,
+  PROP_ONLINE,
 
   LAST_PROP
 };
@@ -173,6 +175,9 @@ bz_window_get_property (GObject    *object,
     case PROP_BUSY:
       g_value_set_boolean (value, self->busy);
       break;
+    case PROP_ONLINE:
+      g_value_set_boolean (value, self->online);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -224,11 +229,29 @@ bz_window_set_property (GObject      *object,
     case PROP_BUSY:
       self->busy = g_value_get_boolean (value);
       adw_view_stack_set_visible_child_name (
-          self->main_stack, self->busy ? "loading" : "browse");
+          self->main_stack,
+          self->online
+              ? (self->busy ? "loading" : "browse")
+              : "offline");
+      break;
+    case PROP_ONLINE:
+      self->online = g_value_get_boolean (value);
+      adw_view_stack_set_visible_child_name (
+          self->main_stack,
+          self->online
+              ? (self->busy ? "loading" : "browse")
+              : "offline");
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
+}
+
+static gboolean
+invert_boolean (gpointer object,
+                gboolean value)
+{
+  return !value;
 }
 
 static void
@@ -276,6 +299,13 @@ bz_window_class_init (BzWindowClass *klass)
           FALSE,
           G_PARAM_READWRITE);
 
+  props[PROP_ONLINE] =
+      g_param_spec_boolean (
+          "online",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READWRITE);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
@@ -290,6 +320,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
+  gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 }
 
 static void

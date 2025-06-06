@@ -32,18 +32,12 @@ error_alert_response (AdwAlertDialog *alert,
 
 void
 bz_show_error_for_widget (GtkWidget  *widget,
-                          GtkWidget  *parent,
                           const char *text)
 {
   AdwDialog *alert = NULL;
 
   g_return_if_fail (GTK_IS_WIDGET (widget));
-  g_return_if_fail (parent == NULL || GTK_IS_WIDGET (parent));
   g_return_if_fail (text != NULL);
-
-  if (parent == NULL)
-    parent = gtk_widget_get_ancestor (widget, GTK_TYPE_WINDOW);
-  g_assert (parent != NULL);
 
   alert = adw_alert_dialog_new (NULL, NULL);
   adw_alert_dialog_format_heading (

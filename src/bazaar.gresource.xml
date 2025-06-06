@@ -29,5 +29,6 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/right-large-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/sidebar-show-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/horizontal-arrows-disabled-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/connected-squares-x-symbolic.svg</file>
   </gresource>
 </gresources>

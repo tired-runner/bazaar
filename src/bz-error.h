@@ -27,7 +27,6 @@ G_BEGIN_DECLS
 /* if parent is NULL, search for window ancestor */
 void
 bz_show_error_for_widget (GtkWidget  *widget,
-                          GtkWidget  *parent,
                           const char *text);
 
 G_END_DECLS

@@ -101,6 +101,18 @@
                             <property name="transition-duration">400</property>
                             <child>
                               <object class="AdwViewStackPage">
+                                <property name="name">offline</property>
+                                <property name="title" translatable="yes">Offline</property>
+                                <property name="child">
+                                  <object class="AdwStatusPage">
+                                    <property name="icon-name">connected-squares-x</property>
+                                    <property name="title">Offline</property>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwViewStackPage">
                                 <property name="name">loading</property>
                                 <property name="title" translatable="yes">Loading</property>
                                 <property name="child">
@@ -152,6 +164,11 @@
             <child type="start">
               <object class="GtkButton" id="refresh">
                 <property name="icon-name">view-refresh-symbolic</property>
+                <binding name="sensitive">
+                  <closure function="invert_boolean" type="gboolean">
+                    <lookup name="busy">BzWindow</lookup>
+                  </closure>
+                </binding>
               </object>
             </child>
             <child type="start">
