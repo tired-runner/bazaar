@@ -239,7 +239,11 @@ bz_application_command_line (GApplication            *app,
             cmdline,
             "The Bazzar service is not running.\n"
             "Invoke \"bazaar service\" to initialize the daemon.\n");
-      return EXIT_FAILURE;
+
+      if (g_strcmp0 (argv[1], "--help") == 0)
+        return EXIT_SUCCESS;
+      else
+        return EXIT_FAILURE;
     }
 
   if (g_strcmp0 (argv[1], "window") == 0)
@@ -377,334 +381,336 @@ bz_application_command_line (GApplication            *app,
       return EXIT_FAILURE;
     }
 
-  if (g_strcmp0 (argv[1], "window") == 0)
+  if (g_strcmp0 (argv[1], "service") != 0)
     {
-      gboolean         help         = FALSE;
-      gboolean         search       = FALSE;
-      g_autofree char *search_text  = NULL;
-      gboolean         auto_service = FALSE;
-      GtkWindow       *window       = NULL;
-
-      GOptionEntry main_entries[] = {
-        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "search", 0, 0, G_OPTION_ARG_NONE, &search, "Immediately open the search dialog upon startup" },
-        { "search-text", 0, 0, G_OPTION_ARG_STRING, &search_text, "Specify the initial text used with --search" },
-        { "auto-service", 0, 0, G_OPTION_ARG_NONE, &auto_service, "Initialize the Bazaar service if not already running" },
-        { NULL }
-      };
-
-      g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+      if (g_strcmp0 (argv[1], "window") == 0)
         {
-          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-          return EXIT_FAILURE;
-        }
+          gboolean         help         = FALSE;
+          gboolean         search       = FALSE;
+          g_autofree char *search_text  = NULL;
+          gboolean         auto_service = FALSE;
+          GtkWindow       *window       = NULL;
 
-      if (help)
-        {
-          g_autofree char *help_text = NULL;
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { "search", 0, 0, G_OPTION_ARG_NONE, &search, "Immediately open the search dialog upon startup" },
+            { "search-text", 0, 0, G_OPTION_ARG_STRING, &search_text, "Specify the initial text used with --search" },
+            { "auto-service", 0, 0, G_OPTION_ARG_NONE, &auto_service, "Initialize the Bazaar service if not already running" },
+            { NULL }
+          };
 
-          g_option_context_set_summary (context, "Options for command \"window\"");
-
-          help_text = g_option_context_get_help (context, TRUE, NULL);
-          g_application_command_line_printerr (cmdline, "%s\n", help_text);
-          return EXIT_SUCCESS;
-        }
-
-      window = g_object_new (
-          BZ_TYPE_WINDOW,
-          "application", app,
-          "settings", self->settings,
-          "transaction-manager", self->transactions,
-          "content-provider", self->content_provider,
-          "remote-groups", self->remote_groups,
-          "busy", self->busy,
-          NULL);
-      g_object_bind_property (
-          self, "busy",
-          window, "busy",
-          G_BINDING_SYNC_CREATE);
-
-      gtk_window_present (window);
-
-      if (search)
-        bz_window_search (BZ_WINDOW (window), search_text);
-    }
-  else if (g_strcmp0 (argv[1], "status") == 0)
-    {
-      gboolean help                            = FALSE;
-      gboolean current_only                    = FALSE;
-      g_autoptr (GListModel) transaction_model = NULL;
-      guint    n_transactions                  = 0;
-      gboolean current_found_candidate         = FALSE;
-
-      GOptionEntry main_entries[] = {
-        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "current-only", 0, 0, G_OPTION_ARG_NONE, &current_only, "Only output the currently active transaction" },
-        { NULL }
-      };
-
-      g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
-        {
-          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-          return EXIT_FAILURE;
-        }
-
-      if (help)
-        {
-          g_autofree char *help_text = NULL;
-
-          g_option_context_set_summary (context, "Options for command \"status\"");
-
-          help_text = g_option_context_get_help (context, TRUE, NULL);
-          g_application_command_line_printerr (cmdline, "%s\n", help_text);
-          return EXIT_SUCCESS;
-        }
-
-      g_object_get (self->transactions, "transactions", &transaction_model, NULL);
-      n_transactions = g_list_model_get_n_items (G_LIST_MODEL (transaction_model));
-
-      for (guint i = 0; i < n_transactions; i++)
-        {
-          g_autoptr (BzTransaction) transaction = NULL;
-          g_autofree char *name                 = NULL;
-          g_autoptr (GListModel) installs       = NULL;
-          g_autoptr (GListModel) updates        = NULL;
-          g_autoptr (GListModel) removals       = NULL;
-          gboolean         pending              = FALSE;
-          g_autofree char *status               = NULL;
-          double           progress             = 0.0;
-          gboolean         finished             = FALSE;
-          gboolean         success              = FALSE;
-          g_autofree char *error                = NULL;
-
-          transaction = g_list_model_get_item (transaction_model, i);
-          g_object_get (
-              transaction,
-              "name", &name,
-              "installs", &installs,
-              "updates", &updates,
-              "removals", &removals,
-              "pending", &pending,
-              "status", &status,
-              "progress", &progress,
-              "finished", &finished,
-              "success", &success,
-              "error", &error,
-              NULL);
-
-          if (current_only)
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv, &local_error))
             {
-              if (pending || finished)
-                continue;
-              current_found_candidate = TRUE;
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
             }
 
-          g_application_command_line_print (
-              cmdline,
-              "%s:\n"
-              "  number of installs: %d\n"
-              "  number of updates: %d\n"
-              "  number of removals: %d\n"
-              "  status: %s\n"
-              "  progress: %.02f%%\n"
-              "  finished: %s\n"
-              "  success: %s\n"
-              "  error: %s\n\n",
-              name,
-              g_list_model_get_n_items (installs),
-              g_list_model_get_n_items (updates),
-              g_list_model_get_n_items (removals),
-              status != NULL ? status : "N/A",
-              progress * 100.0,
-              finished ? "true" : "false",
-              success ? "true" : "false",
-              error != NULL ? error : "N/A");
-
-          if (current_only)
-            break;
-        }
-
-      if (n_transactions == 0 || (current_only && !current_found_candidate))
-        g_application_command_line_printerr (cmdline, "No active transactions\n");
-    }
-  else if (g_strcmp0 (argv[1], "query") == 0)
-    {
-      gboolean         help  = FALSE;
-      g_autofree char *match = NULL;
-      g_auto (GStrv) fields  = NULL;
-      BzEntry *entry         = NULL;
-
-      GOptionEntry main_entries[] = {
-        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "match", 'm', 0, G_OPTION_ARG_STRING, &match, "The application name or ID to match against" },
-        { "field", 'f', 0, G_OPTION_ARG_STRING_ARRAY, &fields, "(Advanced) Add a field to print if the query is found" },
-        { NULL }
-      };
-
-      g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
-        {
-          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-          return EXIT_FAILURE;
-        }
-
-      if (help)
-        {
-          g_autofree char *help_text = NULL;
-
-          g_option_context_set_summary (context, "Options for command \"query\"");
-
-          help_text = g_option_context_get_help (context, TRUE, NULL);
-          g_application_command_line_printerr (cmdline, "%s\n", help_text);
-          return EXIT_SUCCESS;
-        }
-
-      if (match == NULL)
-        {
-          g_application_command_line_printerr (
-              cmdline,
-              "option --match is required for command \"query\"\n");
-          return EXIT_FAILURE;
-        }
-
-      if (fields != NULL)
-        {
-          g_autoptr (GTypeClass) class = NULL;
-
-          class = g_type_class_ref (BZ_TYPE_ENTRY);
-          for (char **field = fields; *field != NULL; field++)
+          if (help)
             {
-              GParamSpec *spec = NULL;
+              g_autofree char *help_text = NULL;
 
-              spec = g_object_class_find_property (G_OBJECT_CLASS (class), *field);
-              if (spec == NULL || spec->value_type != G_TYPE_STRING)
+              g_option_context_set_summary (context, "Options for command \"window\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          window = g_object_new (
+              BZ_TYPE_WINDOW,
+              "application", app,
+              "settings", self->settings,
+              "transaction-manager", self->transactions,
+              "content-provider", self->content_provider,
+              "remote-groups", self->remote_groups,
+              "busy", self->busy,
+              NULL);
+          g_object_bind_property (
+              self, "busy",
+              window, "busy",
+              G_BINDING_SYNC_CREATE);
+
+          gtk_window_present (window);
+
+          if (search)
+            bz_window_search (BZ_WINDOW (window), search_text);
+        }
+      else if (g_strcmp0 (argv[1], "status") == 0)
+        {
+          gboolean help                            = FALSE;
+          gboolean current_only                    = FALSE;
+          g_autoptr (GListModel) transaction_model = NULL;
+          guint    n_transactions                  = 0;
+          gboolean current_found_candidate         = FALSE;
+
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { "current-only", 0, 0, G_OPTION_ARG_NONE, &current_only, "Only output the currently active transaction" },
+            { NULL }
+          };
+
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+            {
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
+
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
+
+              g_option_context_set_summary (context, "Options for command \"status\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          g_object_get (self->transactions, "transactions", &transaction_model, NULL);
+          n_transactions = g_list_model_get_n_items (G_LIST_MODEL (transaction_model));
+
+          for (guint i = 0; i < n_transactions; i++)
+            {
+              g_autoptr (BzTransaction) transaction = NULL;
+              g_autofree char *name                 = NULL;
+              g_autoptr (GListModel) installs       = NULL;
+              g_autoptr (GListModel) updates        = NULL;
+              g_autoptr (GListModel) removals       = NULL;
+              gboolean         pending              = FALSE;
+              g_autofree char *status               = NULL;
+              double           progress             = 0.0;
+              gboolean         finished             = FALSE;
+              gboolean         success              = FALSE;
+              g_autofree char *error                = NULL;
+
+              transaction = g_list_model_get_item (transaction_model, i);
+              g_object_get (
+                  transaction,
+                  "name", &name,
+                  "installs", &installs,
+                  "updates", &updates,
+                  "removals", &removals,
+                  "pending", &pending,
+                  "status", &status,
+                  "progress", &progress,
+                  "finished", &finished,
+                  "success", &success,
+                  "error", &error,
+                  NULL);
+
+              if (current_only)
                 {
-                  g_application_command_line_printerr (
-                      cmdline,
-                      "\"%s\" is not a valid query field\n",
-                      *field);
-                  return EXIT_FAILURE;
+                  if (pending || finished)
+                    continue;
+                  current_found_candidate = TRUE;
                 }
-            }
-        }
-      else
-        {
-          g_autoptr (GStrvBuilder) builder = NULL;
 
-          builder = g_strv_builder_new ();
-          g_strv_builder_add_many (
-              builder,
-              "id",
-              "remote-repo-name",
-              "title",
-              "description",
-              NULL);
-          fields = g_strv_builder_end (builder);
-        }
-
-      entry = g_hash_table_lookup (self->unique_id_to_entry_hash, match);
-      if (entry != NULL)
-        {
-          g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (entry));
-          for (char **field = fields; *field != NULL; field++)
-            {
-              g_autofree char *string = NULL;
-
-              g_object_get (entry, *field, &string, NULL);
               g_application_command_line_print (
                   cmdline,
-                  "  %s = %s\n",
-                  *field,
-                  string != NULL ? string : "(empty)");
+                  "%s:\n"
+                  "  number of installs: %d\n"
+                  "  number of updates: %d\n"
+                  "  number of removals: %d\n"
+                  "  status: %s\n"
+                  "  progress: %.02f%%\n"
+                  "  finished: %s\n"
+                  "  success: %s\n"
+                  "  error: %s\n\n",
+                  name,
+                  g_list_model_get_n_items (installs),
+                  g_list_model_get_n_items (updates),
+                  g_list_model_get_n_items (removals),
+                  status != NULL ? status : "N/A",
+                  progress * 100.0,
+                  finished ? "true" : "false",
+                  success ? "true" : "false",
+                  error != NULL ? error : "N/A");
+
+              if (current_only)
+                break;
             }
-          g_application_command_line_print (cmdline, "\n");
+
+          if (n_transactions == 0 || (current_only && !current_found_candidate))
+            g_application_command_line_printerr (cmdline, "No active transactions\n");
         }
-      else
+      else if (g_strcmp0 (argv[1], "query") == 0)
         {
-          BzEntryGroup *group = NULL;
+          gboolean         help  = FALSE;
+          g_autofree char *match = NULL;
+          g_auto (GStrv) fields  = NULL;
+          BzEntry *entry         = NULL;
 
-          group = g_hash_table_lookup (self->id_to_entry_group_hash, match);
-          if (group != NULL)
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { "match", 'm', 0, G_OPTION_ARG_STRING, &match, "The application name or ID to match against" },
+            { "field", 'f', 0, G_OPTION_ARG_STRING_ARRAY, &fields, "(Advanced) Add a field to print if the query is found" },
+            { NULL }
+          };
+
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv, &local_error))
             {
-              GListModel *entries   = NULL;
-              guint       n_entries = 0;
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
 
-              entries   = bz_entry_group_get_model (group);
-              n_entries = g_list_model_get_n_items (entries);
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
 
-              for (guint i = 0; i < n_entries; i++)
+              g_option_context_set_summary (context, "Options for command \"query\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          if (match == NULL)
+            {
+              g_application_command_line_printerr (
+                  cmdline,
+                  "option --match is required for command \"query\"\n");
+              return EXIT_FAILURE;
+            }
+
+          if (fields != NULL)
+            {
+              g_autoptr (GTypeClass) class = NULL;
+
+              class = g_type_class_ref (BZ_TYPE_ENTRY);
+              for (char **field = fields; *field != NULL; field++)
                 {
-                  g_autoptr (BzEntry) variant = NULL;
+                  GParamSpec *spec = NULL;
 
-                  variant = g_list_model_get_item (entries, i);
-                  g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (variant));
-                  for (char **field = fields; *field != NULL; field++)
+                  spec = g_object_class_find_property (G_OBJECT_CLASS (class), *field);
+                  if (spec == NULL || spec->value_type != G_TYPE_STRING)
                     {
-                      g_autofree char *string = NULL;
-
-                      g_object_get (variant, *field, &string, NULL);
-                      g_application_command_line_print (
+                      g_application_command_line_printerr (
                           cmdline,
-                          "  %s = %s\n",
-                          *field,
-                          string != NULL ? string : "(empty)");
+                          "\"%s\" is not a valid query field\n",
+                          *field);
+                      return EXIT_FAILURE;
                     }
-                  g_application_command_line_print (cmdline, "\n");
                 }
             }
           else
             {
-              g_application_command_line_printerr (
-                  cmdline, "\"%s\": no matches found\n", match);
-              return EXIT_FAILURE;
+              g_autoptr (GStrvBuilder) builder = NULL;
+
+              builder = g_strv_builder_new ();
+              g_strv_builder_add_many (
+                  builder,
+                  "id",
+                  "remote-repo-name",
+                  "title",
+                  "description",
+                  NULL);
+              fields = g_strv_builder_end (builder);
+            }
+
+          entry = g_hash_table_lookup (self->unique_id_to_entry_hash, match);
+          if (entry != NULL)
+            {
+              g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (entry));
+              for (char **field = fields; *field != NULL; field++)
+                {
+                  g_autofree char *string = NULL;
+
+                  g_object_get (entry, *field, &string, NULL);
+                  g_application_command_line_print (
+                      cmdline,
+                      "  %s = %s\n",
+                      *field,
+                      string != NULL ? string : "(empty)");
+                }
+              g_application_command_line_print (cmdline, "\n");
+            }
+          else
+            {
+              BzEntryGroup *group = NULL;
+
+              group = g_hash_table_lookup (self->id_to_entry_group_hash, match);
+              if (group != NULL)
+                {
+                  GListModel *entries   = NULL;
+                  guint       n_entries = 0;
+
+                  entries   = bz_entry_group_get_model (group);
+                  n_entries = g_list_model_get_n_items (entries);
+
+                  for (guint i = 0; i < n_entries; i++)
+                    {
+                      g_autoptr (BzEntry) variant = NULL;
+
+                      variant = g_list_model_get_item (entries, i);
+                      g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (variant));
+                      for (char **field = fields; *field != NULL; field++)
+                        {
+                          g_autofree char *string = NULL;
+
+                          g_object_get (variant, *field, &string, NULL);
+                          g_application_command_line_print (
+                              cmdline,
+                              "  %s = %s\n",
+                              *field,
+                              string != NULL ? string : "(empty)");
+                        }
+                      g_application_command_line_print (cmdline, "\n");
+                    }
+                }
+              else
+                {
+                  g_application_command_line_printerr (
+                      cmdline, "\"%s\": no matches found\n", match);
+                  return EXIT_FAILURE;
+                }
             }
         }
-    }
-  else if (g_strcmp0 (argv[1], "transact") == 0)
-    {
-      gboolean help                    = FALSE;
-      g_auto (GStrv) installs_strv     = NULL;
-      g_auto (GStrv) updates_strv      = NULL;
-      g_auto (GStrv) removals_strv     = NULL;
-      g_autoptr (GPtrArray) installs   = NULL;
-      g_autoptr (GPtrArray) updates    = NULL;
-      g_autoptr (GPtrArray) removals   = NULL;
-      g_autoptr (CliTransactData) data = NULL;
-      g_autoptr (DexFuture) future     = NULL;
-
-      GOptionEntry main_entries[] = {
-        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-        { "install", 'i', 0, G_OPTION_ARG_STRING_ARRAY, &installs_strv, "Add an application to install" },
-        { "update", 'u', 0, G_OPTION_ARG_STRING_ARRAY, &updates_strv, "Add an application to update" },
-        { "remove", 'r', 0, G_OPTION_ARG_STRING_ARRAY, &removals_strv, "Add an application to remove" },
-        { NULL }
-      };
-
-      g_option_context_add_main_entries (context, main_entries, NULL);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+      else if (g_strcmp0 (argv[1], "transact") == 0)
         {
-          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-          return EXIT_FAILURE;
-        }
+          gboolean help                    = FALSE;
+          g_auto (GStrv) installs_strv     = NULL;
+          g_auto (GStrv) updates_strv      = NULL;
+          g_auto (GStrv) removals_strv     = NULL;
+          g_autoptr (GPtrArray) installs   = NULL;
+          g_autoptr (GPtrArray) updates    = NULL;
+          g_autoptr (GPtrArray) removals   = NULL;
+          g_autoptr (CliTransactData) data = NULL;
+          g_autoptr (DexFuture) future     = NULL;
 
-      if (help)
-        {
-          g_autofree char *help_text = NULL;
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { "install", 'i', 0, G_OPTION_ARG_STRING_ARRAY, &installs_strv, "Add an application to install" },
+            { "update", 'u', 0, G_OPTION_ARG_STRING_ARRAY, &updates_strv, "Add an application to update" },
+            { "remove", 'r', 0, G_OPTION_ARG_STRING_ARRAY, &removals_strv, "Add an application to remove" },
+            { NULL }
+          };
 
-          g_option_context_set_summary (context, "Options for command \"transact\"");
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+            {
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
 
-          help_text = g_option_context_get_help (context, TRUE, NULL);
-          g_application_command_line_printerr (cmdline, "%s\n", help_text);
-          return EXIT_SUCCESS;
-        }
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
 
-      if (installs_strv == NULL && updates_strv == NULL && removals_strv == NULL)
-        {
-          g_application_command_line_printerr (cmdline, "Command \"transact\" requires options\n");
-          return EXIT_FAILURE;
-        }
+              g_option_context_set_summary (context, "Options for command \"transact\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          if (installs_strv == NULL && updates_strv == NULL && removals_strv == NULL)
+            {
+              g_application_command_line_printerr (cmdline, "Command \"transact\" requires options\n");
+              return EXIT_FAILURE;
+            }
 
 #define GATHER_REQUESTS(which)                                                                    \
   G_STMT_START                                                                                    \
@@ -738,42 +744,43 @@ bz_application_command_line (GApplication            *app,
   }                                                                                               \
   G_STMT_END
 
-      GATHER_REQUESTS (installs);
-      GATHER_REQUESTS (updates);
-      GATHER_REQUESTS (removals);
+          GATHER_REQUESTS (installs);
+          GATHER_REQUESTS (updates);
+          GATHER_REQUESTS (removals);
 
 #undef GATHER_REQUESTS
 
-      data           = cli_transact_data_new ();
-      data->cmdline  = g_object_ref (cmdline);
-      data->backend  = g_object_ref (BZ_BACKEND (self->flatpak));
-      data->installs = g_steal_pointer (&installs);
-      data->updates  = g_steal_pointer (&updates);
-      data->removals = g_steal_pointer (&removals);
+          data           = cli_transact_data_new ();
+          data->cmdline  = g_object_ref (cmdline);
+          data->backend  = g_object_ref (BZ_BACKEND (self->flatpak));
+          data->installs = g_steal_pointer (&installs);
+          data->updates  = g_steal_pointer (&updates);
+          data->removals = g_steal_pointer (&removals);
 
-      future = dex_scheduler_spawn (
-          dex_thread_pool_scheduler_get_default (),
-          0, (DexFiberFunc) cli_transact_fiber,
-          cli_transact_data_ref (data),
-          cli_transact_data_unref);
-      future = dex_future_then (
-          future, (DexFutureCallback) cli_transact_then,
-          g_object_ref (self), g_object_unref);
-      dex_future_disown (g_steal_pointer (&future));
-    }
-  else if (g_strcmp0 (argv[1], "quit") == 0)
-    {
-      g_application_quit (G_APPLICATION (self));
-      self->running = FALSE;
-    }
-  else
-    {
-      g_application_command_line_printerr (
-          cmdline,
-          "Unrecognized command \"%s\"\n"
-          "Invoke \"bazaar --help\" to for available commands.\n",
-          argv[1]);
-      return EXIT_FAILURE;
+          future = dex_scheduler_spawn (
+              dex_thread_pool_scheduler_get_default (),
+              0, (DexFiberFunc) cli_transact_fiber,
+              cli_transact_data_ref (data),
+              cli_transact_data_unref);
+          future = dex_future_then (
+              future, (DexFutureCallback) cli_transact_then,
+              g_object_ref (self), g_object_unref);
+          dex_future_disown (g_steal_pointer (&future));
+        }
+      else if (g_strcmp0 (argv[1], "quit") == 0)
+        {
+          g_application_quit (G_APPLICATION (self));
+          self->running = FALSE;
+        }
+      else
+        {
+          g_application_command_line_printerr (
+              cmdline,
+              "Unrecognized command \"%s\"\n"
+              "Invoke \"bazaar --help\" to for available commands.\n",
+              argv[1]);
+          return EXIT_FAILURE;
+        }
     }
 
   return EXIT_SUCCESS;
