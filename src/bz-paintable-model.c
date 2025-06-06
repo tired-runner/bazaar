@@ -22,8 +22,8 @@
 
 #include <glycin-gtk4.h>
 
+#include "bz-async-texture.h"
 #include "bz-paintable-model.h"
-#include "bz-util.h"
 
 struct _BzPaintableModel
 {
@@ -31,18 +31,12 @@ struct _BzPaintableModel
 
   DexScheduler *scheduler;
 
-  GListModel *model;
-  GHashTable *tracking;
+  GListModel      *input;
+  GtkMapListModel *output;
+  GHashTable      *cache;
 };
 
 static void list_model_iface_init (GListModelInterface *iface);
-
-static void
-items_changed (GListModel       *model,
-               guint             position,
-               guint             removed,
-               guint             added,
-               BzPaintableModel *self);
 
 G_DEFINE_TYPE_WITH_CODE (
     BzPaintableModel,
@@ -60,33 +54,26 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
-BZ_DEFINE_DATA (
-    load,
-    Load,
-    {
-      BzPaintableModel *self;
-      GFile            *file;
-    },
-    BZ_RELEASE_DATA (self, g_object_unref);
-    BZ_RELEASE_DATA (file, g_object_unref));
-static DexFuture *
-load_fiber (LoadData *data);
-static DexFuture *
-load_finally (DexFuture *future,
-              LoadData  *data);
+static void
+items_changed (GListModel       *model,
+               guint             position,
+               guint             removed,
+               guint             added,
+               BzPaintableModel *self);
+
+static gpointer
+map_files_to_textures (GFile            *file,
+                       BzPaintableModel *self);
 
 static void
 bz_paintable_model_dispose (GObject *object)
 {
   BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
-  if (self->model != NULL)
-    g_signal_handlers_disconnect_by_func (
-        self->model, items_changed, self);
-
-  g_clear_pointer (&self->scheduler, dex_unref);
-  g_clear_object (&self->model);
-  g_clear_pointer (&self->tracking, g_hash_table_unref);
+  dex_clear (&self->scheduler);
+  g_clear_object (&self->input);
+  g_clear_object (&self->output);
+  g_clear_pointer (&self->cache, g_hash_table_unref);
 
   G_OBJECT_CLASS (bz_paintable_model_parent_class)->dispose (object);
 }
@@ -149,7 +136,14 @@ bz_paintable_model_class_init (BzPaintableModelClass *klass)
 static void
 bz_paintable_model_init (BzPaintableModel *self)
 {
-  self->tracking = g_hash_table_new_full (
+  self->output = gtk_map_list_model_new (
+      NULL, (GtkMapListModelMapFunc) map_files_to_textures,
+      self, NULL);
+  g_signal_connect (
+      self->output, "items-changed",
+      G_CALLBACK (items_changed), self);
+
+  self->cache = g_hash_table_new_full (
       g_direct_hash, g_direct_equal,
       g_object_unref, g_object_unref);
 }
@@ -157,15 +151,14 @@ bz_paintable_model_init (BzPaintableModel *self)
 static GType
 list_model_get_item_type (GListModel *list)
 {
-  return GDK_TYPE_PAINTABLE;
+  return BZ_TYPE_ASYNC_TEXTURE;
 }
 
 static guint
 list_model_get_n_items (GListModel *list)
 {
   BzPaintableModel *self = BZ_PAINTABLE_MODEL (list);
-
-  return g_list_model_get_n_items (G_LIST_MODEL (self->model));
+  return g_list_model_get_n_items (G_LIST_MODEL (self->output));
 }
 
 static gpointer
@@ -173,40 +166,7 @@ list_model_get_item (GListModel *list,
                      guint       position)
 {
   BzPaintableModel *self = BZ_PAINTABLE_MODEL (list);
-  g_autoptr (GFile) file = NULL;
-  GdkPaintable *lookup   = NULL;
-
-  file   = g_list_model_get_item (G_LIST_MODEL (self->model), position);
-  lookup = g_hash_table_lookup (self->tracking, file);
-
-  if (lookup != NULL)
-    return g_object_ref (lookup);
-  else
-    {
-      GdkPaintable *temp        = NULL;
-      g_autoptr (LoadData) data = NULL;
-      DexFuture *future         = NULL;
-
-      temp = gdk_paintable_new_empty (512, 512);
-      g_hash_table_replace (self->tracking, g_object_ref (file), g_object_ref (temp));
-
-      data       = load_data_new ();
-      data->self = g_object_ref (self);
-      data->file = g_list_model_get_item (G_LIST_MODEL (self->model), position);
-
-      future = dex_scheduler_spawn (
-          self->scheduler, 0, (DexFiberFunc) load_fiber,
-          load_data_ref (data), load_data_unref);
-      future = dex_future_finally (
-          future,
-          (DexFutureCallback) load_finally,
-          load_data_ref (data), load_data_unref);
-
-      /* TODO: make cancellable */
-      dex_future_disown (future);
-
-      return temp;
-    }
+  return g_list_model_get_item (G_LIST_MODEL (self->output), position);
 }
 
 static void
@@ -238,35 +198,15 @@ void
 bz_paintable_model_set_model (BzPaintableModel *self,
                               GListModel       *model)
 {
-  guint old_length = 0;
-
   g_return_if_fail (BZ_IS_PAINTABLE_MODEL (self));
   g_return_if_fail (model == NULL ||
                     (G_IS_LIST_MODEL (model) &&
                      g_list_model_get_item_type (model) == G_TYPE_FILE));
 
-  if (self->model != NULL)
-    {
-      old_length = g_list_model_get_n_items (self->model);
-      g_signal_handlers_disconnect_by_func (
-          self->model, items_changed, self);
-    }
-  g_clear_object (&self->model);
-
+  g_clear_object (&self->input);
   if (model != NULL)
-    {
-      self->model = g_object_ref (model);
-      g_signal_connect (
-          model, "items-changed",
-          G_CALLBACK (items_changed), self);
-
-      g_list_model_items_changed (
-          G_LIST_MODEL (self), 0, old_length,
-          g_list_model_get_n_items (model));
-    }
-  else
-    g_list_model_items_changed (
-        G_LIST_MODEL (self), 0, old_length, 0);
+    self->input = g_object_ref (model);
+  gtk_map_list_model_set_model (self->output, self->input);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_MODEL]);
 }
@@ -275,8 +215,7 @@ GListModel *
 bz_paintable_model_get_model (BzPaintableModel *self)
 {
   g_return_val_if_fail (BZ_IS_PAINTABLE_MODEL (self), NULL);
-
-  return self->model;
+  return self->input;
 }
 
 static void
@@ -290,65 +229,19 @@ items_changed (GListModel       *model,
       G_LIST_MODEL (self), position, removed, added);
 }
 
-static DexFuture *
-load_fiber (LoadData *data)
+static gpointer
+map_files_to_textures (GFile            *file,
+                       BzPaintableModel *self)
 {
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GlyLoader) loader   = NULL;
-  g_autoptr (GlyImage) image     = NULL;
-  g_autoptr (GlyFrame) frame     = NULL;
-  g_autoptr (GdkTexture) texture = NULL;
+  BzAsyncTexture *result = NULL;
 
-  loader = gly_loader_new (data->file);
-  image  = gly_loader_load (loader, &local_error);
-  if (image == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  frame = gly_image_next_frame (image, &local_error);
-  if (frame == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  texture = gly_gtk_frame_get_texture (frame);
-  return dex_future_new_for_object (texture);
-}
-
-static DexFuture *
-load_finally (DexFuture *future,
-              LoadData  *data)
-{
-  BzPaintableModel *self  = data->self;
-  const GValue     *value = NULL;
-
-  value = dex_future_get_value (future, NULL);
-
-  if (value != NULL)
+  result = g_hash_table_lookup (self->cache, file);
+  if (result == NULL)
     {
-      guint         n_files   = 0;
-      guint         position  = 0;
-      GdkPaintable *paintable = NULL;
-
-      n_files = g_list_model_get_n_items (G_LIST_MODEL (self->model));
-      for (position = 0; position < n_files; position++)
-        {
-          g_autoptr (GFile) file = NULL;
-
-          file = g_list_model_get_item (self->model, position);
-          if (file == data->file)
-            break;
-        }
-
-      if (position < n_files)
-        {
-          paintable = g_value_get_object (value);
-          g_hash_table_replace (
-              self->tracking,
-              g_object_ref (data->file),
-              g_object_ref (paintable));
-
-          g_list_model_items_changed (
-              G_LIST_MODEL (self), position, 1, 1);
-        }
+      result = bz_async_texture_new_lazy (file, self->scheduler);
+      g_hash_table_replace (self->cache, g_object_ref (file), result);
     }
 
-  return dex_future_new_true ();
+  g_object_unref (file);
+  return g_object_ref (result);
 }

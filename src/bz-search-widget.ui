@@ -846,17 +846,28 @@
 <interface>
   <template class="GtkListItem">
     <property name="child">
-      <object class="GtkPicture">
-        <style>
-          <class name="screenshot"/>
-        </style>
+      <object class="GtkRevealer">
         <property name="margin-top">10</property>
         <property name="margin-bottom">10</property>
         <property name="height-request">256</property>
-        <property name="content-fit">cover</property>
-        <binding name="paintable">
-          <lookup name="item">GtkListItem</lookup>
+        <property name="transition-type">crossfade</property>
+        <property name="transition-duration">500</property>
+        <binding name="reveal-child">
+          <lookup name="loaded" type="BzAsyncTexture">
+            <lookup name="item">GtkListItem</lookup>
+          </lookup>
         </binding>
+        <property name="child">
+          <object class="GtkPicture">
+            <style>
+              <class name="screenshot"/>
+            </style>
+            <property name="content-fit">cover</property>
+            <binding name="paintable">
+              <lookup name="item">GtkListItem</lookup>
+            </binding>
+          </object>
+        </property>
       </object>
     </property>
   </template>

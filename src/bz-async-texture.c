@@ -33,6 +33,9 @@ struct _BzAsyncTexture
   GFile   *source;
   gboolean loaded;
 
+  gboolean      lazy;
+  DexScheduler *scheduler;
+
   DexFuture    *task;
   GdkPaintable *paintable;
 };
@@ -59,17 +62,16 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 BZ_DEFINE_DATA (
     load,
     Load,
-    {
-      BzAsyncTexture *self;
-      GFile          *file;
-    },
-    BZ_RELEASE_DATA (self, g_object_unref);
+    { GFile *file; },
     BZ_RELEASE_DATA (file, g_object_unref));
 static DexFuture *
 load_fiber (LoadData *data);
 static DexFuture *
-load_finally (DexFuture *future,
-              LoadData  *data);
+load_finally (DexFuture      *future,
+              BzAsyncTexture *self);
+
+static void
+load (BzAsyncTexture *self);
 
 static void
 bz_async_texture_dispose (GObject *object)
@@ -77,6 +79,7 @@ bz_async_texture_dispose (GObject *object)
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (object);
 
   g_clear_object (&self->source);
+  dex_clear (&self->scheduler);
   dex_clear (&self->task);
   g_clear_object (&self->paintable);
 
@@ -153,48 +156,62 @@ bz_async_texture_init (BzAsyncTexture *self)
   self->paintable = gdk_paintable_new_empty (0, 0);
 }
 
-void
+static void
 paintable_snapshot (GdkPaintable *paintable,
                     GdkSnapshot  *snapshot,
                     double        width,
                     double        height)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+
+  if (self->lazy && !self->loaded && self->task == NULL)
+    load (self);
+
   return gdk_paintable_snapshot (self->paintable, snapshot, width, height);
 }
 
-GdkPaintable *
+static GdkPaintable *
 paintable_get_current_image (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
   return gdk_paintable_get_current_image (self->paintable);
 }
 
-GdkPaintableFlags
+static GdkPaintableFlags
 paintable_get_flags (GdkPaintable *paintable)
 {
-  BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+  // BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
   return 0;
 }
 
-int
+static int
 paintable_get_intrinsic_width (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+
+  if (self->lazy && !self->loaded && self->task == NULL)
+    load (self);
+
   return gdk_paintable_get_intrinsic_width (self->paintable);
 }
 
-int
+static int
 paintable_get_intrinsic_height (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+  if (self->lazy && !self->loaded && self->task == NULL)
+    load (self);
+
   return gdk_paintable_get_intrinsic_height (self->paintable);
 }
 
-double
+static double
 paintable_get_intrinsic_aspect_ratio (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+  if (self->lazy && !self->loaded && self->task == NULL)
+    load (self);
+
   return gdk_paintable_get_intrinsic_aspect_ratio (self->paintable);
 }
 
@@ -212,30 +229,72 @@ paintable_iface_init (GdkPaintableInterface *iface)
 BzAsyncTexture *
 bz_async_texture_new (GFile *source)
 {
-  BzAsyncTexture *self         = NULL;
-  g_autoptr (LoadData) data    = NULL;
-  g_autoptr (DexFuture) future = NULL;
+  BzAsyncTexture *self = NULL;
 
   g_return_val_if_fail (G_IS_FILE (source), NULL);
 
-  self         = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
-  self->source = g_object_ref (source);
+  self            = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
+  self->source    = g_object_ref (source);
+  self->lazy      = FALSE;
+  self->scheduler = NULL;
+
+  load (self);
+
+  return self;
+}
+
+BzAsyncTexture *
+bz_async_texture_new_lazy (GFile        *source,
+                           DexScheduler *scheduler)
+{
+  BzAsyncTexture *self = NULL;
+
+  g_return_val_if_fail (G_IS_FILE (source), NULL);
+  g_return_val_if_fail (scheduler == NULL || DEX_IS_SCHEDULER (scheduler), NULL);
+
+  self            = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
+  self->source    = g_object_ref (source);
+  self->lazy      = TRUE;
+  self->scheduler = scheduler != NULL ? dex_ref (scheduler) : NULL;
+
+  return self;
+}
+
+gboolean
+bz_async_texture_get_loaded (BzAsyncTexture *self)
+{
+  g_return_val_if_fail (BZ_IS_ASYNC_TEXTURE (self), FALSE);
+  return self->loaded;
+}
+
+GdkTexture *
+bz_async_texture_get_texture (BzAsyncTexture *self)
+{
+  g_return_val_if_fail (BZ_IS_ASYNC_TEXTURE (self), NULL);
+  g_return_val_if_fail (self->loaded, NULL);
+  return GDK_TEXTURE (self->paintable);
+}
+
+static void
+load (BzAsyncTexture *self)
+{
+  g_autoptr (LoadData) data    = NULL;
+  g_autoptr (DexFuture) future = NULL;
 
   data       = load_data_new ();
-  data->self = g_object_ref (self);
-  data->file = g_object_ref (source);
+  data->file = g_object_ref (self->source);
 
   future = dex_scheduler_spawn (
-      dex_thread_pool_scheduler_get_default (),
+      self->scheduler != NULL
+          ? self->scheduler
+          : dex_thread_pool_scheduler_get_default (),
       0, (DexFiberFunc) load_fiber,
       load_data_ref (data), load_data_unref);
   future = dex_future_finally (
       future,
       (DexFutureCallback) load_finally,
-      load_data_ref (data), load_data_unref);
+      g_object_ref (self), g_object_unref);
   self->task = g_steal_pointer (&future);
-
-  return self;
 }
 
 static DexFuture *
@@ -261,24 +320,24 @@ load_fiber (LoadData *data)
 }
 
 static DexFuture *
-load_finally (DexFuture *future,
-              LoadData  *data)
+load_finally (DexFuture      *future,
+              BzAsyncTexture *self)
 {
-  BzAsyncTexture *self  = data->self;
-  const GValue   *value = NULL;
+  const GValue *value = NULL;
 
   value = dex_future_get_value (future, NULL);
-
   if (value != NULL)
     {
       g_clear_object (&self->paintable);
       self->paintable = g_value_dup_object (value);
-      gdk_paintable_invalidate_contents (GDK_PAINTABLE (self));
 
       self->loaded = TRUE;
+      gdk_paintable_invalidate_contents (GDK_PAINTABLE (self));
+
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LOADED]);
     }
 
   dex_clear (&self->task);
+
   return NULL;
 }

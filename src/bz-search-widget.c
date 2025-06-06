@@ -22,6 +22,7 @@
 
 #include <libdex.h>
 
+#include "bz-async-texture.h"
 #include "bz-search-widget.h"
 #include "bz-share-dialog.h"
 #include "bz-util.h"
@@ -380,6 +381,8 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
           G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
+
+  g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-search-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, sheet);
@@ -905,11 +908,17 @@ screenshot_activate (GtkListView    *list_view,
 
   for (guint i = 0; i < n_items; i++)
     {
-      g_autoptr (GdkPaintable) paintable;
+      g_autoptr (BzAsyncTexture) async_tex;
 
-      paintable = g_list_model_get_item (G_LIST_MODEL (model), i);
-      if (GDK_IS_TEXTURE (paintable))
-        g_ptr_array_add (data->textures, g_steal_pointer (&paintable));
+      async_tex = g_list_model_get_item (G_LIST_MODEL (model), i);
+      if (bz_async_texture_get_loaded (async_tex))
+        {
+          GdkTexture *texture = NULL;
+
+          texture = bz_async_texture_get_texture (async_tex);
+          if (texture != NULL)
+            g_ptr_array_add (data->textures, g_object_ref (texture));
+        }
     }
   if (data->textures->len == 0)
     return;

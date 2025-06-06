@@ -21,6 +21,7 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include <libdex.h>
 
 G_BEGIN_DECLS
 
@@ -29,5 +30,15 @@ G_DECLARE_FINAL_TYPE (BzAsyncTexture, bz_async_texture, BZ, ASYNC_TEXTURE, GObje
 
 BzAsyncTexture *
 bz_async_texture_new (GFile *source);
+
+BzAsyncTexture *
+bz_async_texture_new_lazy (GFile        *source,
+                           DexScheduler *scheduler);
+
+gboolean
+bz_async_texture_get_loaded (BzAsyncTexture *self);
+
+GdkTexture *
+bz_async_texture_get_texture (BzAsyncTexture *self);
 
 G_END_DECLS
