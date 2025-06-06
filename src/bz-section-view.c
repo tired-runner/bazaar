@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include "bz-async-texture.h"
 #include "bz-entry-group.h"
 #include "bz-section-view.h"
 
@@ -163,7 +164,7 @@ bz_section_view_class_init (BzSectionViewClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  g_type_ensure (BZ_TYPE_SECTION_VIEW);
+  g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-section-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, entry_scroll);
