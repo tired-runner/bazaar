@@ -272,6 +272,7 @@
                     <style>
                       <class name="title-2"/>
                     </style>
+                    <property name="xalign">0</property>
                     <property name="ellipsize">end</property>
                     <binding name="label">
                       <lookup name="title" type="BzEntry">
@@ -288,6 +289,7 @@
                       <class name="heading"/>
                       <class name="dimmed"/>
                     </style>
+                    <property name="xalign">0</property>
                     <property name="ellipsize">end</property>
                     <binding name="label">
                       <lookup name="description" type="BzEntry">
