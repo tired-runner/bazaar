@@ -40,27 +40,30 @@
                         <property name="name">content</property>
                         <property name="title" translatable="yes">Content</property>
                         <property name="child">
-                          <object class="GtkScrolledWindow" id="transactions">
-                            <property name="width-request">500</property>
-                            <property name="hscrollbar-policy">never</property>
-                            <property name="propagate-natural-height">TRUE</property>
-                            <property name="child">
-                              <object class="GtkListView" id="list_view">
-                                <style>
-                                  <class name="navigation-sidebar"/>
-                                </style>
-                                <property name="model">
-                                  <object class="GtkNoSelection" id="no_selection">
-                                    <binding name="model">
-                                      <lookup name="transactions" type="BzTransactionManager">
-                                        <lookup name="transaction-manager">BzWindow</lookup>
-                                      </lookup>
-                                    </binding>
-                                  </object>
-                                </property>
-                                <property name="factory">
-                                  <object class="GtkBuilderListItemFactory">
-                                    <property name="bytes"><![CDATA[
+                          <object class="AdwToolbarView">
+                            <property name="bottom-bar-style">flat</property>
+                            <property name="content">
+                              <object class="GtkScrolledWindow" id="transactions">
+                                <property name="width-request">500</property>
+                                <property name="hscrollbar-policy">never</property>
+                                <property name="propagate-natural-height">TRUE</property>
+                                <property name="child">
+                                  <object class="GtkListView" id="list_view">
+                                    <style>
+                                      <class name="navigation-sidebar"/>
+                                    </style>
+                                    <property name="model">
+                                      <object class="GtkNoSelection" id="no_selection">
+                                        <binding name="model">
+                                          <lookup name="transactions" type="BzTransactionManager">
+                                            <lookup name="transaction-manager">BzWindow</lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </property>
+                                    <property name="factory">
+                                      <object class="GtkBuilderListItemFactory">
+                                        <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -80,11 +83,27 @@
   </template>
 </interface>
 ]]>
+                                        </property>
+                                      </object>
                                     </property>
                                   </object>
                                 </property>
                               </object>
                             </property>
+                            <child type="bottom">
+                              <object class="AdwHeaderBar">
+                                <property name="show-start-title-buttons">FALSE</property>
+                                <property name="show-end-title-buttons">FALSE</property>
+                                <property name="show-title">FALSE</property>
+                                <child type="end">
+                                  <object class="GtkButton" id="transactions_clear">
+                                    <property name="has-tooltip">TRUE</property>
+                                    <property name="tooltip-text" translatable="yes">Clear all finished transactions</property>
+                                    <property name="icon-name">edit-clear-all</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
                           </object>
                         </property>
                       </object>

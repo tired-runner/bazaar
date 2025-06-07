@@ -45,4 +45,7 @@ void
 bz_transaction_manager_add (BzTransactionManager *self,
                             BzTransaction        *transaction);
 
+void
+bz_transaction_manager_clear_finished (BzTransactionManager *self);
+
 G_END_DECLS

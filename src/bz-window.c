@@ -54,6 +54,7 @@ struct _BzWindow
   GtkButton           *refresh;
   GtkButton           *search;
   GtkButton           *update_button;
+  GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
 };
 
@@ -102,6 +103,10 @@ search_clicked (GtkButton *button,
 static void
 update_clicked (GtkButton *button,
                 BzWindow  *self);
+
+static void
+transactions_clear_clicked (GtkButton *button,
+                            BzWindow  *self);
 
 static void
 search_selected_changed (BzSearchWidget *search,
@@ -366,6 +371,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
 }
 
@@ -379,6 +385,7 @@ bz_window_init (BzWindow *self)
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
   g_signal_connect (self->update_button, "clicked", G_CALLBACK (update_clicked), self);
+  g_signal_connect (self->transactions_clear, "clicked", G_CALLBACK (transactions_clear_clicked), self);
 
   // motion_controller = gtk_event_controller_motion_new ();
   // gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
@@ -443,6 +450,14 @@ update_clicked (GtkButton *button,
 {
   /* if the button is clickable, there have to be updates */
   bz_window_push_update_dialog (self, self->updates);
+}
+
+static void
+transactions_clear_clicked (GtkButton *button,
+                            BzWindow  *self)
+{
+  /* if the button is clickable, there has to be a transaction manager */
+  bz_transaction_manager_clear_finished (self->transaction_manager);
 }
 
 static void

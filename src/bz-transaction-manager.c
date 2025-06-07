@@ -309,6 +309,38 @@ bz_transaction_manager_add (BzTransactionManager *self,
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
 }
 
+void
+bz_transaction_manager_clear_finished (BzTransactionManager *self)
+{
+  guint    n_items   = 0;
+  gboolean had_items = FALSE;
+
+  g_return_if_fail (BZ_IS_TRANSACTION_MANAGER (self));
+
+  n_items   = g_list_model_get_n_items (G_LIST_MODEL (self->transactions));
+  had_items = n_items > 0;
+
+  for (guint i = 0; i < n_items;)
+    {
+      g_autoptr (BzTransaction) transaction = NULL;
+      gboolean finished                     = FALSE;
+
+      transaction = g_list_model_get_item (G_LIST_MODEL (self->transactions), i);
+      g_object_get (transaction, "finished", &finished, NULL);
+
+      if (finished)
+        {
+          g_list_store_remove (self->transactions, i);
+          n_items--;
+        }
+      else
+        i++;
+    }
+
+  if (had_items && n_items == 0)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
+}
+
 static void
 transaction_progress (BzEntry            *entry,
                       const char         *status,
