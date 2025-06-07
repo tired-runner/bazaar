@@ -154,6 +154,8 @@
           <object class="AdwHeaderBar">
             <child type="start">
               <object class="GtkToggleButton" id="toggle_transactions">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">Toggle transaction sidebar</property>
                 <property name="icon-name">sidebar-show-symbolic</property>
                 <property name="active"
                           bind-source="split_view"
@@ -163,6 +165,8 @@
             </child>
             <child type="start">
               <object class="GtkButton" id="refresh">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">Refresh</property>
                 <property name="icon-name">view-refresh-symbolic</property>
                 <binding name="sensitive">
                   <closure function="invert_boolean" type="gboolean">
@@ -173,6 +177,8 @@
             </child>
             <child type="start">
               <object class="GtkButton" id="search">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">Search</property>
                 <property name="icon-name">system-search-symbolic</property>
               </object>
             </child>
@@ -181,6 +187,8 @@
                 <style>
                   <class name="suggested-action"/>
                 </style>
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">Update</property>
                 <property name="icon-name">software-update-available-symbolic</property>
               </object>
             </child>
@@ -188,6 +196,7 @@
               <object class="GtkMenuButton">
                 <property name="primary">True</property>
                 <property name="icon-name">open-menu-symbolic</property>
+                <property name="has-tooltip">TRUE</property>
                 <property name="tooltip-text" translatable="yes">Main Menu</property>
                 <property name="menu-model">primary_menu</property>
               </object>
@@ -198,6 +207,8 @@
                 <property name="transition-duration">500</property>
                 <property name="child">
                   <object class="BzProgressBar">
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Current transaction progress</property>
                     <property name="valign">center</property>
                     <binding name="fraction">
                       <lookup name="current-progress">
