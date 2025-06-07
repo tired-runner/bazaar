@@ -247,6 +247,7 @@ bz_window_set_property (GObject      *object,
     case PROP_CONTENT_PROVIDER:
       g_clear_object (&self->content_provider);
       self->content_provider = g_value_dup_object (value);
+      break;
     case PROP_REMOTE_GROUPS:
       g_clear_object (&self->remote_groups);
       self->remote_groups = g_value_dup_object (value);
