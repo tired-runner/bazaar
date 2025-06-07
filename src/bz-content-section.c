@@ -30,7 +30,11 @@ typedef struct
   char         *title;
   char         *subtitle;
   char         *description;
+  GtkAlign      banner_text_halign;
+  GtkAlign      banner_text_valign;
+  double        banner_text_label_xalign;
   GdkPaintable *banner;
+  int           banner_height;
   GtkContentFit banner_fit;
   GListModel   *groups;
   int           rows;
@@ -47,7 +51,11 @@ enum
   PROP_TITLE,
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
+  PROP_BANNER_TEXT_HALIGN,
+  PROP_BANNER_TEXT_VALIGN,
+  PROP_BANNER_TEXT_LABEL_XALIGN,
   PROP_BANNER,
+  PROP_BANNER_HEIGHT,
   PROP_BANNER_FIT,
   PROP_APPIDS,
   PROP_ROWS,
@@ -99,8 +107,20 @@ bz_content_section_get_property (GObject    *object,
     case PROP_DESCRIPTION:
       g_value_set_string (value, priv->description);
       break;
+    case PROP_BANNER_TEXT_HALIGN:
+      g_value_set_enum (value, priv->banner_text_halign);
+      break;
+    case PROP_BANNER_TEXT_VALIGN:
+      g_value_set_enum (value, priv->banner_text_valign);
+      break;
+    case PROP_BANNER_TEXT_LABEL_XALIGN:
+      g_value_set_double (value, priv->banner_text_label_xalign);
+      break;
     case PROP_BANNER:
       g_value_set_object (value, priv->banner);
+      break;
+    case PROP_BANNER_HEIGHT:
+      g_value_set_int (value, priv->banner_height);
       break;
     case PROP_BANNER_FIT:
       g_value_set_enum (value, priv->banner_fit);
@@ -147,9 +167,21 @@ bz_content_section_set_property (GObject      *object,
       g_clear_pointer (&priv->description, g_free);
       priv->description = g_value_dup_string (value);
       break;
+    case PROP_BANNER_TEXT_HALIGN:
+      priv->banner_text_halign = g_value_get_enum (value);
+      break;
+    case PROP_BANNER_TEXT_VALIGN:
+      priv->banner_text_valign = g_value_get_enum (value);
+      break;
+    case PROP_BANNER_TEXT_LABEL_XALIGN:
+      priv->banner_text_label_xalign = g_value_get_double (value);
+      break;
     case PROP_BANNER:
       g_clear_object (&priv->banner);
       priv->banner = g_value_dup_object (value);
+      break;
+    case PROP_BANNER_HEIGHT:
+      priv->banner_height = g_value_get_int (value);
       break;
     case PROP_BANNER_FIT:
       priv->banner_fit = g_value_get_enum (value);
@@ -206,11 +238,41 @@ bz_content_section_class_init (BzContentSectionClass *klass)
           NULL, NULL, NULL,
           G_PARAM_READWRITE);
 
+  props[PROP_BANNER_TEXT_HALIGN] =
+      g_param_spec_enum (
+          "banner-text-halign",
+          NULL, NULL,
+          GTK_TYPE_ALIGN,
+          GTK_ALIGN_START,
+          G_PARAM_READWRITE);
+
+  props[PROP_BANNER_TEXT_VALIGN] =
+      g_param_spec_enum (
+          "banner-text-valign",
+          NULL, NULL,
+          GTK_TYPE_ALIGN,
+          GTK_ALIGN_START,
+          G_PARAM_READWRITE);
+
+  props[PROP_BANNER_TEXT_LABEL_XALIGN] =
+      g_param_spec_double (
+          "banner-text-label-xalign",
+          NULL, NULL,
+          0.0, 1.0, 0.0,
+          G_PARAM_READWRITE);
+
   props[PROP_BANNER] =
       g_param_spec_object (
           "banner",
           NULL, NULL,
           GDK_TYPE_PAINTABLE,
+          G_PARAM_READWRITE);
+
+  props[PROP_BANNER_HEIGHT] =
+      g_param_spec_int (
+          "banner-height",
+          NULL, NULL,
+          100, 1000, 300,
           G_PARAM_READWRITE);
 
   props[PROP_BANNER_FIT] =
@@ -243,5 +305,9 @@ bz_content_section_init (BzContentSection *self)
 {
   BzContentSectionPrivate *priv = bz_content_section_get_instance_private (self);
 
-  priv->rows = 3;
+  priv->rows                     = 3;
+  priv->banner_text_halign       = GTK_ALIGN_START;
+  priv->banner_text_valign       = GTK_ALIGN_START;
+  priv->banner_text_label_xalign = 0.0;
+  priv->banner_height            = 300;
 }

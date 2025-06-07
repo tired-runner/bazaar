@@ -35,6 +35,9 @@ struct _BzSectionView
 
   /* Template widgets */
   GtkScrolledWindow *entry_scroll;
+  GtkOverlay        *banner_text_overlay;
+  GtkBox            *banner_text_bg;
+  GtkBox            *banner_text;
 };
 
 G_DEFINE_FINAL_TYPE (BzSectionView, bz_section_view, ADW_TYPE_BIN)
@@ -99,6 +102,20 @@ bz_section_view_set_property (GObject      *object,
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
+}
+
+static gboolean
+invert_boolean (gpointer object,
+                gboolean value)
+{
+  return !value;
+}
+
+static gboolean
+is_null (gpointer object,
+         GObject *value)
+{
+  return value == NULL;
 }
 
 static void
@@ -168,9 +185,14 @@ bz_section_view_class_init (BzSectionViewClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-section-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, entry_scroll);
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_overlay);
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_bg);
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text);
   gtk_widget_class_bind_template_callback (widget_class, entries_left_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, entries_right_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, entry_activated_cb);
+  gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, is_null);
 }
 
 static void
@@ -201,6 +223,11 @@ bz_section_view_init (BzSectionView *self)
         gtk_event_controller_set_propagation_phase (
             controller, GTK_PHASE_NONE);
     }
+
+  gtk_overlay_set_measure_overlay (
+      self->banner_text_overlay,
+      GTK_WIDGET (self->banner_text),
+      TRUE);
 
   hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
   target  = adw_property_animation_target_new (G_OBJECT (hadjust), "value");

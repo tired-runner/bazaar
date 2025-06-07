@@ -651,9 +651,25 @@ input_load_fiber (InputLoadData *data)
                     section_props, (s)))),        \
         NULL);
 
+          GRAB_INT ("banner-height");
           GRAB_INT ("rows");
 
 #undef GRAB_INT
+
+#define GRAB_DOUBLE(s)                            \
+  if (g_hash_table_contains (section_props, (s))) \
+    g_object_set (                                \
+        section,                                  \
+        (s),                                      \
+        g_variant_get_double (                    \
+            g_value_get_variant (                 \
+                g_hash_table_lookup (             \
+                    section_props, (s)))),        \
+        NULL);
+
+          GRAB_DOUBLE ("banner-text-label-xalign");
+
+#undef GRAB_DOUBLE
 
 #define GRAB_ENUM(s)                              \
   if (g_hash_table_contains (section_props, (s))) \
@@ -665,6 +681,8 @@ input_load_fiber (InputLoadData *data)
                 section_props, (s))),             \
         NULL);
 
+          GRAB_ENUM ("banner-text-valign");
+          GRAB_ENUM ("banner-text-halign");
           GRAB_ENUM ("banner-fit");
 
 #undef GRAB_ENUM
