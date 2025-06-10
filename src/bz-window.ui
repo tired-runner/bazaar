@@ -44,7 +44,7 @@
                             <property name="bottom-bar-style">flat</property>
                             <property name="content">
                               <object class="GtkScrolledWindow" id="transactions">
-                                <property name="width-request">500</property>
+                                <property name="width-request">400</property>
                                 <property name="hscrollbar-policy">never</property>
                                 <property name="propagate-natural-height">TRUE</property>
                                 <property name="child">
@@ -74,7 +74,6 @@
         <property name="margin-end">5</property>
         <property name="margin-top">10</property>
         <property name="margin-bottom">10</property>
-        <property name="width-request">350</property>
         <binding name="transaction">
           <lookup name="item">GtkListItem</lookup>
         </binding>
@@ -148,6 +147,22 @@
                                     <binding name="content-provider">
                                       <lookup name="content-provider">BzWindow</lookup>
                                     </binding>
+                                    <signal name="group-selected" handler="browser_group_selected_cb" swapped="true"/>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwViewStackPage">
+                                <property name="name">view</property>
+                                <property name="title" translatable="yes">App View</property>
+                                <property name="child">
+                                  <object class="BzFullView" id="full_view">
+                                    <binding name="transaction-manager">
+                                      <lookup name="transaction-manager">BzWindow</lookup>
+                                    </binding>
+                                    <signal name="install" handler="full_view_install_cb" swapped="true" object="BzWindow"/>
+                                    <signal name="remove" handler="full_view_remove_cb" swapped="true" object="BzWindow"/>
                                   </object>
                                 </property>
                               </object>
@@ -162,15 +177,22 @@
             </property>
             <child>
               <object class="AdwBreakpoint" id="breakpoint">
-                <condition>max-width: 750px</condition>
+                <condition>max-width: 1000px</condition>
                 <setter object="split_view" property="collapsed">TRUE</setter>
-                <setter object="transactions" property="width-request">300</setter>
+                <setter object="transactions" property="width-request">250</setter>
               </object>
             </child>
           </object>
         </property>
         <child type="top">
           <object class="AdwHeaderBar">
+            <child type="start">
+              <object class="GtkButton" id="go_back">
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">Go Back</property>
+                <property name="icon-name">go-previous-symbolic</property>
+              </object>
+            </child>
             <child type="start">
               <object class="GtkToggleButton" id="toggle_transactions">
                 <property name="has-tooltip">TRUE</property>

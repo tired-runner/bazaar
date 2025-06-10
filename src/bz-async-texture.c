@@ -192,27 +192,46 @@ paintable_get_intrinsic_width (GdkPaintable *paintable)
   if (self->lazy && !self->loaded && self->task == NULL)
     load (self);
 
-  return gdk_paintable_get_intrinsic_width (self->paintable);
+  if (self->loaded)
+    return gdk_texture_get_width (GDK_TEXTURE (self->paintable));
+  else
+    return 0.0;
 }
 
 static int
 paintable_get_intrinsic_height (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+
   if (self->lazy && !self->loaded && self->task == NULL)
     load (self);
 
-  return gdk_paintable_get_intrinsic_height (self->paintable);
+  if (self->loaded)
+    return gdk_texture_get_height (GDK_TEXTURE (self->paintable));
+  else
+    return 0.0;
 }
 
 static double
 paintable_get_intrinsic_aspect_ratio (GdkPaintable *paintable)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (paintable);
+
   if (self->lazy && !self->loaded && self->task == NULL)
     load (self);
 
-  return gdk_paintable_get_intrinsic_aspect_ratio (self->paintable);
+  if (self->loaded)
+    {
+      int width  = 0;
+      int height = 0;
+
+      width  = gdk_texture_get_width (GDK_TEXTURE (self->paintable));
+      height = gdk_texture_get_height (GDK_TEXTURE (self->paintable));
+
+      return height > 0 ? (double) width / (double) height : 0.0;
+    }
+  else
+    return 0.0;
 }
 
 static void
@@ -333,6 +352,7 @@ load_finally (DexFuture      *future,
 
       self->loaded = TRUE;
       gdk_paintable_invalidate_contents (GDK_PAINTABLE (self));
+      gdk_paintable_invalidate_size (GDK_PAINTABLE (self));
 
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LOADED]);
     }

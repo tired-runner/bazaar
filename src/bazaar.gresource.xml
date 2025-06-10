@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/io/github/kolunmi/bazaar/">
+    
     <file>gtk/styles.css</file>
-    <file preprocess="xml-stripblanks">bz-progress-bar.ui</file>
-    <file preprocess="xml-stripblanks">bz-window.ui</file>
-    <file preprocess="xml-stripblanks">bz-transaction-view.ui</file>
-    <file preprocess="xml-stripblanks">bz-search-widget.ui</file>
-    <file preprocess="xml-stripblanks">bz-browse-widget.ui</file>
-    <file preprocess="xml-stripblanks">bz-section-view.ui</file>
-    <file preprocess="xml-stripblanks">bz-update-dialog.ui</file>
-    <file preprocess="xml-stripblanks">bz-share-dialog.ui</file>
-    <file preprocess="xml-stripblanks">bz-preferences-dialog.ui</file>
+
     <file preprocess="xml-stripblanks">bz-content-provider-config-schema.xml</file>
+    
+    <file preprocess="xml-stripblanks">bz-browse-widget.ui</file>
+    <file preprocess="xml-stripblanks">bz-full-view.ui</file>
+    <file preprocess="xml-stripblanks">bz-preferences-dialog.ui</file>
+    <file preprocess="xml-stripblanks">bz-progress-bar.ui</file>
+    <file preprocess="xml-stripblanks">bz-search-widget.ui</file>
+    <file preprocess="xml-stripblanks">bz-section-view.ui</file>
+    <file preprocess="xml-stripblanks">bz-share-dialog.ui</file>
+    <file preprocess="xml-stripblanks">bz-transaction-view.ui</file>
+    <file preprocess="xml-stripblanks">bz-update-dialog.ui</file>
+    <file preprocess="xml-stripblanks">bz-window.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
     
     <file preprocess="xml-stripblanks">icons/scalable/actions/regex-symbolic.svg</file>
@@ -32,5 +36,7 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/connected-squares-x-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/software-update-available-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/edit-clear-all-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/go-previous-symbolic.svg</file>
+    
   </gresource>
 </gresources>

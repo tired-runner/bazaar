@@ -1,4 +1,4 @@
-/* bz-paintable-model.h
+/* bz-full-view.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,22 +20,31 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
-#include <libdex.h>
+#include <adwaita.h>
+
+#include "bz-entry-group.h"
+#include "bz-transaction-manager.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_PAINTABLE_MODEL (bz_paintable_model_get_type ())
-G_DECLARE_FINAL_TYPE (BzPaintableModel, bz_paintable_model, BZ, PAINTABLE_MODEL, GObject)
+#define BZ_TYPE_FULL_VIEW (bz_full_view_get_type ())
+G_DECLARE_FINAL_TYPE (BzFullView, bz_full_view, BZ, FULL_VIEW, AdwBin)
 
-BzPaintableModel *
-bz_paintable_model_new (GListModel *model);
+GtkWidget *
+bz_full_view_new (void);
 
 void
-bz_paintable_model_set_model (BzPaintableModel *self,
-                              GListModel       *model);
+bz_full_view_set_transaction_manager (BzFullView           *self,
+                                      BzTransactionManager *group);
 
-GListModel *
-bz_paintable_model_get_model (BzPaintableModel *self);
+BzTransactionManager *
+bz_full_view_get_transaction_manager (BzFullView *self);
+
+void
+bz_full_view_set_entry_group (BzFullView   *self,
+                              BzEntryGroup *group);
+
+BzEntryGroup *
+bz_full_view_get_entry_group (BzFullView *self);
 
 G_END_DECLS

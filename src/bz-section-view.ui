@@ -317,27 +317,43 @@
               </object>
             </property>
             <child type="overlay">
-              <object class="GtkButton">
-                <style>
-                  <class name="osd"/>
-                </style>
+              <object class="GtkRevealer" id="left_btn">
                 <property name="halign">start</property>
-                <property name="valign">center</property>
-                <property name="margin-start">20</property>
-                <property name="icon-name">left-large-symbolic</property>
-                <signal name="clicked" handler="entries_left_clicked_cb" swapped="true" object="BzSectionView"/>
+                <property name="valign">fill</property>
+                <property name="reveal-child">FALSE</property>
+                <property name="transition-type">crossfade</property>
+                <property name="child">
+                  <object class="GtkButton">
+                    <style>
+                      <class name="osd"/>
+                    </style>
+                    <property name="margin-top">40</property>
+                    <property name="margin-bottom">40</property>
+                    <property name="margin-start">40</property>
+                    <property name="icon-name">left-large-symbolic</property>
+                    <signal name="clicked" handler="entries_left_clicked_cb" swapped="true" object="BzSectionView"/>
+                  </object>
+                </property>
               </object>
             </child>
             <child type="overlay">
-              <object class="GtkButton">
-                <style>
-                  <class name="osd"/>
-                </style>
+              <object class="GtkRevealer" id="right_btn">
                 <property name="halign">end</property>
-                <property name="valign">center</property>
-                <property name="margin-end">20</property>
-                <property name="icon-name">right-large-symbolic</property>
-                <signal name="clicked" handler="entries_right_clicked_cb" swapped="true" object="BzSectionView"/>
+                <property name="valign">fill</property>
+                <property name="reveal-child">FALSE</property>
+                <property name="transition-type">crossfade</property>
+                <property name="child">
+                  <object class="GtkButton">
+                    <style>
+                      <class name="osd"/>
+                    </style>
+                    <property name="margin-top">40</property>
+                    <property name="margin-bottom">40</property>
+                    <property name="margin-end">40</property>
+                    <property name="icon-name">right-large-symbolic</property>
+                    <signal name="clicked" handler="entries_right_clicked_cb" swapped="true" object="BzSectionView"/>
+                  </object>
+                </property>
               </object>
             </child>
           </object>

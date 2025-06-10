@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "bz-browse-widget.h"
+#include "bz-entry-group.h"
 #include "bz-section-view.h"
 
 struct _BzBrowseWidget
@@ -44,6 +45,14 @@ enum
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+enum
+{
+  SIGNAL_GROUP_SELECTED,
+
+  LAST_SIGNAL,
+};
+static guint signals[LAST_SIGNAL];
 
 static void
 items_changed (GListModel     *model,
@@ -105,6 +114,19 @@ bz_browse_widget_set_property (GObject      *object,
 }
 
 static void
+group_activated_cb (BzSectionView *view,
+                    BzEntryGroup  *group,
+                    GtkListItem   *list_item)
+{
+  GtkWidget *self = NULL;
+
+  self = gtk_widget_get_ancestor (GTK_WIDGET (view), BZ_TYPE_BROWSE_WIDGET);
+  g_assert (self != NULL);
+
+  g_signal_emit (self, signals[SIGNAL_GROUP_SELECTED], 0, group);
+}
+
+static void
 bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -123,10 +145,26 @@ bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
+  signals[SIGNAL_GROUP_SELECTED] =
+      g_signal_new (
+          "group-selected",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__OBJECT,
+          G_TYPE_NONE, 1,
+          BZ_TYPE_ENTRY_GROUP);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_GROUP_SELECTED],
+      G_TYPE_FROM_CLASS (klass),
+      g_cclosure_marshal_VOID__OBJECTv);
+
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-browse-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, BzBrowseWidget, stack);
+  gtk_widget_class_bind_template_callback (widget_class, group_activated_cb);
 }
 
 static void

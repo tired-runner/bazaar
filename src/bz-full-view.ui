@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <template class="BzFullView" parent="AdwBin">
+    <property name="child">
+      <object class="AdwViewStack" id="stack">
+        <property name="enable-transitions">TRUE</property>
+        <property name="transition-duration">400</property>
+        <child>
+          <object class="AdwViewStackPage">
+            <property name="name">content</property>
+            <property name="title" translatable="yes">Browser</property>
+            <property name="child">
+              <object class="AdwBreakpointBin" id="breakpoint_bin">
+                <property name="width-request">400</property>
+                <property name="height-request">400</property>
+                <child>
+                  <object class="AdwBreakpoint" id="breakpoint">
+                    <condition>max-width: 1100px</condition>
+                    <setter object="main_box" property="orientation">vertical</setter>
+                    <setter object="start_box" property="width-request">-1</setter>
+                  </object>
+                </child>
+                <property name="child">
+                  <object class="GtkScrolledWindow">
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="child">
+                      <object class="GtkBox" id="main_box">
+                        <property name="orientation">horizontal</property>
+                        <child>
+                          <object class="GtkBox" id="start_box">
+                            <property name="margin-start">15</property>
+                            <property name="margin-end">15</property>
+                            <property name="margin-top">15</property>
+                            <property name="margin-bottom">15</property>
+                            <property name="width-request">500</property>
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">20</property>
+                            <child>
+                              <object class="GtkBox">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">20</property>
+                                <child>
+                                  <object class="GtkPicture" id="app_icon">
+                                    <property name="width-request">128</property>
+                                    <property name="height-request">128</property>
+                                    <property name="content-fit">scale-down</property>
+                                    <property name="can-shrink">FALSE</property>
+                                    <binding name="paintable">
+                                      <lookup name="icon-paintable" type="BzEntry">
+                                        <lookup name="ui-entry" type="BzEntryGroup">
+                                          <lookup name="entry-group">BzFullView</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">10</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <style>
+                                          <class name="title-1"/>
+                                        </style>
+                                        <property name="xalign">0.0</property>
+                                        <property name="max-width-chars">30</property>
+                                        <property name="wrap">TRUE</property>
+                                        <property name="wrap-mode">word-char</property>
+                                        <property name="natural-wrap-mode">word</property>
+                                        <binding name="label">
+                                          <lookup name="title" type="BzEntry">
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="entry-group">BzFullView</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <style>
+                                          <class name="title-4"/>
+                                          <class name="accent"/>
+                                        </style>
+                                        <property name="xalign">0.0</property>
+                                        <property name="max-width-chars">50</property>
+                                        <property name="wrap">TRUE</property>
+                                        <property name="wrap-mode">word-char</property>
+                                        <property name="natural-wrap-mode">word</property>
+                                        <binding name="label">
+                                          <lookup name="developer" type="BzEntry">
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="entry-group">BzFullView</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <style>
+                                          <class name="title-2"/>
+                                        </style>
+                                        <property name="xalign">0.0</property>
+                                        <property name="max-width-chars">50</property>
+                                        <property name="wrap">TRUE</property>
+                                        <property name="wrap-mode">word-char</property>
+                                        <binding name="label">
+                                          <lookup name="description" type="BzEntry">
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="entry-group">BzFullView</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkBox">
+                                        <property name="orientation">horizontal</property>
+                                        <property name="vexpand">FALSE</property>
+                                        <property name="spacing">10</property>
+                                        <child>
+                                          <object class="GtkBox">
+                                            <style>
+                                              <class name="linked"/>
+                                            </style>
+                                            <property name="orientation">horizontal</property>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <style>
+                                                  <class name="suggested-action"/>
+                                                  <class name="pill"/>
+                                                </style>
+                                                <property name="has-tooltip">TRUE</property>
+                                                <property name="tooltip-text" translatable="yes">Download and install this application</property>
+                                                <binding name="visible">
+                                                  <closure function="invert_boolean" type="gboolean">
+                                                    <closure function="is_zero" type="gboolean">
+                                                      <lookup name="installable" type="BzEntryGroup">
+                                                        <lookup name="entry-group">BzFullView</lookup>
+                                                      </lookup>
+                                                    </closure>
+                                                  </closure>
+                                                </binding>
+                                                <property name="child">
+                                                  <object class="GtkBox">
+                                                    <property name="orientation">horizontal</property>
+                                                    <property name="spacing">5</property>
+                                                    <child>
+                                                      <object class="GtkImage">
+                                                        <property name="icon-name">folder-download-symbolic</property>
+                                                      </object>
+                                                    </child>
+                                                    <child>
+                                                      <object class="GtkLabel">
+                                                        <style>
+                                                          <class name="caption-heading"/>
+                                                        </style>
+                                                        <property name="label" translatable="yes">Install</property>
+                                                      </object>
+                                                    </child>
+                                                  </object>
+                                                </property>
+                                                <signal name="clicked" handler="install_cb" swapped="true" object="BzFullView"/>
+                                              </object>
+                                            </child>
+                                            <child>
+                                              <object class="GtkButton" id="remove_button">
+                                                <style>
+                                                  <class name="destructive-action"/>
+                                                  <class name="pill"/>
+                                                </style>
+                                                <binding name="visible">
+                                                  <closure function="invert_boolean" type="gboolean">
+                                                    <closure function="is_zero" type="gboolean">
+                                                      <lookup name="removable" type="BzEntryGroup">
+                                                        <lookup name="entry-group">BzFullView</lookup>
+                                                      </lookup>
+                                                    </closure>
+                                                  </closure>
+                                                </binding>
+                                                <property name="vexpand">FALSE</property>
+                                                <property name="has-tooltip">TRUE</property>
+                                                <property name="tooltip-text" translatable="yes">Uninstall this application</property>
+                                                <property name="icon-name">user-trash-symbolic</property>
+                                                <signal name="clicked" handler="remove_cb" swapped="true" object="BzFullView"/>
+                                              </object>
+                                            </child>
+                                          </object>
+                                        </child>
+                                        <child>
+                                          <object class="GtkButton">
+                                            <style>
+                                              <class name="pill"/>
+                                            </style>
+                                            <property name="vexpand">FALSE</property>
+                                            <property name="has-tooltip">TRUE</property>
+                                            <property name="tooltip-text" translatable="yes">Share this application</property>
+                                            <property name="icon-name">share-symbolic</property>
+                                            <signal name="clicked" handler="share_cb" swapped="true" object="BzFullView"/>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <style>
+                                          <class name="accent"/>
+                                          <class name="caption-heading"/>
+                                        </style>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="xalign">0</property>
+                                        <property name="ellipsize">end</property>
+                                        <property name="max-width-chars">40</property>
+                                        <binding name="label">
+                                          <closure function="format_size" type="gchararray">
+                                            <lookup name="size" type="BzEntry">
+                                              <lookup name="ui-entry" type="BzEntryGroup">
+                                                <lookup name="entry-group">BzFullView</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScrolledWindow">
+                                <style>
+                                  <class name="long-description"/>
+                                </style>
+                                <property name="height-request">400</property>
+                                <property name="vexpand">TRUE</property>
+                                <property name="hscrollbar-policy">never</property>
+                                <property name="child">
+                                  <object class="GtkLabel" id="long_description">
+                                    <style>
+                                      <class name="body"/>
+                                    </style>
+                                    <property name="margin-start">10</property>
+                                    <property name="margin-end">10</property>
+                                    <property name="margin-top">10</property>
+                                    <property name="margin-bottom">10</property>
+                                    <property name="valign">start</property>
+                                    <property name="xalign">0</property>
+                                    <property name="wrap">TRUE</property>
+                                    <property name="wrap-mode">word-char</property>
+                                    <property name="use-markup">TRUE</property>
+                                    <binding name="label">
+                                      <lookup name="long-description" type="BzEntry">
+                                        <lookup name="ui-entry" type="BzEntryGroup">
+                                          <lookup name="entry-group">BzFullView</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSeparator">
+                            <property name="margin-start">5</property>
+                            <property name="margin-end">5</property>
+                            <property name="margin-top">5</property>
+                            <property name="margin-bottom">5</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="end_box">
+                            <property name="hexpand">TRUE</property>
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkScrolledWindow">
+                                <property name="vexpand">TRUE</property>
+                                <property name="hscrollbar-policy">never</property>
+                                <property name="propagate-natural-height">TRUE</property>
+                                <property name="child">
+                                  <object class="GtkListView" id="screenshots">
+                                    <style>
+                                      <class name="navigation-sidebar"/>
+                                    </style>
+                                    <property name="margin-start">5</property>
+                                    <property name="margin-end">5</property>
+                                    <property name="single-click-activate">TRUE</property>
+                                    <property name="model">
+                                      <object class="GtkNoSelection">
+                                        <binding name="model">
+                                          <lookup name="screenshot-paintables" type="BzEntry">
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="entry-group">BzFullView</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </property>
+                                    <property name="factory">
+                                      <object class="GtkBuilderListItemFactory">
+                                        <property name="bytes"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GtkListItem">
+    <property name="child">
+      <object class="GtkRevealer">
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
+        <property name="transition-type">crossfade</property>
+        <property name="transition-duration">500</property>
+        <binding name="reveal-child">
+          <lookup name="loaded" type="BzAsyncTexture">
+            <lookup name="item">GtkListItem</lookup>
+          </lookup>
+        </binding>
+        <property name="child">
+          <object class="BzScreenshot">
+            <binding name="paintable">
+              <lookup name="item">GtkListItem</lookup>
+            </binding>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>
+]]>
+                                        </property>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>

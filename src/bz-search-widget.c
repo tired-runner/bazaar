@@ -23,6 +23,7 @@
 #include <libdex.h>
 
 #include "bz-async-texture.h"
+#include "bz-screenshot.h"
 #include "bz-search-widget.h"
 #include "bz-share-dialog.h"
 #include "bz-util.h"
@@ -383,6 +384,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
+  g_type_ensure (BZ_TYPE_SCREENSHOT);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-search-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, sheet);

@@ -43,11 +43,14 @@
 <interface>
   <template class="GtkListItem">
     <property name="activatable">FALSE</property>
+    <property name="selectable">FALSE</property>
+    <property name="focusable">FALSE</property>
     <property name="child">
       <object class="BzSectionView">
         <binding name="section">
           <lookup name="item">GtkListItem</lookup>
         </binding>
+        <signal name="group-activated" handler="group_activated_cb"/>
       </object>
     </property>
   </template>

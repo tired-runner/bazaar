@@ -1,4 +1,4 @@
-/* bz-paintable-model.h
+/* bz-screenshot.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -21,21 +21,20 @@
 #pragma once
 
 #include <gtk/gtk.h>
-#include <libdex.h>
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_PAINTABLE_MODEL (bz_paintable_model_get_type ())
-G_DECLARE_FINAL_TYPE (BzPaintableModel, bz_paintable_model, BZ, PAINTABLE_MODEL, GObject)
+#define BZ_TYPE_SCREENSHOT (bz_screenshot_get_type ())
+G_DECLARE_FINAL_TYPE (BzScreenshot, bz_screenshot, BZ, SCREENSHOT, GtkWidget)
 
-BzPaintableModel *
-bz_paintable_model_new (GListModel *model);
+GtkWidget *
+bz_screenshot_new (void);
 
 void
-bz_paintable_model_set_model (BzPaintableModel *self,
-                              GListModel       *model);
+bz_screenshot_set_paintable (BzScreenshot *self,
+                             GdkPaintable *paintable);
 
-GListModel *
-bz_paintable_model_get_model (BzPaintableModel *self);
+GdkPaintable *
+bz_screenshot_get_paintable (BzScreenshot *self);
 
 G_END_DECLS

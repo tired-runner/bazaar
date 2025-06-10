@@ -29,8 +29,6 @@ struct _BzPaintableModel
 {
   GObject parent_instance;
 
-  DexScheduler *scheduler;
-
   GListModel      *input;
   GtkMapListModel *output;
   GHashTable      *cache;
@@ -70,7 +68,6 @@ bz_paintable_model_dispose (GObject *object)
 {
   BzPaintableModel *self = BZ_PAINTABLE_MODEL (object);
 
-  dex_clear (&self->scheduler);
   g_clear_object (&self->input);
   g_clear_object (&self->output);
   g_clear_pointer (&self->cache, g_hash_table_unref);
@@ -178,18 +175,14 @@ list_model_iface_init (GListModelInterface *iface)
 }
 
 BzPaintableModel *
-bz_paintable_model_new (DexScheduler *scheduler,
-                        GListModel   *model)
+bz_paintable_model_new (GListModel *model)
 {
   BzPaintableModel *self = NULL;
-
-  g_return_val_if_fail (DEX_IS_SCHEDULER (scheduler), NULL);
 
   self = g_object_new (
       BZ_TYPE_PAINTABLE_MODEL,
       "model", model,
       NULL);
-  self->scheduler = dex_ref (scheduler);
 
   return self;
 }
@@ -238,7 +231,7 @@ map_files_to_textures (GFile            *file,
   result = g_hash_table_lookup (self->cache, file);
   if (result == NULL)
     {
-      result = bz_async_texture_new_lazy (file, self->scheduler);
+      result = bz_async_texture_new_lazy (file, NULL);
       g_hash_table_replace (self->cache, g_object_ref (file), result);
     }
 

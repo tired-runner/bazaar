@@ -761,6 +761,62 @@
                               </object>
                             </child>
                             <child>
+                              <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">3</property>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">5</property>
+                                    <property name="hexpand">TRUE</property>
+                                    <property name="halign">center</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <style>
+                                          <class name="dimmed"/>
+                                        </style>
+                                        <property name="margin-top">5</property>
+                                        <property name="label" translatable="yes">Click on an image to open the screenshots externally.</property>
+                                        <property name="wrap">TRUE</property>
+                                        <property name="wrap-mode">word-char</property>
+                                        <binding name="visible">
+                                          <closure function="invert_boolean" type="gboolean">
+                                            <closure function="is_null" type="gboolean">
+                                              <lookup name="previewing">BzSearchWidget</lookup>
+                                            </closure>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="AdwSpinner" id="loading_screenshots_external">
+                                        <property name="visible">FALSE</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="open_screenshot_error">
+                                    <style>
+                                      <class name="error"/>
+                                    </style>
+                                    <property name="margin-top">5</property>
+                                    <property name="visible">FALSE</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwSpinner">
+                                <property name="height-request">150</property>
+                                <binding name="visible">
+                                  <closure function="is_null" type="gboolean">
+                                    <lookup name="previewing">BzSearchWidget</lookup>
+                                  </closure>
+                                </binding>
+                              </object>
+                            </child>
+                            <child>
                               <object class="GtkScrolledWindow" id="screenshot_scroll">
                                 <style>
                                   <class name="screenshot-scroll"/>
@@ -769,87 +825,40 @@
                                 <property name="vexpand">TRUE</property>
                                 <property name="propagate-natural-height">TRUE</property>
                                 <property name="hscrollbar-policy">never</property>
+                                <binding name="visible">
+                                  <closure function="invert_boolean" type="gboolean">
+                                    <closure function="is_null" type="gboolean">
+                                      <lookup name="previewing">BzSearchWidget</lookup>
+                                    </closure>
+                                  </closure>
+                                </binding>
                                 <property name="child">
-                                  <object class="GtkBox">
-                                    <property name="orientation">vertical</property>
-                                    <child>
-                                      <object class="AdwSpinner">
-                                        <property name="height-request">150</property>
-                                        <binding name="visible">
-                                          <closure function="is_null" type="gboolean">
+                                  <object class="GtkListView" id="screenshots">
+                                    <style>
+                                      <class name="navigation-sidebar"/>
+                                    </style>
+                                    <property name="margin-start">5</property>
+                                    <property name="margin-end">5</property>
+                                    <property name="single-click-activate">TRUE</property>
+                                    <property name="model">
+                                      <object class="GtkNoSelection">
+                                        <binding name="model">
+                                          <lookup name="screenshot-paintables" type="BzEntry">
                                             <lookup name="previewing">BzSearchWidget</lookup>
-                                          </closure>
+                                          </lookup>
                                         </binding>
                                       </object>
-                                    </child>
-                                    <child>
-                                      <object class="GtkBox">
-                                        <property name="orientation">horizontal</property>
-                                        <property name="spacing">5</property>
-                                        <property name="hexpand">TRUE</property>
-                                        <property name="halign">center</property>
-                                        <child>
-                                          <object class="GtkLabel">
-                                            <style>
-                                              <class name="dimmed"/>
-                                            </style>
-                                            <property name="margin-top">5</property>
-                                            <property name="label" translatable="yes">Click on an image to open the screenshots externally.</property>
-                                            <property name="wrap">TRUE</property>
-                                            <property name="wrap-mode">word-char</property>
-                                            <binding name="visible">
-                                              <closure function="invert_boolean" type="gboolean">
-                                                <closure function="is_null" type="gboolean">
-                                                  <lookup name="previewing">BzSearchWidget</lookup>
-                                                </closure>
-                                              </closure>
-                                            </binding>
-                                          </object>
-                                        </child>
-                                        <child>
-                                          <object class="AdwSpinner" id="loading_screenshots_external">
-                                            <property name="visible">FALSE</property>
-                                          </object>
-                                        </child>
-                                      </object>
-                                    </child>
-                                    <child>
-                                      <object class="GtkLabel" id="open_screenshot_error">
-                                        <style>
-                                          <class name="error"/>
-                                        </style>
-                                        <property name="margin-top">5</property>
-                                        <property name="visible">FALSE</property>
-                                      </object>
-                                    </child>
-                                    <child>
-                                      <object class="GtkListView" id="screenshots">
-                                        <style>
-                                          <class name="navigation-sidebar"/>
-                                        </style>
-                                        <property name="margin-start">5</property>
-                                        <property name="margin-end">5</property>
-                                        <property name="single-click-activate">TRUE</property>
-                                        <property name="model">
-                                          <object class="GtkNoSelection">
-                                            <binding name="model">
-                                              <lookup name="screenshot-paintables" type="BzEntry">
-                                                <lookup name="previewing">BzSearchWidget</lookup>
-                                              </lookup>
-                                            </binding>
-                                          </object>
-                                        </property>
-                                        <property name="factory">
-                                          <object class="GtkBuilderListItemFactory">
-                                            <property name="bytes"><![CDATA[
+                                    </property>
+                                    <property name="factory">
+                                      <object class="GtkBuilderListItemFactory">
+                                        <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
     <property name="child">
       <object class="GtkRevealer">
-        <property name="margin-top">10</property>
-        <property name="margin-bottom">10</property>
-        <property name="height-request">256</property>
+        <property name="margin-top">5</property>
+        <property name="margin-bottom">5</property>
         <property name="transition-type">crossfade</property>
         <property name="transition-duration">500</property>
         <binding name="reveal-child">
@@ -858,11 +867,7 @@
           </lookup>
         </binding>
         <property name="child">
-          <object class="GtkPicture">
-            <style>
-              <class name="screenshot"/>
-            </style>
-            <property name="content-fit">cover</property>
+          <object class="BzScreenshot">
             <binding name="paintable">
               <lookup name="item">GtkListItem</lookup>
             </binding>
@@ -873,18 +878,16 @@
   </template>
 </interface>
 ]]>
-                                            </property>
-                                          </object>
                                         </property>
-                                        <binding name="visible">
-                                          <closure function="invert_boolean" type="gboolean">
-                                            <closure function="is_null" type="gboolean">
-                                              <lookup name="previewing">BzSearchWidget</lookup>
-                                            </closure>
-                                          </closure>
-                                        </binding>
                                       </object>
-                                    </child>
+                                    </property>
+                                    <binding name="visible">
+                                      <closure function="invert_boolean" type="gboolean">
+                                        <closure function="is_null" type="gboolean">
+                                          <lookup name="previewing">BzSearchWidget</lookup>
+                                        </closure>
+                                      </closure>
+                                    </binding>
                                   </object>
                                 </property>
                               </object>

@@ -33,11 +33,15 @@ struct _BzSectionView
 
   AdwAnimation *scroll_animation;
 
+  GtkAdjustment *hadjust;
+
   /* Template widgets */
   GtkScrolledWindow *entry_scroll;
   GtkOverlay        *banner_text_overlay;
   GtkBox            *banner_text_bg;
   GtkBox            *banner_text;
+  GtkRevealer       *left_btn;
+  GtkRevealer       *right_btn;
 };
 
 G_DEFINE_FINAL_TYPE (BzSectionView, bz_section_view, ADW_TYPE_BIN)
@@ -52,6 +56,23 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
+enum
+{
+  SIGNAL_GROUP_ACTIVATED,
+
+  LAST_SIGNAL,
+};
+static guint signals[LAST_SIGNAL];
+
+static void
+entry_scroll_hadjust_changed (GtkScrolledWindow *window,
+                              GParamSpec        *pspec,
+                              BzSectionView     *self);
+
+static void
+hadjust_changed (GtkAdjustment *adjust,
+                 BzSectionView *self);
+
 static void
 move_entries (BzSectionView *self,
               double         delta);
@@ -64,6 +85,11 @@ bz_section_view_dispose (GObject *object)
   g_clear_object (&self->section);
   g_clear_object (&self->classes);
   g_clear_object (&self->scroll_animation);
+
+  if (self->hadjust != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->hadjust, hadjust_changed, self);
+  g_clear_object (&self->hadjust);
 
   G_OBJECT_CLASS (bz_section_view_parent_class)->dispose (object);
 }
@@ -145,21 +171,12 @@ entry_activated_cb (BzSectionView *self,
 {
   g_autoptr (GListModel) groups  = NULL;
   g_autoptr (BzEntryGroup) group = NULL;
-  BzEntry *ui_entry              = NULL;
 
   g_object_get (self->section, "appids", &groups, NULL);
   g_assert (groups != NULL);
 
-  group    = g_list_model_get_item (groups, position);
-  ui_entry = bz_entry_group_get_ui_entry (group);
-
-  if (ui_entry != NULL)
-    {
-      const char *id = NULL;
-
-      id = bz_entry_get_id (ui_entry);
-      gtk_widget_activate_action (GTK_WIDGET (self), "app.search", "s", id);
-    }
+  group = g_list_model_get_item (groups, position);
+  g_signal_emit (self, signals[SIGNAL_GROUP_ACTIVATED], 0, group);
 }
 
 static void
@@ -181,6 +198,21 @@ bz_section_view_class_init (BzSectionViewClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
+  signals[SIGNAL_GROUP_ACTIVATED] =
+      g_signal_new (
+          "group-activated",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__OBJECT,
+          G_TYPE_NONE, 1,
+          BZ_TYPE_ENTRY_GROUP);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_GROUP_ACTIVATED],
+      G_TYPE_FROM_CLASS (klass),
+      g_cclosure_marshal_VOID__OBJECTv);
+
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-section-view.ui");
@@ -188,6 +220,8 @@ bz_section_view_class_init (BzSectionViewClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_overlay);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_bg);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text);
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, left_btn);
+  gtk_widget_class_bind_template_child (widget_class, BzSectionView, right_btn);
   gtk_widget_class_bind_template_callback (widget_class, entries_left_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, entries_right_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, entry_activated_cb);
@@ -199,10 +233,7 @@ static void
 bz_section_view_init (BzSectionView *self)
 {
   g_autoptr (GListModel) entry_scroll_controllers = NULL;
-  guint               n_controllers               = 0;
-  GtkAdjustment      *hadjust                     = NULL;
-  AdwAnimationTarget *target                      = NULL;
-  AdwSpringParams    *spring                      = NULL;
+  guint n_controllers                             = 0;
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
@@ -229,18 +260,9 @@ bz_section_view_init (BzSectionView *self)
       GTK_WIDGET (self->banner_text),
       TRUE);
 
-  hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
-  target  = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
-  spring  = adw_spring_params_new (0.9, 1.5, 150.0);
-
-  self->scroll_animation = adw_spring_animation_new (
-      GTK_WIDGET (self),
-      0.0,
-      0.0,
-      spring,
-      target);
-  adw_spring_animation_set_epsilon (
-      ADW_SPRING_ANIMATION (self->scroll_animation), 0.00025);
+  g_signal_connect (self->entry_scroll, "notify::hadjustment",
+                    G_CALLBACK (entry_scroll_hadjust_changed), self);
+  g_object_notify (G_OBJECT (self->entry_scroll), "hadjustment");
 }
 
 GtkWidget *
@@ -313,20 +335,80 @@ bz_section_view_get_section (BzSectionView *self)
 }
 
 static void
+entry_scroll_hadjust_changed (GtkScrolledWindow *window,
+                              GParamSpec        *pspec,
+                              BzSectionView     *self)
+{
+  GtkAdjustment *hadjust = NULL;
+
+  if (self->hadjust != NULL)
+    g_signal_handlers_disconnect_by_func (
+        self->hadjust, hadjust_changed, self);
+  g_clear_object (&self->hadjust);
+  g_clear_object (&self->scroll_animation);
+
+  hadjust = gtk_scrolled_window_get_hadjustment (window);
+  if (hadjust != NULL)
+    {
+      AdwAnimationTarget *target = NULL;
+      AdwSpringParams    *spring = NULL;
+
+      self->hadjust = g_object_ref (hadjust);
+      g_signal_connect (hadjust, "value-changed", G_CALLBACK (hadjust_changed), self);
+      g_signal_connect (hadjust, "changed", G_CALLBACK (hadjust_changed), self);
+      hadjust_changed (hadjust, self);
+
+      target = adw_property_animation_target_new (G_OBJECT (hadjust), "value");
+      spring = adw_spring_params_new (1.0, 1.0, 200.0);
+
+      self->scroll_animation = adw_spring_animation_new (
+          GTK_WIDGET (self),
+          0.0,
+          0.0,
+          spring,
+          target);
+      adw_spring_animation_set_epsilon (
+          ADW_SPRING_ANIMATION (self->scroll_animation), 0.00015);
+    }
+  else
+    {
+      gtk_revealer_set_reveal_child (self->left_btn, FALSE);
+      gtk_revealer_set_reveal_child (self->right_btn, FALSE);
+    }
+}
+
+static void
+hadjust_changed (GtkAdjustment *adjust,
+                 BzSectionView *self)
+{
+  double lower = 0.0;
+  double upper = 0.0;
+  double page  = 0.0;
+  double value = 0.0;
+
+  lower = gtk_adjustment_get_lower (adjust);
+  upper = gtk_adjustment_get_upper (adjust);
+  page  = gtk_adjustment_get_page_size (adjust);
+  value = gtk_adjustment_get_value (adjust);
+
+  gtk_revealer_set_reveal_child (self->left_btn, !G_APPROX_VALUE (value, lower, 0.1));
+  gtk_revealer_set_reveal_child (self->right_btn, !G_APPROX_VALUE (value, upper - page, 0.1));
+}
+
+static void
 move_entries (BzSectionView *self,
               double         delta)
 {
-  GtkAdjustment *hadjust = NULL;
-  double         current = 0.0;
-  double         lower   = 0.0;
-  double         upper   = 0.0;
-  double         next    = 0.0;
+  double current = 0.0;
+  double lower   = 0.0;
+  double upper   = 0.0;
+  double next    = 0.0;
 
-  hadjust = gtk_scrolled_window_get_hadjustment (self->entry_scroll);
-  current = gtk_adjustment_get_value (hadjust);
-  lower   = gtk_adjustment_get_lower (hadjust);
-  upper   = gtk_adjustment_get_upper (hadjust) - gtk_adjustment_get_page_size (hadjust);
-  next    = adw_spring_animation_get_value_to (
+  current = gtk_adjustment_get_value (self->hadjust);
+  lower   = gtk_adjustment_get_lower (self->hadjust);
+  upper   = gtk_adjustment_get_upper (self->hadjust) -
+          gtk_adjustment_get_page_size (self->hadjust);
+  next = adw_spring_animation_get_value_to (
              ADW_SPRING_ANIMATION (self->scroll_animation)) +
          delta;
 

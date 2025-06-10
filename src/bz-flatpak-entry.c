@@ -403,9 +403,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
             }
 
           if (g_list_model_get_n_items (G_LIST_MODEL (files)) > 0)
-            paintables = bz_paintable_model_new (
-                dex_scheduler_get_thread_default (),
-                G_LIST_MODEL (files));
+            paintables = bz_paintable_model_new (G_LIST_MODEL (files));
         }
 
       share_urls = gtk_string_list_new (NULL);

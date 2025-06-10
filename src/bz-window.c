@@ -25,6 +25,7 @@
 #include "bz-background.h"
 #include "bz-browse-widget.h"
 #include "bz-entry-group.h"
+#include "bz-full-view.h"
 #include "bz-progress-bar.h"
 #include "bz-search-widget.h"
 #include "bz-transaction-manager.h"
@@ -50,7 +51,9 @@ struct _BzWindow
   AdwOverlaySplitView *split_view;
   AdwViewStack        *transactions_stack;
   AdwViewStack        *main_stack;
+  BzFullView          *full_view;
   GtkToggleButton     *toggle_transactions;
+  GtkButton           *go_back;
   GtkButton           *refresh;
   GtkButton           *search;
   GtkButton           *update_button;
@@ -76,10 +79,9 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
-static void
-setting_changed (GSettings   *settings,
-                 const gchar *pkey,
-                 BzWindow    *self);
+static void setting_changed (GSettings   *settings,
+                             const gchar *pkey,
+                             BzWindow    *self);
 
 static void
 has_transactions_changed (BzTransactionManager *manager,
@@ -94,8 +96,13 @@ updates_changed (GListModel *model,
                  BzWindow   *self);
 
 static void
+go_back_clicked (GtkButton *button,
+                 BzWindow  *self);
+
+static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self);
+
 static void
 search_clicked (GtkButton *button,
                 BzWindow  *self);
@@ -144,6 +151,9 @@ search (BzWindow   *self,
 
 static void
 check_transactions (BzWindow *self);
+
+static void
+set_page (BzWindow *self);
 
 static void
 bz_window_dispose (GObject *object)
@@ -272,19 +282,11 @@ bz_window_set_property (GObject      *object,
       break;
     case PROP_BUSY:
       self->busy = g_value_get_boolean (value);
-      adw_view_stack_set_visible_child_name (
-          self->main_stack,
-          self->online
-              ? (self->busy ? "loading" : "browse")
-              : "offline");
+      set_page (self);
       break;
     case PROP_ONLINE:
       self->online = g_value_get_boolean (value);
-      adw_view_stack_set_visible_child_name (
-          self->main_stack,
-          self->online
-              ? (self->busy ? "loading" : "browse")
-              : "offline");
+      set_page (self);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -296,6 +298,30 @@ invert_boolean (gpointer object,
                 gboolean value)
 {
   return !value;
+}
+
+static void
+browser_group_selected_cb (BzWindow       *self,
+                           BzEntryGroup   *group,
+                           BzBrowseWidget *browser)
+{
+  bz_full_view_set_entry_group (self->full_view, group);
+  adw_view_stack_set_visible_child_name (self->main_stack, "view");
+  gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
+}
+
+static void
+full_view_install_cb (BzWindow   *self,
+                      BzFullView *view)
+{
+  try_transact (self, bz_full_view_get_entry_group (view), FALSE);
+}
+
+static void
+full_view_remove_cb (BzWindow   *self,
+                     BzFullView *view)
+{
+  try_transact (self, bz_full_view_get_entry_group (view), TRUE);
 }
 
 static void
@@ -362,18 +388,24 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
   g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
+  g_type_ensure (BZ_TYPE_FULL_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, full_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, go_back);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
+  gtk_widget_class_bind_template_callback (widget_class, full_view_install_cb);
+  gtk_widget_class_bind_template_callback (widget_class, full_view_remove_cb);
 }
 
 static void
@@ -383,6 +415,8 @@ bz_window_init (BzWindow *self)
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
+  /* TODO: use class template callbacks */
+  g_signal_connect (self->go_back, "clicked", G_CALLBACK (go_back_clicked), self);
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
   g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
   g_signal_connect (self->update_button, "clicked", G_CALLBACK (update_clicked), self);
@@ -429,6 +463,13 @@ updates_changed (GListModel *model,
   gtk_widget_set_visible (
       GTK_WIDGET (self->update_button),
       g_list_model_get_n_items (model) > 0);
+}
+
+static void
+go_back_clicked (GtkButton *button,
+                 BzWindow  *self)
+{
+  set_page (self);
 }
 
 static void
@@ -812,4 +853,16 @@ check_transactions (BzWindow *self)
       has_transactions
           ? "content"
           : "empty");
+}
+
+static void
+set_page (BzWindow *self)
+{
+  adw_view_stack_set_visible_child_name (
+      self->main_stack,
+      self->online
+          ? (self->busy ? "loading" : "browse")
+          : "offline");
+  gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
+  bz_full_view_set_entry_group (self->full_view, NULL);
 }
