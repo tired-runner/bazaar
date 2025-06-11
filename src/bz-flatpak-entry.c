@@ -23,7 +23,9 @@
 #include <xmlb.h>
 
 #include "bz-flatpak-private.h"
+#include "bz-issue.h"
 #include "bz-paintable-model.h"
+#include "bz-release.h"
 // #include "bz-review.h"
 
 enum
@@ -228,6 +230,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GListStore) native_reviews   = NULL;
   double           average_rating         = 0.0;
   g_autofree char *ratings_summary        = NULL;
+  g_autoptr (GListStore) version_history  = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
@@ -270,10 +273,12 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
   if (component != NULL)
     {
-      const char  *long_description_raw = NULL;
-      AsIcon      *icon                 = NULL;
-      AsDeveloper *developer_obj        = NULL;
-      GPtrArray   *screenshots          = NULL;
+      const char    *long_description_raw = NULL;
+      AsIcon        *icon                 = NULL;
+      AsDeveloper   *developer_obj        = NULL;
+      GPtrArray     *screenshots          = NULL;
+      AsReleaseList *releases             = NULL;
+      GPtrArray     *releases_arr         = NULL;
       // GPtrArray   *reviews              = NULL;
 
       title = as_component_get_name (component);
@@ -457,6 +462,55 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       if (g_list_model_get_n_items (G_LIST_MODEL (share_urls)) == 0)
         g_clear_object (&share_urls);
 
+      releases = as_component_load_releases (component, TRUE, error);
+      if (releases == NULL)
+        return NULL;
+      releases_arr = as_release_list_get_entries (releases);
+      if (releases_arr != NULL)
+        {
+          version_history = g_list_store_new (BZ_TYPE_RELEASE);
+
+          for (guint i = 0; i < releases_arr->len; i++)
+            {
+              AsRelease *as_release         = NULL;
+              GPtrArray *as_issues          = NULL;
+              g_autoptr (GListStore) issues = NULL;
+              g_autoptr (BzRelease) release = NULL;
+
+              as_release = g_ptr_array_index (releases_arr, i);
+              as_issues  = as_release_get_issues (as_release);
+
+              if (as_issues != NULL && as_issues->len > 0)
+                {
+                  issues = g_list_store_new (BZ_TYPE_ISSUE);
+
+                  for (guint j = 0; j < as_issues->len; j++)
+                    {
+                      AsIssue *as_issue         = NULL;
+                      g_autoptr (BzIssue) issue = NULL;
+
+                      as_issue = g_ptr_array_index (as_issues, j);
+
+                      issue = g_object_new (
+                          BZ_TYPE_ISSUE,
+                          "id", as_issue_get_id (as_issue),
+                          "url", as_issue_get_url (as_issue),
+                          NULL);
+                      g_list_store_append (issues, issue);
+                    }
+                }
+
+              release = g_object_new (
+                  BZ_TYPE_RELEASE,
+                  "issues", issues,
+                  "timestamp", as_release_get_timestamp (as_release),
+                  "url", as_release_get_url (as_release, AS_RELEASE_URL_KIND_DETAILS),
+                  "version", as_release_get_version (as_release),
+                  NULL);
+              g_list_store_append (version_history, release);
+            }
+        }
+
       // reviews = as_component_get_reviews (component);
       // if (reviews != NULL && reviews->len > 0)
       //   {
@@ -571,6 +625,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "reviews", native_reviews,
       "average-rating", average_rating,
       "ratings-summary", ratings_summary,
+      "version-history", version_history,
       NULL);
 
   return g_steal_pointer (&self);

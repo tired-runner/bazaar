@@ -47,6 +47,7 @@ typedef struct
   GListModel   *reviews;
   double        average_rating;
   char         *ratings_summary;
+  GListModel   *version_history;
 } BzEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
@@ -78,6 +79,7 @@ enum
   PROP_REVIEWS,
   PROP_AVERAGE_RATING,
   PROP_RATINGS_SUMMARY,
+  PROP_VERSION_HISTORY,
 
   LAST_PROP
 };
@@ -109,6 +111,7 @@ bz_entry_dispose (GObject *object)
   g_clear_object (&priv->share_urls);
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
+  g_clear_object (&priv->version_history);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -192,6 +195,9 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_RATINGS_SUMMARY:
       g_value_set_string (value, priv->ratings_summary);
+      break;
+    case PROP_VERSION_HISTORY:
+      g_value_set_object (value, priv->version_history);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -297,6 +303,10 @@ bz_entry_set_property (GObject      *object,
     case PROP_RATINGS_SUMMARY:
       g_clear_pointer (&priv->ratings_summary, g_free);
       priv->ratings_summary = g_value_dup_string (value);
+      break;
+    case PROP_VERSION_HISTORY:
+      g_clear_object (&priv->version_history);
+      priv->version_history = g_value_dup_object (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -456,6 +466,13 @@ bz_entry_class_init (BzEntryClass *klass)
       g_param_spec_string (
           "ratings-summary",
           NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_VERSION_HISTORY] =
+      g_param_spec_object (
+          "version-history",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);

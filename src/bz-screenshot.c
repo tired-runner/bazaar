@@ -137,11 +137,6 @@ bz_screenshot_measure (GtkWidget     *widget,
           *minimum = MIN (intrinsic_height, result);
           *natural = MIN (intrinsic_height, result);
         }
-      else if (intrinsic_aspect_rato > 0.0)
-        {
-          *minimum = intrinsic_height / intrinsic_aspect_rato;
-          *natural = intrinsic_height / intrinsic_aspect_rato;
-        }
       else
         {
           *minimum = intrinsic_height;

@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <glib/gi18n.h>
+
 #include "bz-full-view.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
@@ -142,6 +144,27 @@ format_size (gpointer object,
   return g_strdup_printf ("%s Download", size);
 }
 
+static char *
+format_timestamp (gpointer object,
+                  guint64  value)
+{
+  g_autoptr (GDateTime) date = NULL;
+
+  date = g_date_time_new_from_unix_utc (value);
+  return g_date_time_format (date, _ ("Released %c"));
+}
+
+static char *
+format_as_link (gpointer    object,
+                const char *value)
+{
+  if (value != NULL)
+    return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
+                            value, value, value);
+  else
+    return g_strdup ("No URL");
+}
+
 static void
 share_cb (BzFullView *self,
           GtkButton  *button)
@@ -234,6 +257,8 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, is_zero);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, format_size);
+  gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
+  gtk_widget_class_bind_template_callback (widget_class, format_as_link);
   gtk_widget_class_bind_template_callback (widget_class, share_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
