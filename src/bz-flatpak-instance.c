@@ -407,6 +407,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   g_autoptr (GPtrArray) system_remotes      = NULL;
   g_autoptr (GPtrArray) user_remotes        = NULL;
   g_autoptr (GHashTable) blocked_names_hash = NULL;
+  guint                  n_jobs             = 0;
   g_autofree DexFuture **jobs               = NULL;
   DexFuture             *future             = NULL;
 
@@ -453,21 +454,24 @@ ref_remote_apps_fiber (GatherEntriesData *data)
           remote       = g_ptr_array_index (user_remotes, i - system_remotes->len);
         }
 
+      if (flatpak_remote_get_disabled (remote))
+        continue;
+
       job_data                     = ref_remote_apps_for_remote_data_new ();
       job_data->parent             = gather_entries_data_ref (data);
       job_data->installation       = g_object_ref (installation);
       job_data->remote             = g_object_ref (remote);
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
 
-      jobs[i] = dex_scheduler_spawn (
+      jobs[n_jobs++] = dex_scheduler_spawn (
           instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
           ref_remote_apps_for_remote_data_ref (job_data),
           ref_remote_apps_for_remote_data_unref);
     }
 
-  future = dex_future_allv (jobs, system_remotes->len + user_remotes->len);
-  for (guint i = 0; i < system_remotes->len + user_remotes->len; i++)
+  future = dex_future_allv (jobs, n_jobs);
+  for (guint i = 0; i < n_jobs; i++)
     dex_unref (jobs[i]);
 
   return future;
