@@ -39,7 +39,14 @@ PROPS="$6"
 H_FILE="$7"
 C_FILE="$8"
 
-if [ -z "$PREF" ] || [ -z "$NAME" ] || [ -z "$AUTHOR" ] || [ -z "$H_FILE" ] || [ -z "$C_FILE" ]; then
+if [ -z "$PREF" ] ||
+       [ -z "$NAME" ] ||
+       [ -z "$PAR_PREF" ] ||
+       [ -z "$PAR_NAME" ] ||
+       [ -z "$AUTHOR" ] ||
+       [ -z "$PROPS" ] ||
+       [ -z "$H_FILE" ] ||
+       [ -z "$C_FILE" ]; then
     die one or more args are empty
 fi
 

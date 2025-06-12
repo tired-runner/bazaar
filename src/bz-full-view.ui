@@ -17,8 +17,9 @@
                 <property name="height-request">600</property>
                 <child>
                   <object class="AdwBreakpoint" id="breakpoint">
-                    <condition>max-width: 1100px</condition>
+                    <condition>max-width: 1150px</condition>
                     <setter object="start_box" property="width-request">-1</setter>
+                    <setter object="end_box" property="width-request">-1</setter>
                     <setter object="main_scroll" property="vscrollbar-policy">automatic</setter>
                     <setter object="long_description" property="vscrollbar-policy">never</setter>
                     <setter object="versions" property="vscrollbar-policy">never</setter>
@@ -42,7 +43,7 @@
                             <property name="margin-end">15</property>
                             <property name="margin-top">15</property>
                             <property name="margin-bottom">15</property>
-                            <property name="width-request">500</property>
+                            <property name="width-request">400</property>
                             <property name="orientation">vertical</property>
                             <property name="spacing">20</property>
                             <child>
@@ -220,27 +221,6 @@
                                         </child>
                                       </object>
                                     </child>
-                                    <child>
-                                      <object class="GtkLabel">
-                                        <style>
-                                          <class name="accent"/>
-                                          <class name="caption-heading"/>
-                                        </style>
-                                        <property name="has-tooltip">TRUE</property>
-                                        <property name="xalign">0</property>
-                                        <property name="ellipsize">end</property>
-                                        <property name="max-width-chars">40</property>
-                                        <binding name="label">
-                                          <closure function="format_size" type="gchararray">
-                                            <lookup name="size" type="BzEntry">
-                                              <lookup name="ui-entry" type="BzEntryGroup">
-                                                <lookup name="entry-group">BzFullView</lookup>
-                                              </lookup>
-                                            </lookup>
-                                          </closure>
-                                        </binding>
-                                      </object>
-                                    </child>
                                   </object>
                                 </child>
                               </object>
@@ -277,6 +257,122 @@
                                     </binding>
                                   </object>
                                 </property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwPreferencesGroup">
+                                <property name="hexpand">FALSE</property>
+                                <property name="title">App Details</property>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <binding name="title">
+                                      <lookup name="project-license" type="BzEntry">
+                                        <lookup name="ui-entry" type="BzEntryGroup">
+                                          <lookup name="entry-group">BzFullView</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                    <binding name="subtitle">
+                                      <closure function="pick_license_warning" type="gchararray">
+                                        <lookup name="is-floss" type="BzEntry">
+                                          <lookup name="ui-entry" type="BzEntryGroup">
+                                            <lookup name="entry-group">BzFullView</lookup>
+                                          </lookup>
+                                        </lookup>
+                                      </closure>
+                                    </binding>
+                                    <child type="prefix">
+                                      <object class="GtkImage">
+                                        <property name="icon-size">large</property>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="icon-name">license-symbolic</property>
+                                        <binding name="visible">
+                                          <lookup name="is-floss" type="BzEntry">
+                                            <lookup name="ui-entry" type="BzEntryGroup">
+                                              <lookup name="entry-group">BzFullView</lookup>
+                                            </lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child type="prefix">
+                                      <object class="GtkImage">
+                                        <property name="icon-size">large</property>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="icon-name">dialog-warning-symbolic</property>
+                                        <binding name="visible">
+                                          <closure function="invert_boolean" type="gboolean">
+                                            <lookup name="is-floss" type="BzEntry">
+                                              <lookup name="ui-entry" type="BzEntryGroup">
+                                                <lookup name="entry-group">BzFullView</lookup>
+                                              </lookup>
+                                            </lookup>
+                                          </closure>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <binding name="title">
+                                      <lookup name="remote-repos-string" type="BzEntryGroup">
+                                        <lookup name="entry-group">BzFullView</lookup>
+                                      </lookup>
+                                    </binding>
+                                    <child type="prefix">
+                                      <object class="GtkImage">
+                                        <property name="icon-size">large</property>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text" translatable="yes">Remote repo name</property>
+                                        <property name="icon-name">globe-symbolic</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="use-markup">TRUE</property>
+                                    <binding name="title">
+                                      <closure function="format_as_link" type="gchararray">
+                                        <lookup name="url" type="BzEntry">
+                                          <lookup name="ui-entry" type="BzEntryGroup">
+                                            <lookup name="entry-group">BzFullView</lookup>
+                                          </lookup>
+                                        </lookup>
+                                      </closure>
+                                    </binding>
+                                    <child type="prefix">
+                                      <object class="GtkImage">
+                                        <property name="icon-size">large</property>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text" translatable="yes">Project URL</property>
+                                        <property name="icon-name">external-link-symbolic</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <binding name="title">
+                                      <closure function="format_size" type="gchararray">
+                                        <lookup name="size" type="BzEntry">
+                                          <lookup name="ui-entry" type="BzEntryGroup">
+                                            <lookup name="entry-group">BzFullView</lookup>
+                                          </lookup>
+                                        </lookup>
+                                      </closure>
+                                    </binding>
+                                    <child type="prefix">
+                                      <object class="GtkImage">
+                                        <property name="icon-size">large</property>
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text" translatable="yes">Download size</property>
+                                        <property name="icon-name">drive-harddisk-symbolic</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>
@@ -453,6 +549,7 @@
                         </child>
                         <child>
                           <object class="GtkBox" id="end_box">
+                            <property name="width-request">700</property>
                             <property name="vexpand">FALSE</property>
                             <property name="hexpand">TRUE</property>
                             <property name="orientation">vertical</property>

@@ -151,7 +151,7 @@ format_timestamp (gpointer object,
   g_autoptr (GDateTime) date = NULL;
 
   date = g_date_time_new_from_unix_utc (value);
-  return g_date_time_format (date, _ ("Released %c"));
+  return g_date_time_format (date, _ ("Released %x"));
 }
 
 static char *
@@ -163,6 +163,15 @@ format_as_link (gpointer    object,
                             value, value, value);
   else
     return g_strdup ("No URL");
+}
+
+static char *
+pick_license_warning (gpointer object,
+                      gboolean value)
+{
+  return value
+             ? g_strdup ("This application has a FLOSS license, meaning the source code can be audited for safety.")
+             : g_strdup ("This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk.");
 }
 
 static void
@@ -262,6 +271,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, share_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
+  gtk_widget_class_bind_template_callback (widget_class, pick_license_warning);
 }
 
 static void
