@@ -1,6 +1,6 @@
 # Bazaar
 
-![Image](https://github.com/user-attachments/assets/b247939a-0822-4bbe-9b40-9c0063198175)
+![Image](https://github.com/user-attachments/assets/8196e25f-461c-4427-94ce-b20e2bd5fe86)
 
 A new app store idea for GNOME. This is very much work-in-progress,
 and nothing about the current state of the project is final; I intend
@@ -18,8 +18,7 @@ on the cli and type these commands inside the project root:
 meson setup build --prefix=/usr/local
 ninja -C build
 sudo ninja -C build install
-bazaar service
-bazaar window
+bazaar window --auto-service
 ```
 
 ## Supporting
