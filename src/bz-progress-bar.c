@@ -146,15 +146,17 @@ void
 bz_progress_bar_set_fraction (BzProgressBar *self,
                               double         fraction)
 {
+  double last    = 0.0;
   double current = 0.0;
 
   g_return_if_fail (BZ_IS_PROGRESS_BAR (self));
 
+  last           = self->fraction;
   self->fraction = CLAMP (fraction, 0.0, 1.0);
   current        = gtk_progress_bar_get_fraction (self->bar);
 
-  if (self->fraction < current ||
-      G_APPROX_VALUE (current, self->fraction, 0.001))
+  if (self->fraction < last ||
+      G_APPROX_VALUE (last, self->fraction, 0.001))
     {
       adw_animation_reset (self->animation);
       gtk_progress_bar_set_fraction (self->bar, self->fraction);

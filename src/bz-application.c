@@ -1302,9 +1302,14 @@ refresh_finally (DexFuture     *future,
 
       window = gtk_application_get_active_window (GTK_APPLICATION (self));
       if (window != NULL)
-        bz_show_error_for_widget (
-            GTK_WIDGET (window),
-            "Could not retrieve remote content. Check your internet connection.");
+        {
+          g_autofree char *error_string = NULL;
+
+          error_string = g_strdup_printf (
+              "Could not retrieve remote content: %s",
+              local_error->message);
+          bz_show_error_for_widget (GTK_WIDGET (window), error_string);
+        }
     }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);

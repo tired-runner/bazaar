@@ -115,11 +115,15 @@ gather_entries_update_progress (const char        *status,
                                 gboolean           estimating,
                                 GatherEntriesData *data);
 
-typedef struct
-{
-  GatherEntriesData *parent;
-  BzEntry           *entry;
-} GatherEntriesUpdateData;
+BZ_DEFINE_DATA (
+    gather_entries_update,
+    GatherEntriesUpdate,
+    {
+      GatherEntriesData *parent;
+      BzEntry           *entry;
+    },
+    BZ_RELEASE_DATA (parent, gather_entries_data_unref);
+    BZ_RELEASE_DATA (entry, g_object_unref));
 static DexFuture *
 gather_entries_job_update (GatherEntriesUpdateData *data);
 
@@ -470,7 +474,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
           ref_remote_apps_for_remote_data_unref);
     }
 
-  future = dex_future_allv (jobs, n_jobs);
+  future = dex_future_all_racev (jobs, n_jobs);
   for (guint i = 0; i < n_jobs; i++)
     dex_unref (jobs[i]);
 
@@ -674,7 +678,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   if (n_jobs == 0)
     return dex_future_new_true ();
 
-  future = dex_future_allv (jobs, n_jobs);
+  future = dex_future_all_racev (jobs, n_jobs);
   for (guint i = 0; i < n_jobs; i++)
     dex_unref (jobs[i]);
 
@@ -684,10 +688,10 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 {
-  g_autoptr (GError) local_error      = NULL;
-  g_autoptr (BzFlatpakEntry) entry    = NULL;
-  GatherEntriesUpdateData update_data = { 0 };
-  DexFuture              *update      = NULL;
+  g_autoptr (GError) local_error                  = NULL;
+  g_autoptr (BzFlatpakEntry) entry                = NULL;
+  g_autoptr (GatherEntriesUpdateData) update_data = NULL;
+  g_autoptr (DexFuture) update                    = NULL;
 
   entry = bz_flatpak_entry_new_for_remote_ref (
       data->parent->parent->instance,
@@ -699,16 +703,21 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
       data->remote_icon,
       &local_error);
   if (entry == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    {
+      // g_critical ("%s\n", local_error->message);
+      return dex_future_new_true ();
+    }
 
-  update_data.parent = data->parent->parent;
-  update_data.entry  = BZ_ENTRY (entry);
+  update_data         = gather_entries_update_data_new ();
+  update_data->parent = gather_entries_data_ref (data->parent->parent);
+  update_data->entry  = g_object_ref (BZ_ENTRY (entry));
 
   update = dex_scheduler_spawn (
       data->parent->parent->home_scheduler, 0,
       (DexFiberFunc) gather_entries_job_update,
-      &update_data, NULL);
-  if (!dex_await (update, &local_error))
+      gather_entries_update_data_ref (update_data),
+      gather_entries_update_data_unref);
+  if (!dex_await (g_steal_pointer (&update), &local_error))
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
   return dex_future_new_true ();
