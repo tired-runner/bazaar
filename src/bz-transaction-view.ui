@@ -32,7 +32,7 @@
                           <class name="title-4"/>
                         </style>
                         <property name="ellipsize">end</property>
-                        <property name="label" translatable="yes">Installing:</property>
+                        <property name="label" translatable="yes">Installing</property>
                       </object>
                     </child>
                     <child>
@@ -68,7 +68,7 @@
                           <class name="title-4"/>
                         </style>
                         <property name="ellipsize">end</property>
-                        <property name="label" translatable="yes">Updating:</property>
+                        <property name="label" translatable="yes">Updating</property>
                       </object>
                     </child>
                     <child>
@@ -104,7 +104,7 @@
                           <class name="title-4"/>
                         </style>
                         <property name="ellipsize">end</property>
-                        <property name="label" translatable="yes">Removing:</property>
+                        <property name="label" translatable="yes">Removing</property>
                       </object>
                     </child>
                     <child>

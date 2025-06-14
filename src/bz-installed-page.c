@@ -35,6 +35,7 @@ struct _BzInstalledPage
 
   /* Template widgets */
   AdwViewStack   *stack;
+  GtkListView    *list_view;
   GtkNoSelection *no_selection;
 };
 
@@ -256,6 +257,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-installed-page.ui");
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, stack);
+  gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, no_selection);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
@@ -299,7 +301,7 @@ bz_installed_page_set_model (BzInstalledPage *self,
   if (model != NULL)
     {
       self->model = g_object_ref (model);
-      g_signal_connect (
+      g_signal_connect_after (
           self->model, "items-changed",
           G_CALLBACK (items_changed), self);
     }
@@ -361,10 +363,12 @@ cmp_item (BzEntry         *a,
 static void
 set_page (BzInstalledPage *self)
 {
-  adw_view_stack_set_visible_child_name (
-      self->stack,
-      self->model != NULL &&
-              g_list_model_get_n_items (G_LIST_MODEL (self->model)) > 0
-          ? "content"
-          : "empty");
+  if (self->model != NULL &&
+      g_list_model_get_n_items (G_LIST_MODEL (self->model)) > 0)
+    {
+      adw_view_stack_set_visible_child_name (self->stack, "content");
+      gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_NONE, NULL);
+    }
+  else
+    adw_view_stack_set_visible_child_name (self->stack, "empty");
 }

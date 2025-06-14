@@ -1353,8 +1353,6 @@ fetch_installs_then (DexFuture     *future,
   const GValue *value     = NULL;
   guint         n_entries = 0;
 
-  g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
-
   value                          = dex_future_get_value (future, NULL);
   self->installed_unique_ids_set = g_value_dup_boxed (value);
 
@@ -1477,6 +1475,7 @@ refresh (BzApplication *self)
 
   bz_content_provider_block (self->content_provider);
 
+  g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
   g_hash_table_remove_all (self->unique_appid_to_entry_hash);
   g_hash_table_remove_all (self->flatpak_name_to_app_hash);

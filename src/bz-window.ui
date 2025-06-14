@@ -303,6 +303,56 @@
                     </property>
                   </object>
                 </child>
+                <!-- <child> -->
+                <!--   <object class="AdwToggle"> -->
+                <!--     <property name="tooltip" translatable="yes">Support Developers</property> -->
+                <!--     <property name="name">support</property> -->
+                <!--     <property name="child"> -->
+                <!--       <object class="GtkBox"> -->
+                <!--         <property name="halign">center</property> -->
+                <!--         <property name="margin-start">15</property> -->
+                <!--         <property name="margin-end">15</property> -->
+                <!--         <property name="orientation">horizontal</property> -->
+                <!--         <property name="spacing">6</property> -->
+                <!--         <child> -->
+                <!--           <object class="GtkImage"> -->
+                <!--             <property name="icon-name">heart-filled-symbolic</property> -->
+                <!--           </object> -->
+                <!--         </child> -->
+                <!--         <child> -->
+                <!--           <object class="GtkLabel"> -->
+                <!--             <property name="label" translatable="yes">Support</property> -->
+                <!--           </object> -->
+                <!--         </child> -->
+                <!--       </object> -->
+                <!--     </property> -->
+                <!--   </object> -->
+                <!-- </child> -->
+                <!-- <child> -->
+                <!--   <object class="AdwToggle"> -->
+                <!--     <property name="tooltip" translatable="yes">News</property> -->
+                <!--     <property name="name">news</property> -->
+                <!--     <property name="child"> -->
+                <!--       <object class="GtkBox"> -->
+                <!--         <property name="halign">center</property> -->
+                <!--         <property name="margin-start">15</property> -->
+                <!--         <property name="margin-end">15</property> -->
+                <!--         <property name="orientation">horizontal</property> -->
+                <!--         <property name="spacing">6</property> -->
+                <!--         <child> -->
+                <!--           <object class="GtkImage"> -->
+                <!--             <property name="icon-name">newspaper-symbolic</property> -->
+                <!--           </object> -->
+                <!--         </child> -->
+                <!--         <child> -->
+                <!--           <object class="GtkLabel"> -->
+                <!--             <property name="label" translatable="yes">News</property> -->
+                <!--           </object> -->
+                <!--         </child> -->
+                <!--       </object> -->
+                <!--     </property> -->
+                <!--   </object> -->
+                <!-- </child> -->
                 <signal name="notify::active-name" handler="page_toggled_cb" swapped="true" object="BzWindow"/>
               </object>
             </property>
