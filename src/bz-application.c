@@ -256,7 +256,7 @@ bz_application_command_line (GApplication            *app,
       else
         g_application_command_line_printerr (
             cmdline,
-            "The Bazzar service is not running.\n"
+            "The Bazaar service is not running.\n"
             "Invoke \"bazaar service\" to initialize the daemon.\n");
 
       if (g_strcmp0 (argv[1], "--help") == 0)
@@ -331,7 +331,7 @@ bz_application_command_line (GApplication            *app,
             {
               g_application_command_line_printerr (
                   cmdline,
-                  "The Bazzar service is already running.\n"
+                  "The Bazaar service is already running.\n"
                   "Invoke \"bazaar --help\" to for available commands.\n");
               return EXIT_FAILURE;
             }
@@ -395,7 +395,7 @@ bz_application_command_line (GApplication            *app,
     {
       g_application_command_line_printerr (
           cmdline,
-          "The Bazzar service is not running.\n"
+          "The Bazaar service is not running.\n"
           "Invoke \"bazaar service\" to initialize the daemon.\n");
       return EXIT_FAILURE;
     }
