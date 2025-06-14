@@ -332,13 +332,30 @@ cmp_item (BzEntry         *a,
           BzEntry         *b,
           BzInstalledPage *self)
 {
+  gboolean    a_is_application = FALSE;
+  gboolean    b_is_application = FALSE;
+  gboolean    a_is_addon       = FALSE;
+  gboolean    b_is_addon       = FALSE;
   const char *title_a;
   const char *title_b;
 
-  title_a = bz_entry_get_title (a);
-  title_b = bz_entry_get_title (b);
+  a_is_application = bz_entry_is_of_kinds (a, BZ_ENTRY_KIND_APPLICATION);
+  b_is_application = bz_entry_is_of_kinds (b, BZ_ENTRY_KIND_APPLICATION);
+  a_is_addon       = bz_entry_is_of_kinds (a, BZ_ENTRY_KIND_ADDON);
+  b_is_addon       = bz_entry_is_of_kinds (b, BZ_ENTRY_KIND_ADDON);
+  title_a          = bz_entry_get_title (a);
+  title_b          = bz_entry_get_title (b);
 
-  return g_strcmp0 (title_a, title_b);
+  if (a_is_application && !b_is_application)
+    return -1;
+  else if (!a_is_application && b_is_application)
+    return 1;
+  else if (a_is_addon && !b_is_addon)
+    return -1;
+  else if (!a_is_addon && b_is_addon)
+    return 1;
+  else
+    return g_strcmp0 (title_a, title_b);
 }
 
 static void

@@ -59,9 +59,7 @@ struct _BzWindow
   GtkButton           *refresh;
   GtkButton           *search;
   GtkButton           *update_button;
-  GtkWidget           *title_widget;
-  GtkToggleButton     *curated_btn;
-  GtkToggleButton     *installed_btn;
+  AdwToggleGroup      *title_toggle_group;
   GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
 };
@@ -355,11 +353,11 @@ installed_page_remove_cb (BzWindow   *self,
 }
 
 static void
-page_toggled_cb (BzWindow        *self,
-                 GtkToggleButton *toggle)
+page_toggled_cb (BzWindow       *self,
+                 GParamSpec     *pspec,
+                 AdwToggleGroup *toggles)
 {
-  if (gtk_toggle_button_get_active (toggle))
-    set_page (self);
+  set_page (self);
 }
 
 static void
@@ -447,9 +445,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, title_widget);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, curated_btn);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, installed_btn);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
@@ -481,8 +477,7 @@ bz_window_init (BzWindow *self)
   //     GTK_EVENT_CONTROLLER_MOTION (motion_controller));
   // gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
 
-  gtk_toggle_button_set_group (self->installed_btn, self->curated_btn);
-  gtk_toggle_button_set_active (self->curated_btn, TRUE);
+  adw_toggle_group_set_active_name (self->title_toggle_group, "curated");
 }
 
 static void
@@ -913,17 +908,20 @@ check_transactions (BzWindow *self)
 static void
 set_page (BzWindow *self)
 {
+  const char *active_name   = NULL;
   const char *visible_child = NULL;
+
+  active_name = adw_toggle_group_get_active_name (self->title_toggle_group);
 
   if (self->busy)
     visible_child = "loading";
-  else if (gtk_toggle_button_get_active (self->installed_btn))
+  else if (g_strcmp0 (active_name, "installed") == 0)
     visible_child = "installed";
-  else if (gtk_toggle_button_get_active (self->curated_btn))
+  else if (g_strcmp0 (active_name, "curated") == 0)
     visible_child = self->online ? "browse" : "offline";
 
   adw_view_stack_set_visible_child_name (self->main_stack, visible_child);
-  gtk_widget_set_sensitive (self->title_widget, !self->busy);
+  gtk_widget_set_sensitive (GTK_WIDGET (self->title_toggle_group), !self->busy);
 
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
   bz_full_view_set_entry_group (self->full_view, NULL);

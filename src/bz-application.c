@@ -51,6 +51,7 @@ struct _BzApplication
   GtkMapListModel *content_configs_to_files;
 
   BzFlatpakInstance *flatpak;
+  GListStore        *all_entries;
   GListStore        *applications;
   GListStore        *runtimes;
   GListStore        *addons;
@@ -146,6 +147,7 @@ bz_application_dispose (GObject *object)
   g_clear_pointer (&self->unique_appid_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->flatpak_name_to_app_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
+  g_clear_object (&self->all_entries);
   g_clear_object (&self->applications);
   g_clear_object (&self->runtimes);
   g_clear_object (&self->addons);
@@ -1097,6 +1099,7 @@ bz_application_init (BzApplication *self)
   g_signal_connect (self->transactions, "notify::last-success",
                     G_CALLBACK (last_success_changed), self);
 
+  self->all_entries  = g_list_store_new (BZ_TYPE_ENTRY);
   self->applications = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
   self->runtimes     = g_list_store_new (BZ_TYPE_ENTRY);
   self->addons       = g_list_store_new (BZ_TYPE_ENTRY);
@@ -1148,6 +1151,7 @@ static void
 gather_entries_progress (BzEntry       *entry,
                          BzApplication *self)
 {
+  g_list_store_append (self->all_entries, entry);
 
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
     {
@@ -1346,8 +1350,8 @@ static DexFuture *
 fetch_installs_then (DexFuture     *future,
                      BzApplication *self)
 {
-  const GValue *value    = NULL;
-  guint         n_groups = 0;
+  const GValue *value     = NULL;
+  guint         n_entries = 0;
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
 
@@ -1355,32 +1359,29 @@ fetch_installs_then (DexFuture     *future,
   self->installed_unique_ids_set = g_value_dup_boxed (value);
 
   /* FIXME inefficient */
-  n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->applications));
-  for (guint i = 0; i < n_groups; i++)
+  n_entries = g_list_model_get_n_items (G_LIST_MODEL (self->all_entries));
+  for (guint i = 0; i < n_entries; i++)
     {
-      g_autoptr (BzEntryGroup) group = NULL;
-      GListModel *entries            = NULL;
-      guint       n_entries          = 0;
+      g_autoptr (BzEntry) entry = NULL;
+      const char *unique_id     = NULL;
 
-      group     = g_list_model_get_item (G_LIST_MODEL (self->applications), i);
-      entries   = bz_entry_group_get_model (group);
-      n_entries = g_list_model_get_n_items (entries);
+      entry     = g_list_model_get_item (G_LIST_MODEL (self->all_entries), i);
+      unique_id = bz_entry_get_unique_id (entry);
 
-      for (guint j = 0; j < n_entries; j++)
+      if (g_hash_table_contains (
+              self->installed_unique_ids_set,
+              unique_id))
         {
-          g_autoptr (BzEntry) entry = NULL;
-          const char *unique_id     = NULL;
+          BzEntryGroup *group      = NULL;
+          const char   *generic_id = NULL;
 
-          entry     = g_list_model_get_item (entries, j);
-          unique_id = bz_entry_get_unique_id (entry);
+          g_list_store_append (self->installed, entry);
 
-          if (g_hash_table_contains (
-                  self->installed_unique_ids_set,
-                  unique_id))
-            {
-              g_list_store_append (self->installed, entry);
-              bz_entry_group_install (group, entry);
-            }
+          generic_id = bz_entry_get_id (entry);
+          group      = g_hash_table_lookup (
+              self->generic_id_to_entry_group_hash, generic_id);
+          if (group != NULL)
+            bz_entry_group_install (group, entry);
         }
     }
 
@@ -1479,6 +1480,7 @@ refresh (BzApplication *self)
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
   g_hash_table_remove_all (self->unique_appid_to_entry_hash);
   g_hash_table_remove_all (self->flatpak_name_to_app_hash);
+  g_list_store_remove_all (self->all_entries);
   g_list_store_remove_all (self->applications);
   g_list_store_remove_all (self->runtimes);
   g_list_store_remove_all (self->addons);
