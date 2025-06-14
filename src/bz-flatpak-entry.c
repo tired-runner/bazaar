@@ -43,14 +43,16 @@ struct _BzFlatpakEntry
 {
   BzEntry parent_instance;
 
+  gboolean user;
+  char    *flatpak_id;
+  char    *application_name;
+  char    *application_runtime;
+  char    *application_command;
+  char    *runtime_name;
+  char    *addon_extension_of_ref;
+
   BzFlatpakInstance *flatpak;
-  gboolean           user;
-
-  FlatpakRemoteRef *rref;
-
-  char *name;
-  char *runtime;
-  char *command;
+  FlatpakRemoteRef  *rref;
 };
 
 G_DEFINE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ_TYPE_ENTRY)
@@ -61,9 +63,12 @@ enum
 
   PROP_INSTANCE,
   PROP_USER,
-  PROP_NAME,
-  PROP_RUNTIME,
-  PROP_COMMAND,
+  PROP_FLATPAK_ID,
+  PROP_APPLICATION_NAME,
+  PROP_APPLICATION_RUNTIME,
+  PROP_APPLICATION_COMMAND,
+  PROP_RUNTIME_NAME,
+  PROP_ADDON_OF_REF,
 
   LAST_PROP
 };
@@ -84,12 +89,15 @@ bz_flatpak_entry_dispose (GObject *object)
 {
   BzFlatpakEntry *self = BZ_FLATPAK_ENTRY (object);
 
+  g_clear_pointer (&self->flatpak_id, g_free);
+  g_clear_pointer (&self->application_name, g_free);
+  g_clear_pointer (&self->application_runtime, g_free);
+  g_clear_pointer (&self->application_command, g_free);
+  g_clear_pointer (&self->runtime_name, g_free);
+  g_clear_pointer (&self->addon_extension_of_ref, g_free);
+
   g_clear_object (&self->flatpak);
   g_clear_object (&self->rref);
-
-  g_clear_pointer (&self->name, g_free);
-  g_clear_pointer (&self->runtime, g_free);
-  g_clear_pointer (&self->command, g_free);
 
   G_OBJECT_CLASS (bz_flatpak_entry_parent_class)->dispose (object);
 }
@@ -110,14 +118,23 @@ bz_flatpak_entry_get_property (GObject    *object,
     case PROP_USER:
       g_value_set_boolean (value, self->user);
       break;
-    case PROP_NAME:
-      g_value_set_string (value, self->name);
+    case PROP_FLATPAK_ID:
+      g_value_set_string (value, self->flatpak_id);
       break;
-    case PROP_RUNTIME:
-      g_value_set_string (value, self->runtime);
+    case PROP_APPLICATION_NAME:
+      g_value_set_string (value, self->application_name);
       break;
-    case PROP_COMMAND:
-      g_value_set_string (value, self->command);
+    case PROP_APPLICATION_RUNTIME:
+      g_value_set_string (value, self->application_runtime);
+      break;
+    case PROP_APPLICATION_COMMAND:
+      g_value_set_string (value, self->application_command);
+      break;
+    case PROP_RUNTIME_NAME:
+      g_value_set_string (value, self->runtime_name);
+      break;
+    case PROP_ADDON_OF_REF:
+      g_value_set_string (value, self->addon_extension_of_ref);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -136,9 +153,12 @@ bz_flatpak_entry_set_property (GObject      *object,
     {
     case PROP_INSTANCE:
     case PROP_USER:
-    case PROP_NAME:
-    case PROP_RUNTIME:
-    case PROP_COMMAND:
+    case PROP_FLATPAK_ID:
+    case PROP_APPLICATION_NAME:
+    case PROP_APPLICATION_RUNTIME:
+    case PROP_APPLICATION_COMMAND:
+    case PROP_RUNTIME_NAME:
+    case PROP_ADDON_OF_REF:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -167,21 +187,39 @@ bz_flatpak_entry_class_init (BzFlatpakEntryClass *klass)
           FALSE,
           G_PARAM_READABLE);
 
-  props[PROP_NAME] =
+  props[PROP_FLATPAK_ID] =
       g_param_spec_string (
-          "name",
+          "flatpak-id",
           NULL, NULL, NULL,
           G_PARAM_READABLE);
 
-  props[PROP_RUNTIME] =
+  props[PROP_APPLICATION_NAME] =
       g_param_spec_string (
-          "runtime",
+          "application-name",
           NULL, NULL, NULL,
           G_PARAM_READABLE);
 
-  props[PROP_COMMAND] =
+  props[PROP_APPLICATION_RUNTIME] =
       g_param_spec_string (
-          "command",
+          "application-runtime",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_APPLICATION_COMMAND] =
+      g_param_spec_string (
+          "application-command",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_RUNTIME_NAME] =
+      g_param_spec_string (
+          "runtime-name",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_ADDON_OF_REF] =
+      g_param_spec_string (
+          "addon-extension-of-ref",
           NULL, NULL, NULL,
           G_PARAM_READABLE);
 
@@ -207,6 +245,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   GBytes *bytes                           = NULL;
   g_autoptr (GKeyFile) key_file           = NULL;
   gboolean         result                 = FALSE;
+  guint            kinds                  = 0;
   const char      *id                     = NULL;
   g_autofree char *unique_id              = NULL;
   guint64          download_size          = 0;
@@ -259,13 +298,35 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   }                                         \
   G_STMT_END
 
-  GET_STRING (name, "Application", "name");
-  GET_STRING (runtime, "Application", "runtime");
-  GET_STRING (command, "Application", "command");
+  if (g_key_file_has_group (key_file, "Application"))
+    {
+      kinds |= BZ_ENTRY_KIND_APPLICATION;
+
+      GET_STRING (application_name, "Application", "name");
+      GET_STRING (application_runtime, "Application", "runtime");
+      GET_STRING (application_command, "Application", "command");
+    }
+
+  if (g_key_file_has_group (key_file, "Runtime"))
+    {
+      kinds |= BZ_ENTRY_KIND_RUNTIME;
+
+      GET_STRING (runtime_name, "Runtime", "name");
+    }
+
+  if (g_key_file_has_group (key_file, "ExtensionOf"))
+    {
+      kinds |= BZ_ENTRY_KIND_ADDON;
+
+      GET_STRING (addon_extension_of_ref, "ExtensionOf", "ref");
+    }
 
 #undef GET_STRING
 
-  /* TODO: permissions, runtimes */
+  if (kinds == 0)
+    return NULL;
+
+  self->flatpak_id = flatpak_ref_format_ref (FLATPAK_REF (rref));
 
   id            = flatpak_ref_get_name (FLATPAK_REF (rref));
   unique_id     = bz_flatpak_ref_format_unique (FLATPAK_REF (rref), user);
@@ -563,14 +624,18 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
             g_strdup (g_ptr_array_index (as_search_tokens, i)));
     }
 
-  g_ptr_array_add (search_tokens, g_strdup (self->name));
-  g_ptr_array_add (search_tokens, g_strdup (self->runtime));
-  g_ptr_array_add (search_tokens, g_strdup (self->command));
+  g_ptr_array_add (search_tokens, g_strdup (self->application_name));
+  g_ptr_array_add (search_tokens, g_strdup (self->application_runtime));
+  g_ptr_array_add (search_tokens, g_strdup (self->application_command));
 
   if (title != NULL)
     g_ptr_array_add (search_tokens, g_strdup (title));
+  else if (self->application_name != NULL)
+    title = self->application_name;
+  else if (self->runtime_name != NULL)
+    title = self->runtime_name;
   else
-    title = self->name;
+    title = self->flatpak_id;
 
   eol = flatpak_remote_ref_get_eol (rref);
   if (eol != NULL)
@@ -602,6 +667,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
   g_object_set (
       self,
+      "kinds", kinds,
       "id", id,
       "unique-id", unique_id,
       "title", title,
@@ -659,10 +725,31 @@ bz_flatpak_entry_is_user (BzFlatpakEntry *self)
 }
 
 const char *
-bz_flatpak_entry_get_name (BzFlatpakEntry *self)
+bz_flatpak_entry_get_flatpak_id (BzFlatpakEntry *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
-  return self->name;
+  return self->flatpak_id;
+}
+
+const char *
+bz_flatpak_entry_get_application_name (BzFlatpakEntry *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
+  return self->application_name;
+}
+
+const char *
+bz_flatpak_entry_get_runtime_name (BzFlatpakEntry *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
+  return self->runtime_name;
+}
+
+const char *
+bz_flatpak_entry_get_addon_extension_of_ref (BzFlatpakEntry *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
+  return self->addon_extension_of_ref;
 }
 
 gboolean

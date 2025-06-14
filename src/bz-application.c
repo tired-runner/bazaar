@@ -51,10 +51,14 @@ struct _BzApplication
   GtkMapListModel *content_configs_to_files;
 
   BzFlatpakInstance *flatpak;
-  GListStore        *remote_groups;
+  GListStore        *applications;
+  GListStore        *runtimes;
+  GListStore        *addons;
+  GListStore        *installed;
   GListStore        *updates;
-  GHashTable        *id_to_entry_group_hash;
-  GHashTable        *unique_id_to_entry_hash;
+  GHashTable        *generic_id_to_entry_group_hash;
+  GHashTable        *unique_appid_to_entry_hash;
+  GHashTable        *flatpak_name_to_app_hash;
   GHashTable        *installed_unique_ids_set;
 };
 
@@ -138,10 +142,14 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->content_configs_to_files);
   g_clear_object (&self->css);
   g_clear_object (&self->flatpak);
-  g_clear_pointer (&self->id_to_entry_group_hash, g_hash_table_unref);
-  g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
+  g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
+  g_clear_pointer (&self->unique_appid_to_entry_hash, g_hash_table_unref);
+  g_clear_pointer (&self->flatpak_name_to_app_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
-  g_clear_object (&self->remote_groups);
+  g_clear_object (&self->applications);
+  g_clear_object (&self->runtimes);
+  g_clear_object (&self->addons);
+  g_clear_object (&self->installed);
   g_clear_object (&self->updates);
 
   G_OBJECT_CLASS (bz_application_parent_class)->dispose (object);
@@ -432,7 +440,8 @@ bz_application_command_line (GApplication            *app,
               "settings", self->settings,
               "transaction-manager", self->transactions,
               "content-provider", self->content_provider,
-              "remote-groups", self->remote_groups,
+              "applications", self->applications,
+              "installed", self->installed,
               "updates", self->updates,
               "busy", self->busy,
               "online", self->online,
@@ -625,7 +634,7 @@ bz_application_command_line (GApplication            *app,
               fields = g_strv_builder_end (builder);
             }
 
-          entry = g_hash_table_lookup (self->unique_id_to_entry_hash, match);
+          entry = g_hash_table_lookup (self->unique_appid_to_entry_hash, match);
           if (entry != NULL)
             {
               g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (entry));
@@ -646,7 +655,7 @@ bz_application_command_line (GApplication            *app,
             {
               BzEntryGroup *group = NULL;
 
-              group = g_hash_table_lookup (self->id_to_entry_group_hash, match);
+              group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, match);
               if (group != NULL)
                 {
                   GListModel *entries   = NULL;
@@ -738,14 +747,14 @@ bz_application_command_line (GApplication            *app,
           {                                                                                       \
             BzEntry *entry = NULL;                                                                \
                                                                                                   \
-            entry = g_hash_table_lookup (self->unique_id_to_entry_hash, *id);                     \
+            entry = g_hash_table_lookup (self->unique_appid_to_entry_hash, *id);                  \
             if (entry != NULL)                                                                    \
               g_ptr_array_add (which, g_object_ref (entry));                                      \
             else                                                                                  \
               {                                                                                   \
                 BzEntryGroup *group = NULL;                                                       \
                                                                                                   \
-                group = g_hash_table_lookup (self->id_to_entry_group_hash, *id);                  \
+                group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, *id);          \
                 if (group != NULL)                                                                \
                   g_ptr_array_add (which, g_object_ref (group));                                  \
                 else                                                                              \
@@ -876,6 +885,64 @@ bz_application_class_init (BzApplicationClass *klass)
 }
 
 static void
+bz_application_flatseal_action (GSimpleAction *action,
+                                GVariant      *parameter,
+                                gpointer       user_data)
+{
+  BzApplication *self            = user_data;
+  g_autoptr (GError) local_error = NULL;
+  BzEntryGroup *group            = NULL;
+  GListModel   *model            = NULL;
+  guint         n_entries        = 0;
+  GtkWindow    *window           = NULL;
+
+  g_assert (BZ_IS_APPLICATION (self));
+
+  group = g_hash_table_lookup (
+      self->generic_id_to_entry_group_hash,
+      "com.github.tchx84.Flatseal");
+  if (group == NULL)
+    goto err;
+
+  model     = bz_entry_group_get_model (group);
+  n_entries = g_list_model_get_n_items (model);
+
+  for (guint i = 0; i < n_entries; i++)
+    {
+      g_autoptr (BzEntry) entry = NULL;
+      const char *unique_id     = NULL;
+
+      entry     = g_list_model_get_item (model, i);
+      unique_id = bz_entry_get_unique_id (entry);
+
+      if (g_hash_table_contains (
+              self->unique_appid_to_entry_hash,
+              unique_id) &&
+          BZ_IS_FLATPAK_ENTRY (entry))
+        {
+          gboolean result = FALSE;
+
+          result = bz_flatpak_entry_launch (
+              BZ_FLATPAK_ENTRY (entry), &local_error);
+
+          if (result)
+            return;
+          else
+            break;
+        }
+    }
+
+err:
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+  if (window != NULL)
+    bz_show_error_for_widget (
+        GTK_WIDGET (window),
+        local_error != NULL
+            ? local_error->message
+            : "Failed to open Flatseal");
+}
+
+static void
 bz_application_donate_action (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)
@@ -1003,6 +1070,7 @@ static const GActionEntry app_actions[] = {
   {             "refresh",             bz_application_refresh_action, NULL },
   { "toggle-transactions", bz_application_toggle_transactions_action, NULL },
   {              "donate",              bz_application_donate_action, NULL },
+  {            "flatseal",            bz_application_flatseal_action, NULL },
 };
 
 static gpointer
@@ -1029,19 +1097,24 @@ bz_application_init (BzApplication *self)
   g_signal_connect (self->transactions, "notify::last-success",
                     G_CALLBACK (last_success_changed), self);
 
-  self->remote_groups = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
-  self->updates       = g_list_store_new (BZ_TYPE_ENTRY);
+  self->applications = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
+  self->runtimes     = g_list_store_new (BZ_TYPE_ENTRY);
+  self->addons       = g_list_store_new (BZ_TYPE_ENTRY);
+  self->installed    = g_list_store_new (BZ_TYPE_ENTRY);
+  self->updates      = g_list_store_new (BZ_TYPE_ENTRY);
 
-  self->id_to_entry_group_hash = g_hash_table_new_full (
+  self->generic_id_to_entry_group_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
-  self->unique_id_to_entry_hash = g_hash_table_new_full (
+  self->unique_appid_to_entry_hash = g_hash_table_new_full (
+      g_str_hash, g_str_equal, g_free, g_object_unref);
+  self->flatpak_name_to_app_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
   self->installed_unique_ids_set = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, NULL);
 
   self->content_provider = bz_content_provider_new ();
   bz_content_provider_set_group_hash (
-      self->content_provider, self->id_to_entry_group_hash);
+      self->content_provider, self->generic_id_to_entry_group_hash);
 
   self->content_configs_to_files = gtk_map_list_model_new (
       NULL, (GtkMapListModelMapFunc) map_strings_to_files, NULL, NULL);
@@ -1075,30 +1148,47 @@ static void
 gather_entries_progress (BzEntry       *entry,
                          BzApplication *self)
 {
-  const char   *id        = NULL;
-  BzEntryGroup *group     = NULL;
-  const char   *unique_id = NULL;
 
-  id    = bz_entry_get_id (entry);
-  group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
-  if (group == NULL)
+  if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
     {
-      group = bz_entry_group_new ();
-      g_hash_table_replace (
-          self->id_to_entry_group_hash,
-          g_strdup (id),
-          group);
-      g_list_store_append (
-          self->remote_groups, group);
-    }
-  bz_entry_group_add (group, entry, TRUE, FALSE, FALSE);
+      const char   *id           = NULL;
+      BzEntryGroup *group        = NULL;
+      const char   *unique_id    = NULL;
+      const char   *flatpak_name = NULL;
 
-  unique_id = bz_entry_get_unique_id (entry);
-  g_hash_table_replace (
-      self->unique_id_to_entry_hash,
-      g_strdup (unique_id),
-      g_object_ref (entry));
+      id    = bz_entry_get_id (entry);
+      group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+
+      if (group == NULL)
+        {
+          group = bz_entry_group_new ();
+          g_hash_table_replace (
+              self->generic_id_to_entry_group_hash,
+              g_strdup (id),
+              group);
+          g_list_store_append (
+              self->applications, group);
+        }
+      bz_entry_group_add (group, entry, TRUE, FALSE, FALSE);
+
+      unique_id = bz_entry_get_unique_id (entry);
+      g_hash_table_replace (
+          self->unique_appid_to_entry_hash,
+          g_strdup (unique_id),
+          g_object_ref (entry));
+
+      flatpak_name = bz_flatpak_entry_get_flatpak_id (
+          BZ_FLATPAK_ENTRY (entry));
+      g_hash_table_replace (
+          self->flatpak_name_to_app_hash,
+          g_strdup (flatpak_name),
+          g_object_ref (group));
+    }
+
+  if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_RUNTIME))
+    g_list_store_append (self->runtimes, entry);
+  if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_ADDON))
+    g_list_store_append (self->addons, entry);
 }
 
 static void
@@ -1131,13 +1221,14 @@ last_success_changed (BzTransactionManager *manager,
           const char   *id          = NULL;
           BzEntryGroup *group       = NULL;
 
-          entry     = g_list_model_get_item (installs, i);
+          entry = g_list_model_get_item (installs, i);
+          g_list_store_insert (self->installed, 0, entry);
+
           unique_id = bz_entry_get_unique_id (entry);
           g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
 
           id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
+          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
           if (group != NULL)
             bz_entry_group_install (group, entry);
         }
@@ -1145,17 +1236,20 @@ last_success_changed (BzTransactionManager *manager,
       for (guint i = 0; i < n_removals; i++)
         {
           g_autoptr (BzEntry) entry = NULL;
+          guint         idx         = 0;
           const char   *unique_id   = NULL;
           const char   *id          = NULL;
           BzEntryGroup *group       = NULL;
 
-          entry     = g_list_model_get_item (removals, i);
+          entry = g_list_model_get_item (removals, i);
+          g_assert (g_list_store_find (self->installed, entry, &idx));
+          g_list_store_remove (self->installed, idx);
+
           unique_id = bz_entry_get_unique_id (entry);
           g_hash_table_remove (self->installed_unique_ids_set, unique_id);
 
           id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->id_to_entry_group_hash, id);
-
+          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
           if (group != NULL)
             bz_entry_group_remove (group, entry);
         }
@@ -1197,6 +1291,54 @@ static DexFuture *
 fetch_refs_then (DexFuture     *future,
                  BzApplication *self)
 {
+  guint n_addons = 0;
+
+  n_addons = g_list_model_get_n_items (G_LIST_MODEL (self->addons));
+  for (guint i = 0; i < n_addons; i++)
+    {
+      g_autoptr (BzEntry) addon       = NULL;
+      gboolean      addon_is_user     = FALSE;
+      const char   *addon_remote_repo = NULL;
+      const char   *ref               = NULL;
+      BzEntryGroup *group             = NULL;
+
+      addon             = g_list_model_get_item (G_LIST_MODEL (self->addons), i);
+      addon_is_user     = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (addon));
+      addon_remote_repo = bz_entry_get_remote_repo_name (addon);
+
+      ref = bz_flatpak_entry_get_addon_extension_of_ref (BZ_FLATPAK_ENTRY (addon));
+      g_assert (ref != NULL);
+
+      group = g_hash_table_lookup (self->flatpak_name_to_app_hash, ref);
+      if (group != NULL)
+        {
+          GListModel *model     = NULL;
+          guint       n_entries = 0;
+
+          model     = bz_entry_group_get_model (group);
+          n_entries = g_list_model_get_n_items (model);
+
+          for (guint j = 0; j < n_entries; j++)
+            {
+              g_autoptr (BzEntry) candidate     = NULL;
+              gboolean    candidate_is_user     = FALSE;
+              const char *candidate_remote_repo = NULL;
+
+              candidate             = g_list_model_get_item (model, j);
+              candidate_is_user     = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (candidate));
+              candidate_remote_repo = bz_entry_get_remote_repo_name (candidate);
+
+              if (((candidate_is_user && addon_is_user) ||
+                   (!candidate_is_user && !addon_is_user)) &&
+                  g_strcmp0 (candidate_remote_repo, addon_remote_repo))
+                {
+                  bz_entry_add_addon (candidate, addon);
+                  break;
+                }
+            }
+        }
+    }
+
   return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak));
 }
 
@@ -1212,14 +1354,15 @@ fetch_installs_then (DexFuture     *future,
   value                          = dex_future_get_value (future, NULL);
   self->installed_unique_ids_set = g_value_dup_boxed (value);
 
-  n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->remote_groups));
+  /* FIXME inefficient */
+  n_groups = g_list_model_get_n_items (G_LIST_MODEL (self->applications));
   for (guint i = 0; i < n_groups; i++)
     {
       g_autoptr (BzEntryGroup) group = NULL;
       GListModel *entries            = NULL;
       guint       n_entries          = 0;
 
-      group     = g_list_model_get_item (G_LIST_MODEL (self->remote_groups), i);
+      group     = g_list_model_get_item (G_LIST_MODEL (self->applications), i);
       entries   = bz_entry_group_get_model (group);
       n_entries = g_list_model_get_n_items (entries);
 
@@ -1234,7 +1377,10 @@ fetch_installs_then (DexFuture     *future,
           if (g_hash_table_contains (
                   self->installed_unique_ids_set,
                   unique_id))
-            bz_entry_group_install (group, entry);
+            {
+              g_list_store_append (self->installed, entry);
+              bz_entry_group_install (group, entry);
+            }
         }
     }
 
@@ -1261,7 +1407,7 @@ fetch_updates_then (DexFuture     *future,
 
           unique_id = g_ptr_array_index (names, i);
           entry     = g_hash_table_lookup (
-              self->unique_id_to_entry_hash, unique_id);
+              self->unique_appid_to_entry_hash, unique_id);
 
           /* FIXME address all refs */
           if (entry != NULL)
@@ -1330,14 +1476,18 @@ refresh (BzApplication *self)
 
   bz_content_provider_block (self->content_provider);
 
-  g_hash_table_remove_all (self->id_to_entry_group_hash);
-  g_hash_table_remove_all (self->unique_id_to_entry_hash);
-  g_list_store_remove_all (self->remote_groups);
+  g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
+  g_hash_table_remove_all (self->unique_appid_to_entry_hash);
+  g_hash_table_remove_all (self->flatpak_name_to_app_hash);
+  g_list_store_remove_all (self->applications);
+  g_list_store_remove_all (self->runtimes);
+  g_list_store_remove_all (self->addons);
+  g_list_store_remove_all (self->installed);
   g_list_store_remove_all (self->updates);
   g_clear_object (&self->flatpak);
 
   self->busy   = TRUE;
-  self->online = TRUE;
+  self->online = FALSE;
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 

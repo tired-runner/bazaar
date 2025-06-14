@@ -22,8 +22,19 @@
 
 #include "bz-entry.h"
 
+G_DEFINE_FLAGS_TYPE (
+    BzEntryKind,
+    bz_entry_kind,
+    G_DEFINE_ENUM_VALUE (BZ_ENTRY_KIND_APPLICATION, "application"),
+    G_DEFINE_ENUM_VALUE (BZ_ENTRY_KIND_RUNTIME, "runtime"),
+    G_DEFINE_ENUM_VALUE (BZ_ENTRY_KIND_ADDON, "addon"))
+
 typedef struct
 {
+  guint       kinds;
+  BzEntry    *runtime;
+  GListStore *addons;
+
   char         *id;
   char         *unique_id;
   char         *title;
@@ -55,6 +66,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
 enum
 {
   PROP_0,
+
+  PROP_KINDS,
+  PROP_RUNTIME,
+  PROP_ADDONS,
 
   PROP_ID,
   PROP_UNIQUE_ID,
@@ -91,6 +106,8 @@ bz_entry_dispose (GObject *object)
   BzEntry        *self = BZ_ENTRY (object);
   BzEntryPrivate *priv = bz_entry_get_instance_private (self);
 
+  g_clear_object (&priv->runtime);
+  g_clear_object (&priv->addons);
   g_clear_pointer (&priv->id, g_free);
   g_clear_pointer (&priv->unique_id, g_free);
   g_clear_pointer (&priv->title, g_free);
@@ -127,6 +144,15 @@ bz_entry_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_RUNTIME:
+      g_value_set_object (value, priv->runtime);
+      break;
+    case PROP_ADDONS:
+      g_value_set_object (value, priv->addons);
+      break;
+    case PROP_KINDS:
+      g_value_set_flags (value, priv->kinds);
+      break;
     case PROP_ID:
       g_value_set_string (value, priv->id);
       break;
@@ -215,6 +241,17 @@ bz_entry_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_RUNTIME:
+      g_clear_object (&priv->runtime);
+      priv->runtime = g_value_dup_object (value);
+      break;
+    case PROP_ADDONS:
+      g_clear_object (&priv->addons);
+      priv->addons = g_value_dup_object (value);
+      break;
+    case PROP_KINDS:
+      priv->kinds = g_value_get_flags (value);
+      break;
     case PROP_ID:
       g_clear_pointer (&priv->id, g_free);
       priv->id = g_value_dup_string (value);
@@ -321,6 +358,27 @@ bz_entry_class_init (BzEntryClass *klass)
   object_class->set_property = bz_entry_set_property;
   object_class->get_property = bz_entry_get_property;
   object_class->dispose      = bz_entry_dispose;
+
+  props[PROP_RUNTIME] =
+      g_param_spec_object (
+          "runtime",
+          NULL, NULL,
+          BZ_TYPE_ENTRY,
+          G_PARAM_READWRITE);
+
+  props[PROP_ADDONS] =
+      g_param_spec_object (
+          "addons",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_KINDS] =
+      g_param_spec_flags (
+          "kinds",
+          NULL, NULL,
+          BZ_TYPE_ENTRY_KIND, 0,
+          G_PARAM_READWRITE);
 
   props[PROP_ID] =
       g_param_spec_string (
@@ -481,6 +539,34 @@ bz_entry_class_init (BzEntryClass *klass)
 static void
 bz_entry_init (BzEntry *self)
 {
+}
+
+gboolean
+bz_entry_is_of_kinds (BzEntry *self,
+                      guint    kinds)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), FALSE);
+
+  priv = bz_entry_get_instance_private (self);
+  return (priv->kinds & kinds) == kinds;
+}
+
+void
+bz_entry_add_addon (BzEntry *self,
+                    BzEntry *addon)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_if_fail (BZ_IS_ENTRY (self));
+  g_return_if_fail (BZ_IS_ENTRY (addon));
+
+  priv = bz_entry_get_instance_private (self);
+
+  if (priv->addons == NULL)
+    priv->addons = g_list_store_new (BZ_TYPE_ENTRY);
+  g_list_store_append (priv->addons, addon);
 }
 
 const char *

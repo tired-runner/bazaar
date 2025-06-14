@@ -26,6 +26,7 @@
 #include "bz-browse-widget.h"
 #include "bz-entry-group.h"
 #include "bz-full-view.h"
+#include "bz-installed-page.h"
 #include "bz-progress-bar.h"
 #include "bz-search-widget.h"
 #include "bz-transaction-manager.h"
@@ -39,7 +40,8 @@ struct _BzWindow
   GSettings            *settings;
   BzContentProvider    *content_provider;
   BzTransactionManager *transaction_manager;
-  GListModel           *remote_groups;
+  GListModel           *applications;
+  GListModel           *installed;
   GListStore           *updates;
   gboolean              busy;
   gboolean              online;
@@ -57,6 +59,9 @@ struct _BzWindow
   GtkButton           *refresh;
   GtkButton           *search;
   GtkButton           *update_button;
+  GtkWidget           *title_widget;
+  GtkToggleButton     *curated_btn;
+  GtkToggleButton     *installed_btn;
   GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
 };
@@ -70,7 +75,8 @@ enum
   PROP_SETTINGS,
   PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
-  PROP_REMOTE_GROUPS,
+  PROP_APPLICATIONS,
+  PROP_INSTALLED,
   PROP_UPDATES,
   PROP_BUSY,
   PROP_ONLINE,
@@ -173,7 +179,8 @@ bz_window_dispose (GObject *object)
   g_clear_object (&self->settings);
   g_clear_object (&self->content_provider);
   g_clear_object (&self->transaction_manager);
-  g_clear_object (&self->remote_groups);
+  g_clear_object (&self->applications);
+  g_clear_object (&self->installed);
   g_clear_object (&self->updates);
 
   g_clear_object (&self->pending_group);
@@ -201,8 +208,11 @@ bz_window_get_property (GObject    *object,
     case PROP_CONTENT_PROVIDER:
       g_value_set_object (value, self->content_provider);
       break;
-    case PROP_REMOTE_GROUPS:
-      g_value_set_object (value, self->remote_groups);
+    case PROP_APPLICATIONS:
+      g_value_set_object (value, self->applications);
+      break;
+    case PROP_INSTALLED:
+      g_value_set_object (value, self->installed);
       break;
     case PROP_UPDATES:
       g_value_set_object (value, self->updates);
@@ -258,9 +268,13 @@ bz_window_set_property (GObject      *object,
       g_clear_object (&self->content_provider);
       self->content_provider = g_value_dup_object (value);
       break;
-    case PROP_REMOTE_GROUPS:
-      g_clear_object (&self->remote_groups);
-      self->remote_groups = g_value_dup_object (value);
+    case PROP_APPLICATIONS:
+      g_clear_object (&self->applications);
+      self->applications = g_value_dup_object (value);
+      break;
+    case PROP_INSTALLED:
+      g_clear_object (&self->installed);
+      self->installed = g_value_dup_object (value);
       break;
     case PROP_UPDATES:
       if (self->updates != NULL)
@@ -325,6 +339,30 @@ full_view_remove_cb (BzWindow   *self,
 }
 
 static void
+installed_page_install_cb (BzWindow   *self,
+                           BzEntry    *entry,
+                           BzFullView *view)
+{
+  transact (self, entry, FALSE);
+}
+
+static void
+installed_page_remove_cb (BzWindow   *self,
+                          BzEntry    *entry,
+                          BzFullView *view)
+{
+  transact (self, entry, TRUE);
+}
+
+static void
+page_toggled_cb (BzWindow        *self,
+                 GtkToggleButton *toggle)
+{
+  if (gtk_toggle_button_get_active (toggle))
+    set_page (self);
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -355,9 +393,16 @@ bz_window_class_init (BzWindowClass *klass)
           BZ_TYPE_CONTENT_PROVIDER,
           G_PARAM_READWRITE);
 
-  props[PROP_REMOTE_GROUPS] =
+  props[PROP_APPLICATIONS] =
       g_param_spec_object (
-          "remote-groups",
+          "applications",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_INSTALLED] =
+      g_param_spec_object (
+          "installed",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
@@ -389,6 +434,7 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
   g_type_ensure (BZ_TYPE_FULL_VIEW);
+  g_type_ensure (BZ_TYPE_INSTALLED_PAGE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
@@ -401,11 +447,17 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, title_widget);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, curated_btn);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, installed_btn);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
   gtk_widget_class_bind_template_callback (widget_class, full_view_install_cb);
   gtk_widget_class_bind_template_callback (widget_class, full_view_remove_cb);
+  gtk_widget_class_bind_template_callback (widget_class, installed_page_install_cb);
+  gtk_widget_class_bind_template_callback (widget_class, installed_page_remove_cb);
+  gtk_widget_class_bind_template_callback (widget_class, page_toggled_cb);
 }
 
 static void
@@ -428,6 +480,9 @@ bz_window_init (BzWindow *self)
   //     self->background,
   //     GTK_EVENT_CONTROLLER_MOTION (motion_controller));
   // gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
+
+  gtk_toggle_button_set_group (self->installed_btn, self->curated_btn);
+  gtk_toggle_button_set_active (self->curated_btn, TRUE);
 }
 
 static void
@@ -826,7 +881,7 @@ search (BzWindow   *self,
     return;
 
   search_widget = bz_search_widget_new (
-      G_LIST_MODEL (self->remote_groups),
+      G_LIST_MODEL (self->applications),
       initial);
   dialog = adw_dialog_new ();
 
@@ -858,11 +913,18 @@ check_transactions (BzWindow *self)
 static void
 set_page (BzWindow *self)
 {
-  adw_view_stack_set_visible_child_name (
-      self->main_stack,
-      self->online
-          ? (self->busy ? "loading" : "browse")
-          : "offline");
+  const char *visible_child = NULL;
+
+  if (self->busy)
+    visible_child = "loading";
+  else if (gtk_toggle_button_get_active (self->installed_btn))
+    visible_child = "installed";
+  else if (gtk_toggle_button_get_active (self->curated_btn))
+    visible_child = self->online ? "browse" : "offline";
+
+  adw_view_stack_set_visible_child_name (self->main_stack, visible_child);
+  gtk_widget_set_sensitive (self->title_widget, !self->busy);
+
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
   bz_full_view_set_entry_group (self->full_view, NULL);
 }

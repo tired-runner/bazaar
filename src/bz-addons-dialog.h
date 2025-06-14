@@ -1,4 +1,4 @@
-/* bz-flatpak-entry.h
+/* bz-addons-dialog.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,30 +20,16 @@
 
 #pragma once
 
+#include <adwaita.h>
+
 #include "bz-entry.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_FLATPAK_ENTRY (bz_flatpak_entry_get_type ())
-G_DECLARE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ, FLATPAK_ENTRY, BzEntry)
+#define BZ_TYPE_ADDONS_DIALOG (bz_addons_dialog_get_type ())
+G_DECLARE_FINAL_TYPE (BzAddonsDialog, bz_addons_dialog, BZ, ADDONS_DIALOG, AdwDialog)
 
-gboolean
-bz_flatpak_entry_is_user (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_flatpak_id (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_application_name (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_runtime_name (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_addon_extension_of_ref (BzFlatpakEntry *self);
-
-gboolean
-bz_flatpak_entry_launch (BzFlatpakEntry *self,
-                         GError        **error);
+AdwDialog *
+bz_addons_dialog_new (BzEntry *entry);
 
 G_END_DECLS

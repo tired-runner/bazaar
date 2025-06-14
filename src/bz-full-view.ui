@@ -491,7 +491,6 @@
             <property name="wrap">TRUE</property>
             <property name="wrap-mode">word-char</property>
             <property name="xalign">0.0</property>
-            <property name="selectable">TRUE</property>
             <binding name="label">
               <lookup name="id" type="BzIssue">
                 <lookup name="item">GtkListItem</lookup>

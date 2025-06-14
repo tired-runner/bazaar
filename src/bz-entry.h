@@ -24,6 +24,16 @@
 
 G_BEGIN_DECLS
 
+typedef enum
+{
+  BZ_ENTRY_KIND_APPLICATION = 1 << 0,
+  BZ_ENTRY_KIND_RUNTIME     = 1 << 1,
+  BZ_ENTRY_KIND_ADDON       = 1 << 2,
+} GcvItemKind;
+
+GType bz_entry_kind_get_type (void);
+#define BZ_TYPE_ENTRY_KIND (bz_entry_kind_get_type ())
+
 #define BZ_TYPE_ENTRY (bz_entry_get_type ())
 G_DECLARE_DERIVABLE_TYPE (BzEntry, bz_entry, BZ, ENTRY, GObject)
 
@@ -31,6 +41,14 @@ struct _BzEntryClass
 {
   GObjectClass parent_class;
 };
+
+gboolean
+bz_entry_is_of_kinds (BzEntry *self,
+                      guint    kinds);
+
+void
+bz_entry_add_addon (BzEntry *self,
+                    BzEntry *addon);
 
 const char *
 bz_entry_get_id (BzEntry *self);

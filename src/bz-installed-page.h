@@ -1,4 +1,4 @@
-/* bz-flatpak-entry.h
+/* bz-installed-page.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,30 +20,21 @@
 
 #pragma once
 
-#include "bz-entry.h"
+#include <adwaita.h>
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_FLATPAK_ENTRY (bz_flatpak_entry_get_type ())
-G_DECLARE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ, FLATPAK_ENTRY, BzEntry)
+#define BZ_TYPE_INSTALLED_PAGE (bz_installed_page_get_type ())
+G_DECLARE_FINAL_TYPE (BzInstalledPage, bz_installed_page, BZ, INSTALLED_PAGE, AdwBin)
 
-gboolean
-bz_flatpak_entry_is_user (BzFlatpakEntry *self);
+GtkWidget *
+bz_installed_page_new (void);
 
-const char *
-bz_flatpak_entry_get_flatpak_id (BzFlatpakEntry *self);
+void
+bz_installed_page_set_model (BzInstalledPage    *self,
+                            GListModel *model);
 
-const char *
-bz_flatpak_entry_get_application_name (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_runtime_name (BzFlatpakEntry *self);
-
-const char *
-bz_flatpak_entry_get_addon_extension_of_ref (BzFlatpakEntry *self);
-
-gboolean
-bz_flatpak_entry_launch (BzFlatpakEntry *self,
-                         GError        **error);
+GListModel *
+bz_installed_page_get_model (BzInstalledPage *self);
 
 G_END_DECLS

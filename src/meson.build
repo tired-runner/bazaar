@@ -1,4 +1,5 @@
 bz_sources = [
+  'bz-addons-dialog.c',
   'bz-application.c',
   'bz-async-texture.c',
   'bz-backend.c',
@@ -12,6 +13,7 @@ bz_sources = [
   'bz-flatpak-entry.c',
   'bz-flatpak-instance.c',
   'bz-full-view.c',
+  'bz-installed-page.c',
   'bz-issue.c',
   'bz-paintable-model.c',
   'bz-preferences-dialog.c',
