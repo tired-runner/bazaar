@@ -265,6 +265,7 @@
             </child>
             <child>
               <object class="GtkBox">
+                <property name="valign">center</property>
                 <property name="orientation">vertical</property>
                 <property name="spacing">5</property>
                 <child>
