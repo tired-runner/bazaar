@@ -26,6 +26,7 @@
 #include "bz-issue.h"
 #include "bz-paintable-model.h"
 #include "bz-release.h"
+#include "bz-url.h"
 // #include "bz-review.h"
 
 enum
@@ -265,7 +266,8 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
   g_autoptr (BzPaintableModel) paintables = NULL;
-  g_autoptr (GtkStringList) share_urls    = NULL;
+  g_autoptr (GListStore) share_urls       = NULL;
+  g_autofree char *donation_url           = NULL;
   g_autoptr (GListStore) native_reviews   = NULL;
   double           average_rating         = 0.0;
   g_autofree char *ratings_summary        = NULL;
@@ -472,7 +474,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
             paintables = bz_paintable_model_new (G_LIST_MODEL (files));
         }
 
-      share_urls = gtk_string_list_new (NULL);
+      share_urls = g_list_store_new (BZ_TYPE_URL);
       for (int e = AS_URL_KIND_UNKNOWN + 1; e < AS_URL_KIND_LAST; e++)
         {
           const char *url = NULL;
@@ -480,8 +482,8 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
           url = as_component_get_url (component, e);
           if (url != NULL)
             {
-              const char      *enum_string = NULL;
-              g_autofree char *share_url   = NULL;
+              const char *enum_string     = NULL;
+              g_autoptr (BzUrl) share_url = NULL;
 
               switch (e)
                 {
@@ -516,8 +518,18 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                   break;
                 }
 
-              share_url = g_strdup_printf ("%s,%s", enum_string, url);
-              gtk_string_list_append (share_urls, share_url);
+              share_url = g_object_new (
+                  BZ_TYPE_URL,
+                  "name", enum_string,
+                  "url", url,
+                  NULL);
+              g_list_store_append (share_urls, share_url);
+
+              if (e == AS_URL_KIND_DONATION)
+                {
+                  g_clear_pointer (&donation_url, g_free);
+                  donation_url = g_strdup (url);
+                }
             }
         }
       if (g_list_model_get_n_items (G_LIST_MODEL (share_urls)) == 0)
@@ -688,6 +700,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "developer-id", developer_id,
       "screenshot-paintables", paintables,
       "share-urls", share_urls,
+      "donation-url", donation_url,
       "reviews", native_reviews,
       "average-rating", average_rating,
       "ratings-summary", ratings_summary,

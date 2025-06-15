@@ -22,6 +22,7 @@
 
 #include "bz-entry.h"
 #include "bz-share-dialog.h"
+#include "bz-url.h"
 
 struct _BzShareDialog
 {
@@ -91,55 +92,16 @@ bz_share_dialog_set_property (GObject      *object,
     }
 }
 
-static char *
-get_share_url_name (gpointer    object,
-                    const char *value)
-{
-  const char *sep  = NULL;
-  char       *name = NULL;
-
-  if (value == NULL)
-    return NULL;
-
-  sep = g_utf8_strchr (value, -1, ',');
-  if (sep == NULL || sep == value)
-    return NULL;
-
-  name = g_malloc (sep - value + 1);
-  memcpy (name, value, sep - value);
-  name[sep - value] = '\0';
-
-  return name;
-}
-
-static char *
-get_share_url_link (gpointer    object,
-                    const char *value)
-{
-  const char *sep = NULL;
-
-  if (value == NULL)
-    return NULL;
-
-  sep = g_utf8_strchr (value, -1, ',');
-  if (sep == NULL || sep == value || sep[1] == '\0')
-    return NULL;
-
-  return g_strdup (sep + 1);
-}
-
 static void
 copy_cb (GtkListItem *list_item,
          GtkButton   *button)
 {
-  GtkStringObject *item   = NULL;
-  const char      *string = NULL;
-  g_autofree char *link   = NULL;
+  BzUrl           *item = NULL;
+  g_autofree char *link = NULL;
   GdkClipboard    *clipboard;
 
-  item   = gtk_list_item_get_item (list_item);
-  string = gtk_string_object_get_string (item);
-  link   = get_share_url_link (NULL, string);
+  item = gtk_list_item_get_item (list_item);
+  g_object_get (item, "url", &link, NULL);
 
   clipboard = gdk_display_get_clipboard (gdk_display_get_default ());
   gdk_clipboard_set_text (clipboard, link);
@@ -149,13 +111,11 @@ static void
 follow_link_cb (GtkListItem *list_item,
                 GtkButton   *button)
 {
-  GtkStringObject *item   = NULL;
-  const char      *string = NULL;
-  g_autofree char *link   = NULL;
+  BzUrl           *item = NULL;
+  g_autofree char *link = NULL;
 
-  item   = gtk_list_item_get_item (list_item);
-  string = gtk_string_object_get_string (item);
-  link   = get_share_url_link (NULL, string);
+  item = gtk_list_item_get_item (list_item);
+  g_object_get (item, "url", &link, NULL);
 
   g_app_info_launch_default_for_uri (link, NULL, NULL);
 }
@@ -179,9 +139,9 @@ bz_share_dialog_class_init (BzShareDialogClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
+  g_type_ensure (BZ_TYPE_URL);
+
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-share-dialog.ui");
-  gtk_widget_class_bind_template_callback (widget_class, get_share_url_name);
-  gtk_widget_class_bind_template_callback (widget_class, get_share_url_link);
   gtk_widget_class_bind_template_callback (widget_class, copy_cb);
   gtk_widget_class_bind_template_callback (widget_class, follow_link_cb);
 }

@@ -55,6 +55,7 @@ typedef struct
   char         *developer_id;
   GListModel   *screenshot_paintables;
   GListModel   *share_urls;
+  char         *donation_url;
   GListModel   *reviews;
   double        average_rating;
   char         *ratings_summary;
@@ -91,6 +92,7 @@ enum
   PROP_DEVELOPER_ID,
   PROP_SCREENSHOT_PAINTABLES,
   PROP_SHARE_URLS,
+  PROP_DONATION_URL,
   PROP_REVIEWS,
   PROP_AVERAGE_RATING,
   PROP_RATINGS_SUMMARY,
@@ -126,6 +128,7 @@ bz_entry_dispose (GObject *object)
   g_clear_pointer (&priv->developer_id, g_free);
   g_clear_object (&priv->screenshot_paintables);
   g_clear_object (&priv->share_urls);
+  g_clear_pointer (&priv->donation_url, g_free);
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
   g_clear_object (&priv->version_history);
@@ -212,6 +215,9 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_SHARE_URLS:
       g_value_set_object (value, priv->share_urls);
+      break;
+    case PROP_DONATION_URL:
+      g_value_set_string (value, priv->donation_url);
       break;
     case PROP_REVIEWS:
       g_value_set_object (value, priv->reviews);
@@ -329,6 +335,10 @@ bz_entry_set_property (GObject      *object,
     case PROP_SHARE_URLS:
       g_clear_object (&priv->share_urls);
       priv->share_urls = g_value_dup_object (value);
+      break;
+    case PROP_DONATION_URL:
+      g_clear_pointer (&priv->donation_url, g_free);
+      priv->donation_url = g_value_dup_string (value);
       break;
     case PROP_REVIEWS:
       g_clear_object (&priv->reviews);
@@ -506,6 +516,12 @@ bz_entry_class_init (BzEntryClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
+  props[PROP_DONATION_URL] =
+      g_param_spec_string (
+          "donation-url",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
   props[PROP_REVIEWS] =
       g_param_spec_object (
           "reviews",
@@ -677,6 +693,17 @@ bz_entry_get_search_tokens (BzEntry *self)
 
   priv = bz_entry_get_instance_private (self);
   return priv->search_tokens;
+}
+
+const char *
+bz_entry_get_donation_url (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->donation_url;
 }
 
 gint

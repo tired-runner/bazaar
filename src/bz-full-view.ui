@@ -17,7 +17,7 @@
                 <property name="height-request">600</property>
                 <child>
                   <object class="AdwBreakpoint" id="breakpoint">
-                    <condition>max-width: 1150px</condition>
+                    <condition>max-width: 1200px</condition>
                     <setter object="start_box" property="width-request">-1</setter>
                     <setter object="end_box" property="width-request">-1</setter>
                     <setter object="main_scroll" property="vscrollbar-policy">automatic</setter>
@@ -94,23 +94,52 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel">
-                                            <style>
-                                              <class name="title-4"/>
-                                              <class name="accent"/>
-                                            </style>
-                                            <property name="xalign">0.0</property>
-                                            <property name="max-width-chars">50</property>
-                                            <property name="wrap">TRUE</property>
-                                            <property name="wrap-mode">word-char</property>
-                                            <property name="natural-wrap-mode">word</property>
-                                            <binding name="label">
-                                              <lookup name="developer" type="BzEntry">
-                                                <lookup name="ui-entry" type="BzEntryGroup">
-                                                  <lookup name="entry-group">BzFullView</lookup>
-                                                </lookup>
-                                              </lookup>
-                                            </binding>
+                                          <object class="GtkBox">
+                                            <property name="spacing">15</property>
+                                            <property name="orientation">horizontal</property>
+                                            <child>
+                                              <object class="GtkLabel">
+                                                <style>
+                                                  <class name="title-4"/>
+                                                  <class name="accent"/>
+                                                </style>
+                                                <property name="xalign">0.0</property>
+                                                <property name="max-width-chars">50</property>
+                                                <property name="wrap">TRUE</property>
+                                                <property name="wrap-mode">word-char</property>
+                                                <property name="natural-wrap-mode">word</property>
+                                                <binding name="label">
+                                                  <lookup name="developer" type="BzEntry">
+                                                    <lookup name="ui-entry" type="BzEntryGroup">
+                                                      <lookup name="entry-group">BzFullView</lookup>
+                                                    </lookup>
+                                                  </lookup>
+                                                </binding>
+                                              </object>
+                                            </child>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <style>
+                                                  <class name="suggested-action"/>
+                                                  <class name="circular"/>
+                                                </style>
+                                                <binding name="visible">
+                                                  <closure function="invert_boolean" type="gboolean">
+                                                    <closure function="is_null" type="gboolean">
+                                                      <lookup name="donation-url" type="BzEntry">
+                                                        <lookup name="ui-entry" type="BzEntryGroup">
+                                                          <lookup name="entry-group">BzFullView</lookup>
+                                                        </lookup>
+                                                      </lookup>
+                                                    </closure>
+                                                  </closure>
+                                                </binding>
+                                                <property name="has-tooltip">TRUE</property>
+                                                <property name="tooltip-text" translatable="yes">Support this developer</property>
+                                                <property name="icon-name">heart-filled-symbolic</property>
+                                                <signal name="clicked" handler="support_cb" swapped="true" object="BzFullView"/>
+                                              </object>
+                                            </child>
                                           </object>
                                         </child>
                                         <child>

@@ -204,6 +204,22 @@ remove_cb (BzFullView *self,
 }
 
 static void
+support_cb (BzFullView *self,
+            GtkButton  *button)
+{
+  BzEntry *ui_entry = NULL;
+
+  ui_entry = bz_entry_group_get_ui_entry (self->group);
+  if (ui_entry != NULL)
+    {
+      const char *url = NULL;
+
+      url = bz_entry_get_donation_url (ui_entry);
+      g_app_info_launch_default_for_uri (url, NULL, NULL);
+    }
+}
+
+static void
 bz_full_view_class_init (BzFullViewClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -271,6 +287,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, share_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
+  gtk_widget_class_bind_template_callback (widget_class, support_cb);
   gtk_widget_class_bind_template_callback (widget_class, pick_license_warning);
 }
 

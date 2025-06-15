@@ -28,6 +28,7 @@ bz_sources = [
   'bz-transaction-view.c',
   'bz-transaction.c',
   'bz-update-dialog.c',
+  'bz-url.c',
   'bz-window.c',
   'bz-yaml-parser.c',
   'main.c',
