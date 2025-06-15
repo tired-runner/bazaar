@@ -16,11 +16,11 @@ die() {
     echo "" 1>&2
     echo "  The properties input file must contain newline" 1>&2
     echo "  separated properties with the form:" 1>&2
-    echo "    [name] [ctype] [gtype] [spec-type] [free (optional)]" 1>&2
+    echo "    [name] [ctype] [gtype] [spec-type] [free (optional)] [ref (optional)]" 1>&2
     echo "    EX: my_widget GtkWidget GTK_TYPE_WIDGET object" 1>&2
     echo "    EX: my_string char G_TYPE_STRING string" 1>&2
     echo "    EX: my_int int G_TYPE_INT int" 1>&2
-    echo "    EX: my_ptr_array GPtrArray G_TYPE_PTR_ARRAY boxed g_ptr_array_unref" 1>&2
+    echo "    EX: my_ptr_array GPtrArray G_TYPE_PTR_ARRAY boxed g_ptr_array_unref g_ptr_array_ref" 1>&2
     echo "" 1>&2
     echo "$@, aborting!" 1>&2
     exit 1
@@ -92,40 +92,6 @@ PAR_HYPHEN="$(to_hyphened "${PAR_PREF}")-${PAR_HYPHEN_NAME}"
 
 YEAR="$(date +'%Y')"
 
-cat > "$H_FILE" <<EOF
-/* $H_FILE
- *
- * Copyright $YEAR $AUTHOR
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
-#pragma once
-
-#include <gtk/gtk.h>
-
-G_BEGIN_DECLS
-
-#define $TYPE (${SNAKE}_get_type ())
-G_DECLARE_FINAL_TYPE ($PASCAL, $SNAKE, $MACRO_PREF, $MACRO_NAME, $PAR_PASCAL)
-
-G_END_DECLS
-
-/* End of $H_FILE */
-EOF
 
 print_struct () {
     while read -r line; do
@@ -201,7 +167,7 @@ print_get_property () {
         LOC_PTYPE="$4"
 
         printf '    case PROP_%s:\n' "$(to_upper $LOC_NAME)"
-        printf '      g_value_set_%s (value, self->%s);\n' "$LOC_PTYPE" "$LOC_NAME"
+        printf '      g_value_set_%s (value, %s_get_%s (self));\n' "$LOC_PTYPE" "$SNAKE" "$LOC_NAME"
         printf '      break;\n'
     done < "$PROPS"
 }
@@ -216,26 +182,7 @@ print_set_property () {
         LOC_PTYPE="$4"
         
         printf '    case PROP_%s:\n' "$(to_upper $LOC_NAME)"
-        case "$LOC_PTYPE" in
-            char|uchar|boolean|int|uint|long|ulong|int64|uint64|unichar|enum|flags|float|double)
-                printf '      self->%s = g_value_get_%s (value);\n' "$LOC_NAME" "$LOC_PTYPE"
-                ;;
-            *)
-                printf '      g_clear_pointer (&self->%s, ' "${LOC_NAME}"
-                
-                if [ -n "$LOC_FREE" ]; then
-                    printf "$LOC_FREE"
-                else
-                    case "$LOC_PTYPE" in
-                        string) printf 'g_free' ;;
-                        *) printf 'g_object_unref' ;;
-                    esac
-                fi
-
-                printf ');\n'
-                printf '      self->%s = g_value_dup_%s (value);\n' "$LOC_NAME" "$LOC_PTYPE"
-                ;;
-        esac
+        printf '      %s_set_%s (self, g_value_get_%s (value));\n' "$SNAKE" "$LOC_NAME" "$LOC_PTYPE" 
         printf '      break;\n'
     done < "$PROPS"
 }
@@ -270,9 +217,170 @@ print_init_properties () {
                 printf '\n          %s,\n' "$LOC_GTYPE"
                 ;;
         esac
-        printf '          G_PARAM_READWRITE);\n\n'
+        printf '          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);\n\n'
     done < "$PROPS"
 }
+
+
+print_get_property_methods () {
+    HEADER="$1"
+    
+    while read -r line; do
+        set -- $line
+        
+        LOC_NAME="$1"
+        LOC_CTYPE="$2"
+        LOC_GTYPE="$3"
+        LOC_PTYPE="$4"
+
+        case "$LOC_PTYPE" in
+            string) printf 'const ' ;;
+        esac
+        printf '%s' "$LOC_CTYPE"
+        case "$LOC_PTYPE" in
+            char|uchar|boolean|int|uint|long|ulong|int64|uint64|unichar|enum|flags|float|double) ;;
+            *) printf ' *'
+        esac
+        printf '\n%s_get_%s (%s *self)' "$SNAKE" "$LOC_NAME" "$PASCAL"
+        
+        if [ "$HEADER" == header ]; then
+            printf ';\n\n'
+        else
+            printf '{\n  g_return_val_if_fail (%s_IS_%s (self), ' "$MACRO_PREF" "$MACRO_NAME"
+            case "$LOC_PTYPE" in
+                uchar|uint|ulong|uint64|unichar|char|int|long|int64)
+                    printf '0'
+                    ;;
+                float|double)
+                    printf '0.0'
+                    ;;
+                boolean)
+                    printf 'FALSE'
+                    ;;
+                *)
+                    printf 'NULL'
+                    ;;
+            esac
+            printf ');\n'
+            printf '  return self->%s;\n' "$LOC_NAME"
+            printf '}\n\n'
+        fi
+        
+    done < "$PROPS"
+}
+
+
+print_set_property_methods () {
+    HEADER="$1"
+    
+    while read -r line; do
+        set -- $line
+        
+        LOC_NAME="$1"
+        LOC_CTYPE="$2"
+        LOC_GTYPE="$3"
+        LOC_PTYPE="$4"
+        LOC_FREE="$5"
+        LOC_REF="$6"
+
+        printf 'void\n%s_set_%s (%s *self,\n    ' "$SNAKE" "$LOC_NAME" "$PASCAL"
+        case "$LOC_PTYPE" in
+            string) printf 'const ' ;;
+        esac
+        printf '%s ' "$LOC_CTYPE"
+        case "$LOC_PTYPE" in
+            char|uchar|boolean|int|uint|long|ulong|int64|uint64|unichar|enum|flags|float|double) ;;
+            *) printf '*'
+        esac
+        printf '%s)' "$LOC_NAME"
+        
+        if [ "$HEADER" == header ]; then
+            printf ';\n\n'
+        else
+            printf '{\n  g_return_if_fail (%s_IS_%s (self));\n\n' "$MACRO_PREF" "$MACRO_NAME"
+
+            case "$LOC_PTYPE" in
+                char|uchar|boolean|int|uint|long|ulong|int64|uint64|unichar|enum|flags|float|double) ;;
+                *)
+                    printf '  g_clear_pointer (&self->%s, ' "$LOC_NAME"
+                    
+                    if [ -n "$LOC_FREE" ]; then
+                        printf "$LOC_FREE"
+                    else
+                        case "$LOC_PTYPE" in
+                            string) printf 'g_free' ;;
+                            *) printf 'g_object_unref' ;;
+                        esac
+                    fi
+
+                    printf ');\n'
+                    ;;
+            esac
+
+            printf '  self->%s = ' "$LOC_NAME"
+            if [ -n "$LOC_REF" ]; then
+                printf '%s (%s)' "$LOC_REF" "$LOC_NAME"
+            else
+                case "$LOC_PTYPE" in
+                    char|uchar|boolean|int|uint|long|ulong|int64|uint64|unichar|enum|flags|float|double)
+                        printf '%s' "$LOC_NAME"
+                        ;;
+                    string)
+                        printf 'g_strdup (%s)' "$LOC_NAME"
+                        ;;
+                    *)
+                        printf 'g_object_ref (%s)' "$LOC_NAME"
+                        ;;
+                esac
+            fi
+            printf ';\n\n'
+            
+            printf '  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_%s]);\n' "$(to_upper $LOC_NAME)"
+            printf '}\n\n'
+        fi
+        
+    done < "$PROPS"
+}
+
+
+cat > "$H_FILE" <<EOF
+/* $H_FILE
+ *
+ * Copyright $YEAR $AUTHOR
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+#pragma once
+
+#include <gtk/gtk.h>
+
+G_BEGIN_DECLS
+
+#define $TYPE (${SNAKE}_get_type ())
+G_DECLARE_FINAL_TYPE ($PASCAL, $SNAKE, $MACRO_PREF, $MACRO_NAME, $PAR_PASCAL)
+
+$(print_get_property_methods header)
+$(print_set_property_methods header)
+
+G_END_DECLS
+
+/* End of $H_FILE */
+EOF
+
 
 
 cat > "$C_FILE" <<EOF
@@ -373,6 +481,10 @@ static void
 ${SNAKE}_init (${PASCAL} *self)
 {
 }
+
+$(print_get_property_methods)
+
+$(print_set_property_methods)
 
 /* End of $C_FILE */
 EOF

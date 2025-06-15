@@ -5,6 +5,8 @@ bz_sources = [
   'bz-backend.c',
   'bz-background.c',
   'bz-browse-widget.c',
+  'bz-comet-overlay.c',
+  'bz-comet.c',
   'bz-content-provider.c',
   'bz-content-section.c',
   'bz-entry-group.c',

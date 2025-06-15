@@ -24,6 +24,7 @@
 
 #include "bz-background.h"
 #include "bz-browse-widget.h"
+#include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
 #include "bz-full-view.h"
 #include "bz-installed-page.h"
@@ -50,6 +51,7 @@ struct _BzWindow
   BzEntryGroup *pending_group;
 
   /* Template widgets */
+  BzCometOverlay      *comet_overlay;
   AdwOverlaySplitView *split_view;
   AdwViewStack        *transactions_stack;
   AdwViewStack        *main_stack;
@@ -428,6 +430,7 @@ bz_window_class_init (BzWindowClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
+  g_type_ensure (BZ_TYPE_COMET_OVERLAY);
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
   g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
@@ -435,6 +438,7 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_INSTALLED_PAGE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, comet_overlay);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
@@ -686,6 +690,7 @@ transact (BzWindow *self,
           gboolean  remove)
 {
   g_autoptr (BzTransaction) transaction = NULL;
+  GdkPaintable *icon                    = NULL;
 
   if (remove)
     transaction = bz_transaction_new_full (
@@ -699,7 +704,22 @@ transact (BzWindow *self,
         NULL, 0);
 
   bz_transaction_manager_add (self->transaction_manager, transaction);
-  adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
+
+  icon = bz_entry_get_icon_paintable (entry);
+  if (icon != NULL)
+    {
+      g_autoptr (BzComet) comet = NULL;
+
+      comet = g_object_new (
+          BZ_TYPE_COMET,
+          "from", self->main_stack,
+          "to", self->toggle_transactions,
+          "paintable", icon,
+          NULL);
+      bz_comet_overlay_spawn (self->comet_overlay, comet);
+    }
+
+  // adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
 static void

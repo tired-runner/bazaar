@@ -8,61 +8,63 @@
     <property name="width-request">400</property>
     <property name="height-request">750</property>
     <property name="content">
-      <object class="AdwToolbarView">
-        <property name="top-bar-style">raised-border</property>
-        <property name="content">
-          <object class="AdwBreakpointBin" id="breakpoint_bin">
-            <property name="width-request">400</property>
-            <property name="height-request">750</property>
-            <property name="child">
-              <object class="AdwOverlaySplitView" id="split_view">
-                <property name="show-sidebar">FALSE</property>
-                <property name="pin-sidebar">TRUE</property>
-                <property name="sidebar">
-                  <object class="AdwViewStack" id="transactions_stack">
-                    <property name="enable-transitions">TRUE</property>
-                    <property name="transition-duration">200</property>
-                    <child>
-                      <object class="AdwViewStackPage">
-                        <property name="name">empty</property>
-                        <property name="title" translatable="yes">Empty</property>
-                        <property name="child">
-                          <object class="AdwStatusPage">
-                            <property name="icon-name">folder-download-symbolic</property>
-                            <property name="title" translatable="yes">Transactions Will Appear Here</property>
+      <object class="BzCometOverlay" id="comet_overlay">
+        <property name="child">
+          <object class="AdwToolbarView">
+            <property name="top-bar-style">raised-border</property>
+            <property name="content">
+              <object class="AdwBreakpointBin" id="breakpoint_bin">
+                <property name="width-request">400</property>
+                <property name="height-request">750</property>
+                <property name="child">
+                  <object class="AdwOverlaySplitView" id="split_view">
+                    <property name="show-sidebar">FALSE</property>
+                    <property name="pin-sidebar">TRUE</property>
+                    <property name="sidebar">
+                      <object class="AdwViewStack" id="transactions_stack">
+                        <property name="enable-transitions">TRUE</property>
+                        <property name="transition-duration">200</property>
+                        <child>
+                          <object class="AdwViewStackPage">
+                            <property name="name">empty</property>
+                            <property name="title" translatable="yes">Empty</property>
+                            <property name="child">
+                              <object class="AdwStatusPage">
+                                <property name="icon-name">folder-download-symbolic</property>
+                                <property name="title" translatable="yes">Transactions Will Appear Here</property>
+                              </object>
+                            </property>
                           </object>
-                        </property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="AdwViewStackPage">
-                        <property name="name">content</property>
-                        <property name="title" translatable="yes">Content</property>
-                        <property name="child">
-                          <object class="AdwToolbarView">
-                            <property name="bottom-bar-style">flat</property>
-                            <property name="content">
-                              <object class="GtkScrolledWindow" id="transactions">
-                                <property name="width-request">400</property>
-                                <property name="hscrollbar-policy">never</property>
-                                <property name="propagate-natural-height">TRUE</property>
-                                <property name="child">
-                                  <object class="GtkListView" id="list_view">
-                                    <style>
-                                      <class name="navigation-sidebar"/>
-                                    </style>
-                                    <property name="model">
-                                      <object class="GtkNoSelection" id="no_selection">
-                                        <binding name="model">
-                                          <lookup name="transactions" type="BzTransactionManager">
-                                            <lookup name="transaction-manager">BzWindow</lookup>
-                                          </lookup>
-                                        </binding>
-                                      </object>
-                                    </property>
-                                    <property name="factory">
-                                      <object class="GtkBuilderListItemFactory">
-                                        <property name="bytes"><![CDATA[
+                        </child>
+                        <child>
+                          <object class="AdwViewStackPage">
+                            <property name="name">content</property>
+                            <property name="title" translatable="yes">Content</property>
+                            <property name="child">
+                              <object class="AdwToolbarView">
+                                <property name="bottom-bar-style">flat</property>
+                                <property name="content">
+                                  <object class="GtkScrolledWindow" id="transactions">
+                                    <property name="width-request">400</property>
+                                    <property name="hscrollbar-policy">never</property>
+                                    <property name="propagate-natural-height">TRUE</property>
+                                    <property name="child">
+                                      <object class="GtkListView" id="list_view">
+                                        <style>
+                                          <class name="navigation-sidebar"/>
+                                        </style>
+                                        <property name="model">
+                                          <object class="GtkNoSelection" id="no_selection">
+                                            <binding name="model">
+                                              <lookup name="transactions" type="BzTransactionManager">
+                                                <lookup name="transaction-manager">BzWindow</lookup>
+                                              </lookup>
+                                            </binding>
+                                          </object>
+                                        </property>
+                                        <property name="factory">
+                                          <object class="GtkBuilderListItemFactory">
+                                            <property name="bytes"><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -81,292 +83,294 @@
   </template>
 </interface>
 ]]>
+                                            </property>
+                                          </object>
                                         </property>
                                       </object>
                                     </property>
                                   </object>
                                 </property>
-                              </object>
-                            </property>
-                            <child type="bottom">
-                              <object class="AdwHeaderBar">
-                                <property name="show-start-title-buttons">FALSE</property>
-                                <property name="show-end-title-buttons">FALSE</property>
-                                <property name="show-title">FALSE</property>
-                                <child type="end">
-                                  <object class="GtkButton" id="transactions_clear">
-                                    <property name="has-tooltip">TRUE</property>
-                                    <property name="tooltip-text" translatable="yes">Clear all finished transactions</property>
-                                    <property name="icon-name">edit-clear-all</property>
+                                <child type="bottom">
+                                  <object class="AdwHeaderBar">
+                                    <property name="show-start-title-buttons">FALSE</property>
+                                    <property name="show-end-title-buttons">FALSE</property>
+                                    <property name="show-title">FALSE</property>
+                                    <child type="end">
+                                      <object class="GtkButton" id="transactions_clear">
+                                        <property name="has-tooltip">TRUE</property>
+                                        <property name="tooltip-text" translatable="yes">Clear all finished transactions</property>
+                                        <property name="icon-name">edit-clear-all</property>
+                                      </object>
+                                    </child>
                                   </object>
                                 </child>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                    <property name="content">
+                      <object class="AdwToastOverlay" id="toasts">
+                        <property name="child">
+                          <object class="GtkOverlay">
+                            <property name="child">
+                              <object class="AdwViewStack" id="main_stack">
+                                <property name="enable-transitions">TRUE</property>
+                                <property name="transition-duration">200</property>
+                                <child>
+                                  <object class="AdwViewStackPage">
+                                    <property name="name">offline</property>
+                                    <property name="title" translatable="yes">Offline</property>
+                                    <property name="child">
+                                      <object class="AdwStatusPage">
+                                        <property name="icon-name">connected-squares-x</property>
+                                        <property name="title">Offline</property>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwViewStackPage">
+                                    <property name="name">loading</property>
+                                    <property name="title" translatable="yes">Loading</property>
+                                    <property name="child">
+                                      <object class="AdwSpinner" id="spinner"/>
+                                    </property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwViewStackPage">
+                                    <property name="name">browse</property>
+                                    <property name="title" translatable="yes">Browse</property>
+                                    <property name="child">
+                                      <object class="BzBrowseWidget" id="browse">
+                                        <binding name="content-provider">
+                                          <lookup name="content-provider">BzWindow</lookup>
+                                        </binding>
+                                        <signal name="group-selected" handler="browser_group_selected_cb" swapped="true"/>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwViewStackPage">
+                                    <property name="name">view</property>
+                                    <property name="title" translatable="yes">App View</property>
+                                    <property name="child">
+                                      <object class="BzFullView" id="full_view">
+                                        <binding name="transaction-manager">
+                                          <lookup name="transaction-manager">BzWindow</lookup>
+                                        </binding>
+                                        <signal name="install" handler="full_view_install_cb" swapped="true" object="BzWindow"/>
+                                        <signal name="remove" handler="full_view_remove_cb" swapped="true" object="BzWindow"/>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwViewStackPage">
+                                    <property name="name">installed</property>
+                                    <property name="title" translatable="yes">Installed</property>
+                                    <property name="child">
+                                      <object class="BzInstalledPage">
+                                        <binding name="model">
+                                          <lookup name="installed">BzWindow</lookup>
+                                        </binding>
+                                        <signal name="install" handler="installed_page_install_cb" swapped="true" object="BzWindow"/>
+                                        <signal name="remove" handler="installed_page_remove_cb" swapped="true" object="BzWindow"/>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </child>
+                              </object>
+                            </property>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+                <child>
+                  <object class="AdwBreakpoint" id="breakpoint">
+                    <condition>max-width: 1000px</condition>
+                    <setter object="split_view" property="collapsed">TRUE</setter>
+                    <setter object="transactions" property="width-request">250</setter>
+                  </object>
+                </child>
+              </object>
+            </property>
+            <child type="top">
+              <object class="AdwHeaderBar">
+                <child type="start">
+                  <object class="GtkButton" id="go_back">
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Go Back</property>
+                    <property name="icon-name">go-previous-symbolic</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkToggleButton" id="toggle_transactions">
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Toggle transaction sidebar</property>
+                    <property name="icon-name">sidebar-show-symbolic</property>
+                    <property name="active"
+                              bind-source="split_view"
+                              bind-property="show-sidebar"
+                              bind-flags="bidirectional|sync-create"/>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="refresh">
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Refresh</property>
+                    <property name="icon-name">view-refresh-symbolic</property>
+                    <binding name="sensitive">
+                      <closure function="invert_boolean" type="gboolean">
+                        <lookup name="busy">BzWindow</lookup>
+                      </closure>
+                    </binding>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="search">
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Search</property>
+                    <property name="icon-name">system-search-symbolic</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="update_button">
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Update</property>
+                    <property name="icon-name">software-update-available-symbolic</property>
+                  </object>
+                </child>
+                <property name="title-widget">
+                  <object class="AdwToggleGroup" id="title_toggle_group">
+                    <!-- <style> -->
+                    <!--   <class name="round"/> -->
+                    <!-- </style> -->
+                    <property name="homogeneous">TRUE</property>
+                    <child>
+                      <object class="AdwToggle">
+                        <property name="tooltip" translatable="yes">View Curated Applications</property>
+                        <property name="name">curated</property>
+                        <property name="child">
+                          <object class="GtkBox">
+                            <property name="halign">center</property>
+                            <property name="margin-start">15</property>
+                            <property name="margin-end">15</property>
+                            <property name="orientation">horizontal</property>
+                            <property name="spacing">6</property>
+                            <child>
+                              <object class="GtkImage">
+                                <property name="icon-name">starred-symbolic</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Curated</property>
                               </object>
                             </child>
                           </object>
                         </property>
                       </object>
                     </child>
-                  </object>
-                </property>
-                <property name="content">
-                  <object class="AdwToastOverlay" id="toasts">
-                    <property name="child">
-                      <object class="GtkOverlay">
+                    <child>
+                      <object class="AdwToggle">
+                        <property name="tooltip" translatable="yes">View Installed Applications</property>
+                        <property name="name">installed</property>
                         <property name="child">
-                          <object class="AdwViewStack" id="main_stack">
-                            <property name="enable-transitions">TRUE</property>
-                            <property name="transition-duration">200</property>
+                          <object class="GtkBox">
+                            <property name="halign">center</property>
+                            <property name="margin-start">15</property>
+                            <property name="margin-end">15</property>
+                            <property name="orientation">horizontal</property>
+                            <property name="spacing">6</property>
                             <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">offline</property>
-                                <property name="title" translatable="yes">Offline</property>
-                                <property name="child">
-                                  <object class="AdwStatusPage">
-                                    <property name="icon-name">connected-squares-x</property>
-                                    <property name="title">Offline</property>
-                                  </object>
-                                </property>
+                              <object class="GtkImage">
+                                <property name="icon-name">library-symbolic</property>
                               </object>
                             </child>
                             <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">loading</property>
-                                <property name="title" translatable="yes">Loading</property>
-                                <property name="child">
-                                  <object class="AdwSpinner" id="spinner"/>
-                                </property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">browse</property>
-                                <property name="title" translatable="yes">Browse</property>
-                                <property name="child">
-                                  <object class="BzBrowseWidget" id="browse">
-                                    <binding name="content-provider">
-                                      <lookup name="content-provider">BzWindow</lookup>
-                                    </binding>
-                                    <signal name="group-selected" handler="browser_group_selected_cb" swapped="true"/>
-                                  </object>
-                                </property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">view</property>
-                                <property name="title" translatable="yes">App View</property>
-                                <property name="child">
-                                  <object class="BzFullView" id="full_view">
-                                    <binding name="transaction-manager">
-                                      <lookup name="transaction-manager">BzWindow</lookup>
-                                    </binding>
-                                    <signal name="install" handler="full_view_install_cb" swapped="true" object="BzWindow"/>
-                                    <signal name="remove" handler="full_view_remove_cb" swapped="true" object="BzWindow"/>
-                                  </object>
-                                </property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwViewStackPage">
-                                <property name="name">installed</property>
-                                <property name="title" translatable="yes">Installed</property>
-                                <property name="child">
-                                  <object class="BzInstalledPage">
-                                    <binding name="model">
-                                      <lookup name="installed">BzWindow</lookup>
-                                    </binding>
-                                    <signal name="install" handler="installed_page_install_cb" swapped="true" object="BzWindow"/>
-                                    <signal name="remove" handler="installed_page_remove_cb" swapped="true" object="BzWindow"/>
-                                  </object>
-                                </property>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Installed</property>
                               </object>
                             </child>
                           </object>
                         </property>
                       </object>
-                    </property>
+                    </child>
+                    <!-- <child> -->
+                    <!--   <object class="AdwToggle"> -->
+                    <!--     <property name="tooltip" translatable="yes">Support Developers</property> -->
+                    <!--     <property name="name">support</property> -->
+                    <!--     <property name="child"> -->
+                    <!--       <object class="GtkBox"> -->
+                    <!--         <property name="halign">center</property> -->
+                    <!--         <property name="margin-start">15</property> -->
+                    <!--         <property name="margin-end">15</property> -->
+                    <!--         <property name="orientation">horizontal</property> -->
+                    <!--         <property name="spacing">6</property> -->
+                    <!--         <child> -->
+                    <!--           <object class="GtkImage"> -->
+                    <!--             <property name="icon-name">heart-filled-symbolic</property> -->
+                    <!--           </object> -->
+                    <!--         </child> -->
+                    <!--         <child> -->
+                    <!--           <object class="GtkLabel"> -->
+                    <!--             <property name="label" translatable="yes">Support</property> -->
+                    <!--           </object> -->
+                    <!--         </child> -->
+                    <!--       </object> -->
+                    <!--     </property> -->
+                    <!--   </object> -->
+                    <!-- </child> -->
+                    <!-- <child> -->
+                    <!--   <object class="AdwToggle"> -->
+                    <!--     <property name="tooltip" translatable="yes">News</property> -->
+                    <!--     <property name="name">news</property> -->
+                    <!--     <property name="child"> -->
+                    <!--       <object class="GtkBox"> -->
+                    <!--         <property name="halign">center</property> -->
+                    <!--         <property name="margin-start">15</property> -->
+                    <!--         <property name="margin-end">15</property> -->
+                    <!--         <property name="orientation">horizontal</property> -->
+                    <!--         <property name="spacing">6</property> -->
+                    <!--         <child> -->
+                    <!--           <object class="GtkImage"> -->
+                    <!--             <property name="icon-name">newspaper-symbolic</property> -->
+                    <!--           </object> -->
+                    <!--         </child> -->
+                    <!--         <child> -->
+                    <!--           <object class="GtkLabel"> -->
+                    <!--             <property name="label" translatable="yes">News</property> -->
+                    <!--           </object> -->
+                    <!--         </child> -->
+                    <!--       </object> -->
+                    <!--     </property> -->
+                    <!--   </object> -->
+                    <!-- </child> -->
+                    <signal name="notify::active-name" handler="page_toggled_cb" swapped="true" object="BzWindow"/>
                   </object>
                 </property>
-              </object>
-            </property>
-            <child>
-              <object class="AdwBreakpoint" id="breakpoint">
-                <condition>max-width: 1000px</condition>
-                <setter object="split_view" property="collapsed">TRUE</setter>
-                <setter object="transactions" property="width-request">250</setter>
+                <child type="end">
+                  <object class="GtkMenuButton">
+                    <property name="primary">TRUE</property>
+                    <property name="icon-name">open-menu-symbolic</property>
+                    <property name="has-tooltip">TRUE</property>
+                    <property name="tooltip-text" translatable="yes">Main Menu</property>
+                    <property name="menu-model">primary_menu</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
         </property>
-        <child type="top">
-          <object class="AdwHeaderBar">
-            <child type="start">
-              <object class="GtkButton" id="go_back">
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Go Back</property>
-                <property name="icon-name">go-previous-symbolic</property>
-              </object>
-            </child>
-            <child type="start">
-              <object class="GtkToggleButton" id="toggle_transactions">
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Toggle transaction sidebar</property>
-                <property name="icon-name">sidebar-show-symbolic</property>
-                <property name="active"
-                          bind-source="split_view"
-                          bind-property="show-sidebar"
-                          bind-flags="bidirectional|sync-create"/>
-              </object>
-            </child>
-            <child type="start">
-              <object class="GtkButton" id="refresh">
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Refresh</property>
-                <property name="icon-name">view-refresh-symbolic</property>
-                <binding name="sensitive">
-                  <closure function="invert_boolean" type="gboolean">
-                    <lookup name="busy">BzWindow</lookup>
-                  </closure>
-                </binding>
-              </object>
-            </child>
-            <child type="start">
-              <object class="GtkButton" id="search">
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Search</property>
-                <property name="icon-name">system-search-symbolic</property>
-              </object>
-            </child>
-            <child type="start">
-              <object class="GtkButton" id="update_button">
-                <style>
-                  <class name="suggested-action"/>
-                </style>
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Update</property>
-                <property name="icon-name">software-update-available-symbolic</property>
-              </object>
-            </child>
-            <property name="title-widget">
-              <object class="AdwToggleGroup" id="title_toggle_group">
-                <!-- <style> -->
-                <!--   <class name="round"/> -->
-                <!-- </style> -->
-                <property name="homogeneous">TRUE</property>
-                <child>
-                  <object class="AdwToggle">
-                    <property name="tooltip" translatable="yes">View Curated Applications</property>
-                    <property name="name">curated</property>
-                    <property name="child">
-                      <object class="GtkBox">
-                        <property name="halign">center</property>
-                        <property name="margin-start">15</property>
-                        <property name="margin-end">15</property>
-                        <property name="orientation">horizontal</property>
-                        <property name="spacing">6</property>
-                        <child>
-                          <object class="GtkImage">
-                            <property name="icon-name">starred-symbolic</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label" translatable="yes">Curated</property>
-                          </object>
-                        </child>
-                      </object>
-                    </property>
-                  </object>
-                </child>
-                <child>
-                  <object class="AdwToggle">
-                    <property name="tooltip" translatable="yes">View Installed Applications</property>
-                    <property name="name">installed</property>
-                    <property name="child">
-                      <object class="GtkBox">
-                        <property name="halign">center</property>
-                        <property name="margin-start">15</property>
-                        <property name="margin-end">15</property>
-                        <property name="orientation">horizontal</property>
-                        <property name="spacing">6</property>
-                        <child>
-                          <object class="GtkImage">
-                            <property name="icon-name">library-symbolic</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label" translatable="yes">Installed</property>
-                          </object>
-                        </child>
-                      </object>
-                    </property>
-                  </object>
-                </child>
-                <!-- <child> -->
-                <!--   <object class="AdwToggle"> -->
-                <!--     <property name="tooltip" translatable="yes">Support Developers</property> -->
-                <!--     <property name="name">support</property> -->
-                <!--     <property name="child"> -->
-                <!--       <object class="GtkBox"> -->
-                <!--         <property name="halign">center</property> -->
-                <!--         <property name="margin-start">15</property> -->
-                <!--         <property name="margin-end">15</property> -->
-                <!--         <property name="orientation">horizontal</property> -->
-                <!--         <property name="spacing">6</property> -->
-                <!--         <child> -->
-                <!--           <object class="GtkImage"> -->
-                <!--             <property name="icon-name">heart-filled-symbolic</property> -->
-                <!--           </object> -->
-                <!--         </child> -->
-                <!--         <child> -->
-                <!--           <object class="GtkLabel"> -->
-                <!--             <property name="label" translatable="yes">Support</property> -->
-                <!--           </object> -->
-                <!--         </child> -->
-                <!--       </object> -->
-                <!--     </property> -->
-                <!--   </object> -->
-                <!-- </child> -->
-                <!-- <child> -->
-                <!--   <object class="AdwToggle"> -->
-                <!--     <property name="tooltip" translatable="yes">News</property> -->
-                <!--     <property name="name">news</property> -->
-                <!--     <property name="child"> -->
-                <!--       <object class="GtkBox"> -->
-                <!--         <property name="halign">center</property> -->
-                <!--         <property name="margin-start">15</property> -->
-                <!--         <property name="margin-end">15</property> -->
-                <!--         <property name="orientation">horizontal</property> -->
-                <!--         <property name="spacing">6</property> -->
-                <!--         <child> -->
-                <!--           <object class="GtkImage"> -->
-                <!--             <property name="icon-name">newspaper-symbolic</property> -->
-                <!--           </object> -->
-                <!--         </child> -->
-                <!--         <child> -->
-                <!--           <object class="GtkLabel"> -->
-                <!--             <property name="label" translatable="yes">News</property> -->
-                <!--           </object> -->
-                <!--         </child> -->
-                <!--       </object> -->
-                <!--     </property> -->
-                <!--   </object> -->
-                <!-- </child> -->
-                <signal name="notify::active-name" handler="page_toggled_cb" swapped="true" object="BzWindow"/>
-              </object>
-            </property>
-            <child type="end">
-              <object class="GtkMenuButton">
-                <property name="primary">TRUE</property>
-                <property name="icon-name">open-menu-symbolic</property>
-                <property name="has-tooltip">TRUE</property>
-                <property name="tooltip-text" translatable="yes">Main Menu</property>
-                <property name="menu-model">primary_menu</property>
-              </object>
-            </child>
-          </object>
-        </child>
       </object>
     </property>
   </template>
