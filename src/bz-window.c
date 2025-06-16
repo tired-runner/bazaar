@@ -27,6 +27,7 @@
 #include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
 #include "bz-full-view.h"
+#include "bz-global-progress.h"
 #include "bz-installed-page.h"
 #include "bz-progress-bar.h"
 #include "bz-search-widget.h"
@@ -431,6 +432,7 @@ bz_window_class_init (BzWindowClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_COMET_OVERLAY);
+  g_type_ensure (BZ_TYPE_GLOBAL_PROGRESS);
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
   g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);

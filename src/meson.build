@@ -15,6 +15,7 @@ bz_sources = [
   'bz-flatpak-entry.c',
   'bz-flatpak-instance.c',
   'bz-full-view.c',
+  'bz-global-progress.c',
   'bz-installed-page.c',
   'bz-issue.c',
   'bz-paintable-model.c',

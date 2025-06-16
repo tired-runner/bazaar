@@ -173,7 +173,7 @@ bz_comet_overlay_snapshot (GtkWidget   *widget,
 
       gsk_path_get_end_point (path, &path_point);
       gsk_path_point_get_position (&path_point, path, &end_position);
-      pulse_radius        = progress / path_length * 100.0;
+      pulse_radius        = progress / path_length * 150.0;
       accent_color->alpha = 1.0 - (progress / path_length);
 
       clip.bounds = GRAPHENE_RECT_INIT (

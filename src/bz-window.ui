@@ -211,13 +211,30 @@
                 </child>
                 <child type="start">
                   <object class="GtkToggleButton" id="toggle_transactions">
+                    <style>
+                      <class name="flat"/>
+                    </style>
                     <property name="has-tooltip">TRUE</property>
                     <property name="tooltip-text" translatable="yes">Toggle transaction sidebar</property>
-                    <property name="icon-name">sidebar-show-symbolic</property>
                     <property name="active"
                               bind-source="split_view"
                               bind-property="show-sidebar"
                               bind-flags="bidirectional|sync-create"/>
+                    <property name="child">
+                      <object class="BzGlobalProgress">
+                        <property name="icon-name">sidebar-show-symbolic</property>
+                        <binding name="active">
+                          <lookup name="active" type="BzTransactionManager">
+                            <lookup name="transaction-manager">BzWindow</lookup>
+                          </lookup>
+                        </binding>
+                        <binding name="fraction">
+                          <lookup name="current-progress" type="BzTransactionManager">
+                            <lookup name="transaction-manager">BzWindow</lookup>
+                          </lookup>
+                        </binding>
+                      </object>
+                    </property>
                   </object>
                 </child>
                 <child type="start">
