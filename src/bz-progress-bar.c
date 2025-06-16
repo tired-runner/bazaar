@@ -106,7 +106,7 @@ bz_progress_bar_class_init (BzProgressBarClass *klass)
       g_param_spec_double (
           "fraction",
           NULL, NULL,
-          0.0, 1.0, 0.0,
+          0.0, G_MAXDOUBLE, 0.0,
           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);

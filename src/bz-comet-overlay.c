@@ -351,8 +351,9 @@ progress_changed (BzComet        *comet,
   icon_size       = (path_length - progress) / path_length * intrinsic_width;
   grad_size       = MAX (1.0, (path_length - progress) / path_length * intrinsic_width * 2.0);
 
-  style_manager = adw_style_manager_get_default ();
-  accent_color  = adw_style_manager_get_accent_color_rgba (style_manager);
+  style_manager       = adw_style_manager_get_default ();
+  accent_color        = adw_style_manager_get_accent_color_rgba (style_manager);
+  accent_color->alpha = 0.5;
 
   grad_stops[0].color  = *accent_color;
   grad_stops[0].offset = 0.9;

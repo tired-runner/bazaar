@@ -36,6 +36,10 @@ struct _BzGlobalProgress
   GtkWidget    *image;
   AdwAnimation *transition_animation;
   AdwAnimation *fraction_animation;
+
+  AdwSpringParams *transition_spring_up;
+  AdwSpringParams *transition_spring_down;
+  AdwSpringParams *fraction_spring;
 };
 
 G_DEFINE_FINAL_TYPE (BzGlobalProgress, bz_global_progress, GTK_TYPE_WIDGET)
@@ -60,8 +64,13 @@ bz_global_progress_dispose (GObject *object)
   BzGlobalProgress *self = BZ_GLOBAL_PROGRESS (object);
 
   g_clear_pointer (&self->image, gtk_widget_unparent);
+
   g_clear_object (&self->transition_animation);
   g_clear_object (&self->fraction_animation);
+
+  g_clear_pointer (&self->transition_spring_up, adw_spring_params_unref);
+  g_clear_pointer (&self->transition_spring_down, adw_spring_params_unref);
+  g_clear_pointer (&self->fraction_spring, adw_spring_params_unref);
 
   G_OBJECT_CLASS (bz_global_progress_parent_class)->dispose (object);
 }
@@ -147,7 +156,7 @@ bz_global_progress_measure (GtkWidget     *widget,
     {
       int add = 0;
 
-      add = (double) (self->transition_progress * 100.0);
+      add = round (self->transition_progress * 100.0);
 
       (*minimum) += add;
       (*natural) += add;
@@ -170,11 +179,11 @@ bz_global_progress_snapshot (GtkWidget   *widget,
                              GtkSnapshot *snapshot)
 {
   BzGlobalProgress *self           = BZ_GLOBAL_PROGRESS (widget);
-  int               width          = 0;
-  int               height         = 0;
+  double            width          = 0;
+  double            height         = 0;
   double            corner_radius  = 0.0;
-  GskRoundedRect    clip           = { 0 };
-  graphene_rect_t   fraction_rect  = { 0 };
+  GskRoundedRect    total_clip     = { 0 };
+  GskRoundedRect    fraction_clip  = { 0 };
   AdwStyleManager  *style_manager  = NULL;
   g_autoptr (GdkRGBA) accent_color = NULL;
 
@@ -184,31 +193,41 @@ bz_global_progress_snapshot (GtkWidget   *widget,
 
   width         = gtk_widget_get_width (widget);
   height        = gtk_widget_get_height (widget);
-  corner_radius = (double) height * 0.4 * self->transition_progress;
+  corner_radius = height * 0.5 * (0.3 * self->transition_progress + 0.2);
 
-  clip.bounds           = GRAPHENE_RECT_INIT (0, 0, width, height);
-  clip.corner[0].width  = corner_radius;
-  clip.corner[0].height = corner_radius;
-  clip.corner[1].width  = corner_radius;
-  clip.corner[1].height = corner_radius;
-  clip.corner[2].width  = corner_radius;
-  clip.corner[2].height = corner_radius;
-  clip.corner[3].width  = corner_radius;
-  clip.corner[3].height = corner_radius;
+  total_clip.bounds           = GRAPHENE_RECT_INIT (0.0, 0.0, width, height);
+  total_clip.corner[0].width  = corner_radius;
+  total_clip.corner[0].height = corner_radius;
+  total_clip.corner[1].width  = corner_radius;
+  total_clip.corner[1].height = corner_radius;
+  total_clip.corner[2].width  = corner_radius;
+  total_clip.corner[2].height = corner_radius;
+  total_clip.corner[3].width  = corner_radius;
+  total_clip.corner[3].height = corner_radius;
 
-  gtk_snapshot_push_rounded_clip (snapshot, &clip);
+  fraction_clip.bounds           = GRAPHENE_RECT_INIT (0.0, 0.0, width * self->actual_fraction, height);
+  fraction_clip.corner[0].width  = corner_radius;
+  fraction_clip.corner[0].height = corner_radius;
+  fraction_clip.corner[1].width  = corner_radius;
+  fraction_clip.corner[1].height = corner_radius;
+  fraction_clip.corner[2].width  = corner_radius;
+  fraction_clip.corner[2].height = corner_radius;
+  fraction_clip.corner[3].width  = corner_radius;
+  fraction_clip.corner[3].height = corner_radius;
+
+  gtk_snapshot_push_rounded_clip (snapshot, &total_clip);
   gtk_snapshot_push_opacity (snapshot, CLAMP (self->transition_progress, 0.0, 1.0));
 
   style_manager = adw_style_manager_get_default ();
   accent_color  = adw_style_manager_get_accent_color_rgba (style_manager);
 
   accent_color->alpha = 0.2;
-  gtk_snapshot_append_color (snapshot, accent_color, &clip.bounds);
+  gtk_snapshot_append_color (snapshot, accent_color, &total_clip.bounds);
 
-  fraction_rect = clip.bounds;
-  fraction_rect.size.width *= self->actual_fraction;
+  gtk_snapshot_push_rounded_clip (snapshot, &fraction_clip);
   accent_color->alpha = 1.0;
-  gtk_snapshot_append_color (snapshot, accent_color, &fraction_rect);
+  gtk_snapshot_append_color (snapshot, accent_color, &fraction_clip.bounds);
+  gtk_snapshot_pop (snapshot);
 
   gtk_snapshot_pop (snapshot);
   gtk_snapshot_pop (snapshot);
@@ -241,7 +260,7 @@ bz_global_progress_class_init (BzGlobalProgressClass *klass)
       g_param_spec_double (
           "actual-fraction",
           NULL, NULL,
-          0.0, 1.0, 0.0,
+          0.0, 2.0, 0.0,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_TRANSITION_PROGRESS] =
@@ -276,25 +295,29 @@ bz_global_progress_init (BzGlobalProgress *self)
   gtk_widget_set_halign (self->image, GTK_ALIGN_START);
   gtk_widget_set_parent (self->image, GTK_WIDGET (self));
 
-  transition_target = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
-  transition_spring = adw_spring_params_new (0.8, 0.6, 100.0);
-
+  transition_target          = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
+  transition_spring          = adw_spring_params_new (0.75, 0.8, 200.0);
   self->transition_animation = adw_spring_animation_new (
       GTK_WIDGET (self),
       0.0,
       0.0,
       transition_spring,
       transition_target);
+  adw_spring_animation_set_epsilon (
+      ADW_SPRING_ANIMATION (self->transition_animation), 0.00005);
 
-  fraction_target = adw_property_animation_target_new (G_OBJECT (self), "actual-fraction");
-  fraction_spring = adw_spring_params_new (1.0, 0.5, 200.0);
-
+  fraction_target          = adw_property_animation_target_new (G_OBJECT (self), "actual-fraction");
+  fraction_spring          = adw_spring_params_new (1.0, 0.75, 200.0);
   self->fraction_animation = adw_spring_animation_new (
       GTK_WIDGET (self),
       0.0,
       0.0,
       fraction_spring,
       fraction_target);
+
+  self->transition_spring_up   = adw_spring_params_ref (transition_spring);
+  self->transition_spring_down = adw_spring_params_new (1.5, 0.1, 100.0);
+  self->fraction_spring        = adw_spring_params_ref (fraction_spring);
 }
 
 GtkWidget *
@@ -324,6 +347,11 @@ bz_global_progress_set_active (BzGlobalProgress *self,
   adw_spring_animation_set_initial_velocity (
       ADW_SPRING_ANIMATION (self->transition_animation),
       adw_spring_animation_get_velocity (ADW_SPRING_ANIMATION (self->transition_animation)));
+
+  adw_spring_animation_set_spring_params (
+      ADW_SPRING_ANIMATION (self->transition_animation),
+      active ? self->transition_spring_up : self->transition_spring_down);
+
   adw_animation_play (self->transition_animation);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ACTIVE]);
@@ -404,7 +432,7 @@ bz_global_progress_set_transition_progress (BzGlobalProgress *self,
 {
   g_return_if_fail (BZ_IS_GLOBAL_PROGRESS (self));
 
-  self->transition_progress = CLAMP (progress, 0.0, 1.0);
+  self->transition_progress = MAX (progress, 0.0);
   gtk_widget_queue_resize (GTK_WIDGET (self));
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_TRANSITION_PROGRESS]);
