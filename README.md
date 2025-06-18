@@ -1,3 +1,5 @@
+<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.bazaar.svg" width="256" height="256" />
+
 # Bazaar
 
 ![Image](https://github.com/user-attachments/assets/57e235a2-d01d-47fc-8d56-ac9d4ecc8b51)
