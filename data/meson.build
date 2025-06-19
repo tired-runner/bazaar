@@ -43,4 +43,12 @@ configure_file(
   install_dir: get_option('datadir') / 'dbus-1' / 'services'
 )
 
+service_conf = configuration_data()
+configure_file(
+  input: 'io.github.kolunmi.bazaar.search-provider.ini.in',
+  output: 'io.github.kolunmi.bazaar.search-provider.ini',
+  configuration: service_conf,
+  install_dir: get_option('datadir') / 'gnome-shell' / 'search-providers'
+)
+
 subdir('icons')

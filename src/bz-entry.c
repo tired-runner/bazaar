@@ -45,6 +45,7 @@ typedef struct
   char         *url;
   guint64       size;
   GdkPaintable *icon_paintable;
+  GIcon        *mini_icon;
   GdkPaintable *remote_repo_icon;
   GPtrArray    *search_tokens;
   char         *metadata_license;
@@ -60,6 +61,8 @@ typedef struct
   double        average_rating;
   char         *ratings_summary;
   GListModel   *version_history;
+
+  GHashTable *size_to_icon_hash;
 } BzEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
@@ -82,6 +85,7 @@ enum
   PROP_URL,
   PROP_SIZE,
   PROP_ICON_PAINTABLE,
+  PROP_MINI_ICON,
   PROP_SEARCH_TOKENS,
   PROP_REMOTE_REPO_ICON,
   PROP_METADATA_LICENSE,
@@ -119,6 +123,7 @@ bz_entry_dispose (GObject *object)
   g_clear_pointer (&priv->remote_repo_name, g_free);
   g_clear_pointer (&priv->url, g_free);
   g_clear_object (&priv->icon_paintable);
+  g_clear_object (&priv->mini_icon);
   g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
   g_clear_object (&priv->remote_repo_icon);
   g_clear_pointer (&priv->metadata_license, g_free);
@@ -132,6 +137,8 @@ bz_entry_dispose (GObject *object)
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
   g_clear_object (&priv->version_history);
+
+  g_clear_pointer (&priv->size_to_icon_hash, g_hash_table_unref);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -185,6 +192,9 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_ICON_PAINTABLE:
       g_value_set_object (value, priv->icon_paintable);
+      break;
+    case PROP_MINI_ICON:
+      g_value_set_object (value, priv->mini_icon);
       break;
     case PROP_SEARCH_TOKENS:
       g_value_set_boxed (value, priv->search_tokens);
@@ -296,6 +306,10 @@ bz_entry_set_property (GObject      *object,
     case PROP_ICON_PAINTABLE:
       g_clear_object (&priv->icon_paintable);
       priv->icon_paintable = g_value_dup_object (value);
+      break;
+    case PROP_MINI_ICON:
+      g_clear_object (&priv->mini_icon);
+      priv->mini_icon = g_value_dup_object (value);
       break;
     case PROP_SEARCH_TOKENS:
       g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
@@ -450,6 +464,13 @@ bz_entry_class_init (BzEntryClass *klass)
           "icon-paintable",
           NULL, NULL,
           GDK_TYPE_PAINTABLE,
+          G_PARAM_READWRITE);
+
+  props[PROP_MINI_ICON] =
+      g_param_spec_object (
+          "mini-icon",
+          NULL, NULL,
+          G_TYPE_ICON,
           G_PARAM_READWRITE);
 
   props[PROP_SEARCH_TOKENS] =
@@ -684,6 +705,17 @@ bz_entry_get_icon_paintable (BzEntry *self)
   return priv->icon_paintable;
 }
 
+GIcon *
+bz_entry_get_mini_icon (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->mini_icon;
+}
+
 GPtrArray *
 bz_entry_get_search_tokens (BzEntry *self)
 {
@@ -716,36 +748,36 @@ bz_entry_cmp_usefulness (gconstpointer a,
   int             a_score = 0;
   int             b_score = 0;
 
-  a_score += priv_a->title != NULL ? 1 : 0;
+  a_score += priv_a->title != NULL ? 5 : 0;
   a_score += priv_a->description != NULL ? 1 : 0;
-  a_score += priv_a->long_description != NULL ? 1 : 0;
+  a_score += priv_a->long_description != NULL ? 5 : 0;
   a_score += priv_a->url != NULL ? 1 : 0;
   a_score += priv_a->size > 0 ? 1 : 0;
-  a_score += priv_a->icon_paintable != NULL ? 1 : 0;
+  a_score += priv_a->icon_paintable != NULL ? 15 : 0;
   a_score += priv_a->remote_repo_icon != NULL ? 1 : 0;
   a_score += priv_a->metadata_license != NULL ? 1 : 0;
   a_score += priv_a->project_license != NULL ? 1 : 0;
   a_score += priv_a->project_group != NULL ? 1 : 0;
   a_score += priv_a->developer != NULL ? 1 : 0;
   a_score += priv_a->developer_id != NULL ? 1 : 0;
-  a_score += priv_a->screenshot_paintables != NULL ? 1 : 0;
-  a_score += priv_a->share_urls != NULL ? 1 : 0;
+  a_score += priv_a->screenshot_paintables != NULL ? 5 : 0;
+  a_score += priv_a->share_urls != NULL ? 5 : 0;
   a_score += priv_a->reviews != NULL ? 1 : 0;
 
-  b_score += priv_b->title != NULL ? 1 : 0;
+  b_score += priv_b->title != NULL ? 5 : 0;
   b_score += priv_b->description != NULL ? 1 : 0;
-  b_score += priv_b->long_description != NULL ? 1 : 0;
+  b_score += priv_b->long_description != NULL ? 5 : 0;
   b_score += priv_b->url != NULL ? 1 : 0;
   b_score += priv_b->size > 0 ? 1 : 0;
-  b_score += priv_b->icon_paintable != NULL ? 1 : 0;
+  b_score += priv_b->icon_paintable != NULL ? 15 : 0;
   b_score += priv_b->remote_repo_icon != NULL ? 1 : 0;
   b_score += priv_b->metadata_license != NULL ? 1 : 0;
   b_score += priv_b->project_license != NULL ? 1 : 0;
   b_score += priv_b->project_group != NULL ? 1 : 0;
   b_score += priv_b->developer != NULL ? 1 : 0;
   b_score += priv_b->developer_id != NULL ? 1 : 0;
-  b_score += priv_b->screenshot_paintables != NULL ? 1 : 0;
-  b_score += priv_b->share_urls != NULL ? 1 : 0;
+  b_score += priv_b->screenshot_paintables != NULL ? 5 : 0;
+  b_score += priv_b->share_urls != NULL ? 5 : 0;
   b_score += priv_b->reviews != NULL ? 1 : 0;
 
   return b_score - a_score;

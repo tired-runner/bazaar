@@ -222,6 +222,18 @@ print_init_properties () {
 }
 
 
+print_functions () {
+    HEADER="$1"
+
+    printf '%s *\n%s_new (void)' "$PASCAL" "$SNAKE"
+    if [ "$HEADER" == header ]; then
+        printf ';\n\n'
+    else
+        printf '{\n  return g_object_new (%s, NULL);\n}\n\n' "$TYPE"
+    fi
+}
+
+
 print_get_property_methods () {
     HEADER="$1"
     
@@ -373,7 +385,10 @@ G_BEGIN_DECLS
 #define $TYPE (${SNAKE}_get_type ())
 G_DECLARE_FINAL_TYPE ($PASCAL, $SNAKE, $MACRO_PREF, $MACRO_NAME, $PAR_PASCAL)
 
+$(print_functions header)
+
 $(print_get_property_methods header)
+
 $(print_set_property_methods header)
 
 G_END_DECLS
@@ -481,6 +496,8 @@ static void
 ${SNAKE}_init (${PASCAL} *self)
 {
 }
+
+$(print_functions)
 
 $(print_get_property_methods)
 

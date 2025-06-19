@@ -1,3 +1,10 @@
+gdbus_src = gnome.gdbus_codegen(
+  'gs-shell-search-provider-generated',
+  'shell-search-provider-dbus-interfaces.xml',
+  interface_prefix : 'org.gnome.',
+  namespace : 'Bz',
+)
+
 bz_sources = [
   'bz-addons-dialog.c',
   'bz-application.c',
@@ -16,6 +23,7 @@ bz_sources = [
   'bz-flatpak-instance.c',
   'bz-full-view.c',
   'bz-global-progress.c',
+  'bz-gnome-shell-search-provider.c',
   'bz-installed-page.c',
   'bz-issue.c',
   'bz-paintable-model.c',
@@ -24,6 +32,7 @@ bz_sources = [
   'bz-release.c',
   'bz-review.c',
   'bz-screenshot.c',
+  'bz-search-engine.c',
   'bz-search-widget.c',
   'bz-section-view.c',
   'bz-share-dialog.c',
@@ -55,7 +64,7 @@ bz_sources += gnome.compile_resources('bz-resources',
   c_name: 'bz'
 )
 
-executable('bazaar', bz_sources,
+executable('bazaar', bz_sources, gdbus_src,
   dependencies: bz_deps,
        install: true,
 )

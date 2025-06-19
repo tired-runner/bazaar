@@ -29,6 +29,13 @@
 #include "bz-url.h"
 // #include "bz-review.h"
 
+typedef struct
+{
+  const guchar *data;
+  gsize         size;
+  gsize         position;
+} CairoStreamReader;
+
 enum
 {
   NO_ELEMENT,
@@ -74,6 +81,11 @@ enum
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+static cairo_status_t
+read_cairo_stream_data (void          *closure,
+                        unsigned char *data,
+                        unsigned int   length);
 
 static void
 compile_appstream_description (XbNode  *node,
@@ -239,6 +251,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
                                      const char        *appstream_dir,
+                                     const char        *output_dir,
                                      GdkPaintable      *remote_icon,
                                      GError           **error)
 {
@@ -265,6 +278,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GPtrArray) as_search_tokens  = NULL;
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
+  g_autoptr (GIcon) mini_icon             = NULL;
   g_autoptr (BzPaintableModel) paintables = NULL;
   g_autoptr (GListStore) share_urls       = NULL;
   g_autofree char *donation_url           = NULL;
@@ -276,6 +290,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
   g_return_val_if_fail (appstream_dir != NULL, NULL);
+  g_return_val_if_fail (output_dir != NULL, NULL);
 
   self          = g_object_new (BZ_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
@@ -428,10 +443,53 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                   NULL);
               if (g_file_query_exists (icon_file, NULL))
                 {
-                  /* Using glycin here is extremely slow for,
+                  g_autoptr (GBytes) icon_bytes          = NULL;
+                  CairoStreamReader closure              = { 0 };
+                  cairo_surface_t  *surface_in           = NULL;
+                  cairo_surface_t  *surface_out          = NULL;
+                  cairo_t          *cairo                = NULL;
+                  g_autoptr (GString) mini_icon_basename = NULL;
+                  g_autofree char *mini_icon_path        = NULL;
+                  g_autoptr (GFile) mini_icon_file       = NULL;
+
+                  icon_bytes = g_file_load_bytes (icon_file, NULL, NULL, error);
+                  if (icon_bytes == NULL)
+                    return NULL;
+
+                  /* Using glycin here is extremely slow for
                    * some reason so we'll opt for the old method.
                    */
-                  icon_paintable = gdk_texture_new_from_file (icon_file, NULL);
+                  icon_paintable = gdk_texture_new_from_bytes (icon_bytes, error);
+                  if (icon_paintable == NULL)
+                    return NULL;
+
+                  closure.data     = g_bytes_get_data (icon_bytes, &closure.size);
+                  closure.position = 0;
+                  surface_in       = cairo_image_surface_create_from_png_stream (read_cairo_stream_data, &closure);
+
+                  /* 24x24 for the gnome-shell search provider */
+                  surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
+                  cairo       = cairo_create (surface_out);
+
+                  cairo_scale (cairo, 24.0 / (double) i, 24.0 / (double) i);
+                  cairo_set_source_surface (cairo, surface_in, 0, 0);
+                  cairo_paint (cairo);
+                  cairo_restore (cairo);
+
+                  mini_icon_basename = g_string_new (unique_id);
+                  g_string_replace (mini_icon_basename, "/", "::", 0);
+                  g_string_append (mini_icon_basename, "-24x24.png");
+                  mini_icon_path = g_build_filename (output_dir, mini_icon_basename->str, NULL);
+
+                  cairo_surface_flush (surface_out);
+                  cairo_surface_write_to_png (surface_out, mini_icon_path);
+                  cairo_destroy (cairo);
+                  cairo_surface_destroy (surface_in);
+                  cairo_surface_destroy (surface_out);
+
+                  mini_icon_file = g_file_new_for_path (mini_icon_path);
+                  mini_icon      = g_file_icon_new (mini_icon_file);
+
                   break;
                 }
             }
@@ -635,10 +693,14 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
             search_tokens,
             g_strdup (g_ptr_array_index (as_search_tokens, i)));
     }
+  g_ptr_array_add (search_tokens, g_strdup (unique_id));
 
-  g_ptr_array_add (search_tokens, g_strdup (self->application_name));
-  g_ptr_array_add (search_tokens, g_strdup (self->application_runtime));
-  g_ptr_array_add (search_tokens, g_strdup (self->application_command));
+  if (kinds & BZ_ENTRY_KIND_APPLICATION)
+    {
+      g_ptr_array_add (search_tokens, g_strdup (self->application_name));
+      g_ptr_array_add (search_tokens, g_strdup (self->application_runtime));
+      g_ptr_array_add (search_tokens, g_strdup (self->application_command));
+    }
 
   if (title != NULL)
     g_ptr_array_add (search_tokens, g_strdup (title));
@@ -690,6 +752,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "url", project_url,
       "size", download_size,
       "icon-paintable", icon_paintable,
+      "mini-icon", mini_icon,
       "search-tokens", search_tokens,
       "remote-repo-icon", remote_icon,
       "metadata-license", metadata_license,
@@ -718,7 +781,7 @@ bz_flatpak_ref_format_unique (FlatpakRef *ref,
 
   fmt = flatpak_ref_format_ref (FLATPAK_REF (ref));
   return g_strdup_printf (
-      "FLATPAK %s: %s",
+      "FLATPAK-%s:%s",
       user ? "USER" : "SYSTEM",
       fmt);
 }
@@ -783,6 +846,22 @@ bz_flatpak_entry_launch (BzFlatpakEntry *self,
       flatpak_ref_get_branch (FLATPAK_REF (self->rref)),
       flatpak_ref_get_commit (FLATPAK_REF (self->rref)),
       NULL, error);
+}
+
+static cairo_status_t
+read_cairo_stream_data (void          *closure,
+                        unsigned char *data,
+                        unsigned int   length)
+{
+  CairoStreamReader *reader_closure = closure;
+
+  if (reader_closure->position + length > reader_closure->size)
+    return CAIRO_STATUS_READ_ERROR;
+
+  memcpy (data, reader_closure->data + reader_closure->position, length);
+  reader_closure->position += length;
+
+  return CAIRO_STATUS_SUCCESS;
 }
 
 static void

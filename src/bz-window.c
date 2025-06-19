@@ -907,7 +907,7 @@ search (BzWindow   *self,
 
   adw_dialog_set_child (dialog, search_widget);
   adw_dialog_set_content_width (dialog, 1500);
-  adw_dialog_set_content_height (dialog, 1200);
+  adw_dialog_set_content_height (dialog, 1800);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
 }

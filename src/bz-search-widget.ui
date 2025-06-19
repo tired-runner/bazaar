@@ -141,7 +141,7 @@
                     <property name="height-request">300</property>
                     <child>
                       <object class="AdwBreakpoint" id="breakpoint">
-                        <condition>max-width: 900px</condition>
+                        <condition>max-width: 1100px</condition>
                         
                         <setter object="list_view" property="single-click-activate">TRUE</setter>
                         
@@ -280,7 +280,7 @@
                             <property name="margin-top">10</property>
                             <property name="margin-bottom">10</property>
                             <property name="orientation">vertical</property>
-                            <property name="spacing">15</property>
+                            <property name="spacing">5</property>
                             <child>
                               <object class="GtkBox" id="entry_view_top">
                                 <property name="vexpand">FALSE</property>

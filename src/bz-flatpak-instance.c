@@ -99,12 +99,14 @@ BZ_DEFINE_DATA (
       FlatpakRemoteRef           *rref;
       AsComponent                *component;
       char                       *appstream_dir;
+      char                       *output_dir;
       GdkPaintable               *remote_icon;
     },
     BZ_RELEASE_DATA (parent, ref_remote_apps_for_remote_data_unref);
     BZ_RELEASE_DATA (rref, g_object_unref);
     BZ_RELEASE_DATA (component, g_object_unref);
     BZ_RELEASE_DATA (appstream_dir, g_free);
+    BZ_RELEASE_DATA (output_dir, g_free);
     BZ_RELEASE_DATA (remote_icon, g_object_unref));
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
@@ -516,6 +518,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   g_autoptr (GdkPaintable) remote_icon    = NULL;
   g_autoptr (GPtrArray) refs              = NULL;
   guint                  n_jobs           = 0;
+  g_autofree char       *output_dir_path  = NULL;
   g_autofree DexFuture **jobs             = NULL;
   g_autoptr (DexFuture) future            = NULL;
 
@@ -646,6 +649,10 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   if (refs == NULL)
     return dex_future_new_for_error (g_steal_pointer (&local_error));
 
+  output_dir_path = g_dir_make_tmp (NULL, &local_error);
+  if (output_dir_path == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
   jobs = g_malloc0_n (refs->len, sizeof (*jobs));
   for (guint i = 0; i < refs->len; i++)
     {
@@ -666,7 +673,9 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       job_data->component = component != NULL ? g_object_ref (component) : NULL;
       /* TODO: this is bad, should just steal once */
       job_data->appstream_dir = g_strdup (appstream_dir_path);
-      job_data->remote_icon   = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
+      /* TODO: this is bad, should just steal once */
+      job_data->output_dir  = g_strdup (output_dir_path);
+      job_data->remote_icon = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
       jobs[n_jobs++] = dex_scheduler_spawn (
           instance->scheduler, 0,
@@ -700,6 +709,7 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
       data->rref,
       data->component,
       data->appstream_dir,
+      data->output_dir,
       data->remote_icon,
       &local_error);
   if (entry == NULL)

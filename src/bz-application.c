@@ -27,6 +27,7 @@
 #include "bz-entry-group.h"
 #include "bz-error.h"
 #include "bz-flatpak-instance.h"
+#include "bz-gnome-shell-search-provider.h"
 #include "bz-preferences-dialog.h"
 #include "bz-transaction-manager.h"
 #include "bz-util.h"
@@ -49,6 +50,9 @@ struct _BzApplication
 
   GtkCssProvider  *css;
   GtkMapListModel *content_configs_to_files;
+
+  BzSearchEngine             *search_engine;
+  BzGnomeShellSearchProvider *gs_search;
 
   BzFlatpakInstance *flatpak;
   GListStore        *all_entries;
@@ -130,6 +134,9 @@ static DexFuture *
 cli_transact_then (DexFuture     *future,
                    BzApplication *self);
 
+static GtkWindow *
+new_window (BzApplication *self);
+
 static void
 bz_application_dispose (GObject *object)
 {
@@ -142,6 +149,8 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->content_provider);
   g_clear_object (&self->content_configs_to_files);
   g_clear_object (&self->css);
+  g_clear_object (&self->search_engine);
+  g_clear_object (&self->gs_search);
   g_clear_object (&self->flatpak);
   g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
   g_clear_pointer (&self->unique_appid_to_entry_hash, g_hash_table_unref);
@@ -436,29 +445,7 @@ bz_application_command_line (GApplication            *app,
               return EXIT_SUCCESS;
             }
 
-          window = g_object_new (
-              BZ_TYPE_WINDOW,
-              "application", app,
-              "settings", self->settings,
-              "transaction-manager", self->transactions,
-              "content-provider", self->content_provider,
-              "applications", self->applications,
-              "installed", self->installed,
-              "updates", self->updates,
-              "busy", self->busy,
-              "online", self->online,
-              NULL);
-          g_object_bind_property (
-              self, "busy",
-              window, "busy",
-              G_BINDING_SYNC_CREATE);
-          g_object_bind_property (
-              self, "online",
-              window, "online",
-              G_BINDING_SYNC_CREATE);
-
-          gtk_window_present (window);
-
+          window = new_window (self);
           if (search)
             bz_window_search (BZ_WINDOW (window), search_text);
         }
@@ -820,6 +807,25 @@ bz_application_local_command_line (GApplication *application,
   return FALSE;
 }
 
+static gboolean
+bz_application_dbus_register (GApplication    *application,
+                              GDBusConnection *connection,
+                              const gchar     *object_path,
+                              GError         **error)
+{
+  BzApplication *self = BZ_APPLICATION (application);
+  return bz_gnome_shell_search_provider_set_connection (self->gs_search, connection, error);
+}
+
+static void
+bz_application_dbus_unregister (GApplication    *application,
+                                GDBusConnection *connection,
+                                const gchar     *object_path)
+{
+  BzApplication *self = BZ_APPLICATION (application);
+  bz_gnome_shell_search_provider_set_connection (self->gs_search, NULL, NULL);
+}
+
 static void
 bz_application_class_init (BzApplicationClass *klass)
 {
@@ -884,6 +890,8 @@ bz_application_class_init (BzApplicationClass *klass)
   app_class->activate           = bz_application_activate;
   app_class->command_line       = bz_application_command_line;
   app_class->local_command_line = bz_application_local_command_line;
+  app_class->dbus_register      = bz_application_dbus_register;
+  app_class->dbus_unregister    = bz_application_dbus_unregister;
 }
 
 static void
@@ -996,6 +1004,8 @@ bz_application_search_action (GSimpleAction *action,
   g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
+  if (window == NULL)
+    window = new_window (self);
 
   if (parameter != NULL)
     initial_text = g_variant_get_string (parameter, NULL);
@@ -1123,6 +1133,12 @@ bz_application_init (BzApplication *self)
       NULL, (GtkMapListModelMapFunc) map_strings_to_files, NULL, NULL);
   bz_content_provider_set_input_files (
       self->content_provider, G_LIST_MODEL (self->content_configs_to_files));
+
+  self->search_engine = bz_search_engine_new ();
+  bz_search_engine_set_model (self->search_engine, G_LIST_MODEL (self->applications));
+
+  self->gs_search = bz_gnome_shell_search_provider_new ();
+  bz_gnome_shell_search_provider_set_engine (self->gs_search, self->search_engine);
 
   g_action_map_add_action_entries (
       G_ACTION_MAP (self),
@@ -1639,4 +1655,34 @@ cli_transact_then (DexFuture     *future,
     }
 
   return NULL;
+}
+
+static GtkWindow *
+new_window (BzApplication *self)
+{
+  GtkWindow *window = NULL;
+
+  window = g_object_new (
+      BZ_TYPE_WINDOW,
+      "application", self,
+      "settings", self->settings,
+      "transaction-manager", self->transactions,
+      "content-provider", self->content_provider,
+      "applications", self->applications,
+      "installed", self->installed,
+      "updates", self->updates,
+      "busy", self->busy,
+      "online", self->online,
+      NULL);
+  g_object_bind_property (
+      self, "busy",
+      window, "busy",
+      G_BINDING_SYNC_CREATE);
+  g_object_bind_property (
+      self, "online",
+      window, "online",
+      G_BINDING_SYNC_CREATE);
+
+  gtk_window_present (window);
+  return window;
 }

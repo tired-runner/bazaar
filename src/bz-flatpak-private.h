@@ -46,6 +46,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      FlatpakRemoteRef  *rref,
                                      AsComponent       *component,
                                      const char        *appstream_dir,
+                                     const char        *output_dir,
                                      GdkPaintable      *remote_icon,
                                      GError           **error);
 

@@ -77,6 +77,9 @@ bz_entry_get_size (BzEntry *self);
 GdkPaintable *
 bz_entry_get_icon_paintable (BzEntry *self);
 
+GIcon *
+bz_entry_get_mini_icon (BzEntry *self);
+
 GPtrArray *
 bz_entry_get_search_tokens (BzEntry *self);
 
