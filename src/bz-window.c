@@ -62,6 +62,7 @@ struct _BzWindow
   GtkButton           *refresh;
   GtkButton           *search;
   GtkButton           *update_button;
+  GtkRevealer         *title_revealer;
   AdwToggleGroup      *title_toggle_group;
   GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
@@ -323,6 +324,7 @@ browser_group_selected_cb (BzWindow       *self,
   bz_full_view_set_entry_group (self->full_view, group);
   adw_view_stack_set_visible_child_name (self->main_stack, "view");
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
+  gtk_revealer_set_reveal_child (self->title_revealer, FALSE);
 }
 
 static void
@@ -451,6 +453,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, title_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
@@ -946,5 +949,6 @@ set_page (BzWindow *self)
   gtk_widget_set_sensitive (GTK_WIDGET (self->title_toggle_group), !self->busy);
 
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
+  gtk_revealer_set_reveal_child (self->title_revealer, TRUE);
   bz_full_view_set_entry_group (self->full_view, NULL);
 }
