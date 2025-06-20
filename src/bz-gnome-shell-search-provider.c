@@ -418,6 +418,8 @@ start_request (BzGnomeShellSearchProvider *self,
   g_autoptr (DexFuture) future = NULL;
 
   dex_clear (&self->task);
+  g_hash_table_remove_all (self->last_results);
+
   g_application_hold (g_application_get_default ());
 
   if (g_strv_length ((gchar **) terms) == 1 &&
