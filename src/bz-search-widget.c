@@ -700,21 +700,35 @@ match (BzEntryGroup   *item,
 
       for (guint i = 0; i < self->match_tokens->len; i++)
         {
-          int         token_score = 0;
-          const char *match_token = NULL;
+          int         token_score     = 0;
+          const char *match_token     = NULL;
+          int         match_token_len = 0;
 
-          match_token = g_ptr_array_index (self->match_tokens, i);
+          match_token     = g_ptr_array_index (self->match_tokens, i);
+          match_token_len = strlen (match_token);
+
           for (guint j = 0; j < search_tokens->len; j++)
             {
               const char *search_token = NULL;
 
               search_token = g_ptr_array_index (search_tokens, j);
+
               if (g_strcmp0 (match_token, search_token) == 0)
-                token_score += 5;
-              else if (strstr (search_token, match_token) != NULL)
-                token_score += 3;
+                token_score += match_token_len;
               else if (g_str_match_string (match_token, search_token, TRUE))
-                token_score += 1;
+                {
+                  int    search_token_len = 0;
+                  double len_ratio        = 0.0;
+                  double add              = 0.0;
+
+                  /* TODO: unify impl with BzSearchEngine */
+
+                  search_token_len = strlen (search_token);
+                  len_ratio        = (double) match_token_len / (double) search_token_len;
+                  add              = (double) match_token_len * len_ratio;
+
+                  token_score += (int) MAX (round (add), 1.0);
+                }
             }
 
           if (token_score > 0)

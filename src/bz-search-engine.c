@@ -256,7 +256,7 @@ query_task_fiber (QueryTaskData *data)
                   len_ratio = (double) term_len / (double) token_len;
                   add       = (double) term_len * len_ratio;
 
-                  term_score += (gint) round (add);
+                  term_score += (gint) MAX (round (add), 1.0);
                 }
             }
 
