@@ -27,6 +27,10 @@
 #include "bz-flatpak-private.h"
 #include "bz-util.h"
 
+/* clang-format off */
+G_DEFINE_QUARK (bz-flatpak-error-quark, bz_flatpak_error);
+/* clang-format on */
+
 struct _BzFlatpakInstance
 {
   GObject parent_instance;
@@ -395,11 +399,19 @@ init_fiber (InitData *data)
 
   instance->system = flatpak_installation_new_system (NULL, &local_error);
   if (instance->system == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+        "failed to initialize system installation: %s",
+        local_error->message);
 
   instance->user = flatpak_installation_new_user (NULL, &local_error);
   if (instance->user == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+        "failed to initialize user installation: %s",
+        local_error->message);
 
   return dex_future_new_for_object (instance);
 }
@@ -420,12 +432,20 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   system_remotes = flatpak_installation_list_remotes (
       instance->system, NULL, &local_error);
   if (system_remotes == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+        "failed to enumerate remotes for system installation: %s",
+        local_error->message);
 
   user_remotes = flatpak_installation_list_remotes (
       instance->user, NULL, &local_error);
   if (user_remotes == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+        "failed to enumerate remotes for user installation: %s",
+        local_error->message);
 
   if (system_remotes->len + user_remotes->len == 0)
     return dex_future_new_true ();
@@ -530,7 +550,12 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to synchronize remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   result = flatpak_installation_update_appstream_full_sync (
       installation,
@@ -542,16 +567,32 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to synchronize appstream data for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   appstream_dir = flatpak_remote_get_appstream_dir (remote, NULL);
-  /* TODO: make a proper error */
-  g_assert (appstream_dir != NULL);
+  if (appstream_dir == NULL)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to locate appstream directory for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   appstream_dir_path = g_file_get_path (appstream_dir);
   appstream_xml_path = g_build_filename (appstream_dir_path, "appstream.xml.gz", NULL);
-  /* TODO: make a proper error */
-  g_assert (g_file_test (appstream_xml_path, G_FILE_TEST_EXISTS));
+  if (!g_file_test (appstream_xml_path, G_FILE_TEST_EXISTS))
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to verify existence of appstream bundle download at path %s for remote '%s': %s",
+        appstream_xml_path,
+        remote_name,
+        local_error->message);
   appstream_xml = g_file_new_for_path (appstream_xml_path);
 
   source = xb_builder_source_new ();
@@ -563,7 +604,14 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to load binary xml from appstream bundle download at path %s for remote '%s': %s",
+        appstream_xml_path,
+        remote_name,
+        local_error->message);
+
   builder = xb_builder_new ();
   locales = g_get_language_names ();
   for (guint i = 0; locales[i] != NULL; i++)
@@ -576,7 +624,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (silo == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to compile binary xml silo from appstream bundle download at path %s for remote '%s': %s",
+        appstream_xml_path,
+        remote_name,
+        local_error->message);
 
   root     = xb_silo_get_root (silo);
   children = xb_node_get_children (root);
@@ -592,13 +646,25 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       component_xml = xb_node_export (
           component_node, XB_NODE_EXPORT_FLAG_NONE, &local_error);
       if (component_xml == NULL)
-        return dex_future_new_for_error (g_steal_pointer (&local_error));
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+            "failed to export plain xml from appstream bundle silo originating from download at path %s for remote '%s': %s",
+            appstream_xml_path,
+            remote_name,
+            local_error->message);
 
       result = as_metadata_parse_data (
           metadata, component_xml, -1,
           AS_FORMAT_KIND_XML, &local_error);
       if (!result)
-        return dex_future_new_for_error (g_steal_pointer (&local_error));
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
+            "failed to create appstream metadata from appstream bundle silo originating from download at path %s for remote '%s': %s",
+            appstream_xml_path,
+            remote_name,
+            local_error->message);
     }
 
   components = as_metadata_get_components (metadata);
@@ -632,11 +698,23 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
           loader = gly_loader_new (remote_icon_file);
           image  = gly_loader_load (loader, &local_error);
           if (image == NULL)
-            return dex_future_new_for_error (g_steal_pointer (&local_error));
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+                "failed to download icon from uri %s for remote '%s': %s",
+                remote_icon_name,
+                remote_name,
+                local_error->message);
 
           frame = gly_image_next_frame (image, &local_error);
           if (frame == NULL)
-            return dex_future_new_for_error (g_steal_pointer (&local_error));
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+                "failed to decode frame from downloaded icon from uri %s for remote '%s': %s",
+                remote_icon_name,
+                remote_name,
+                local_error->message);
 
           texture = gly_gtk_frame_get_texture (frame);
           if (texture != NULL)
@@ -647,11 +725,21 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   refs = flatpak_installation_list_remote_refs_sync (
       installation, remote_name, NULL, &local_error);
   if (refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to enumerate refs for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   output_dir_path = g_dir_make_tmp (NULL, &local_error);
   if (output_dir_path == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to ensure utility directory in /tmp for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   jobs = g_malloc0_n (refs->len, sizeof (*jobs));
   for (guint i = 0; i < refs->len; i++)
@@ -745,12 +833,20 @@ ref_installs_fiber (GatherEntriesData *data)
   system_refs = flatpak_installation_list_installed_refs (
       instance->system, NULL, &local_error);
   if (system_refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
+        "failed to discover installed refs for system installation: %s",
+        local_error->message);
 
   user_refs = flatpak_installation_list_installed_refs (
       instance->user, NULL, &local_error);
   if (user_refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
+        "failed to discover installed refs for user installation: %s",
+        local_error->message);
 
   ids = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
@@ -789,12 +885,20 @@ ref_updates_fiber (GatherEntriesData *data)
   system_refs = flatpak_installation_list_installed_refs_for_update (
       instance->system, NULL, &local_error);
   if (system_refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to discover update-elligible refs for system installation: %s",
+        local_error->message);
 
   user_refs = flatpak_installation_list_installed_refs_for_update (
       instance->user, NULL, &local_error);
   if (user_refs == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to discover update-elligible refs for user installation: %s",
+        local_error->message);
 
   ids = g_ptr_array_new_with_free_func (g_free);
   g_ptr_array_set_size (ids, system_refs->len + user_refs->len);
@@ -848,10 +952,19 @@ transaction_fiber (TransactionData *data)
 
   system_transaction = flatpak_transaction_new_for_installation (instance->system, NULL, &local_error);
   if (system_transaction == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+        "failed to initialize potential transaction for system installation: %s",
+        local_error->message);
+
   user_transaction = flatpak_transaction_new_for_installation (instance->user, NULL, &local_error);
   if (user_transaction == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+        "failed to initialize potential transaction for system installation: %s",
+        local_error->message);
 
   if (installations != NULL)
     {
@@ -873,7 +986,12 @@ transaction_fiber (TransactionData *data)
               NULL,
               &local_error);
           if (!result)
-            return dex_future_new_for_error (g_steal_pointer (&local_error));
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "failed to append the installation of %s to transaction: %s",
+                ref_fmt,
+                local_error->message);
 
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
@@ -901,7 +1019,12 @@ transaction_fiber (TransactionData *data)
               NULL,
               &local_error);
           if (!result)
-            return dex_future_new_for_error (g_steal_pointer (&local_error));
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "failed to append the update of %s to transaction: %s",
+                ref_fmt,
+                local_error->message);
 
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
@@ -927,7 +1050,12 @@ transaction_fiber (TransactionData *data)
               ref_fmt,
               &local_error);
           if (!result)
-            return dex_future_new_for_error (g_steal_pointer (&local_error));
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "failed to append the removal of %s to transaction: %s",
+                ref_fmt,
+                local_error->message);
 
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
@@ -940,7 +1068,11 @@ transaction_fiber (TransactionData *data)
       g_signal_connect (system_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
       result = flatpak_transaction_run (system_transaction, NULL, &local_error);
       if (!result)
-        return dex_future_new_for_error (g_steal_pointer (&local_error));
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+            "failed to run flatpak transaction on system installation: %s",
+            local_error->message);
     }
 
   if (!flatpak_transaction_is_empty (user_transaction))
@@ -948,7 +1080,11 @@ transaction_fiber (TransactionData *data)
       g_signal_connect (user_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
       result = flatpak_transaction_run (user_transaction, NULL, &local_error);
       if (!result)
-        return dex_future_new_for_error (g_steal_pointer (&local_error));
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+            "failed to run flatpak transaction on user installation: %s",
+            local_error->message);
     }
 
   return dex_future_new_true ();

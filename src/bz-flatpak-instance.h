@@ -22,9 +22,21 @@
 
 #include <libdex.h>
 
-#include "bz-flatpak-entry.h"
-
 G_BEGIN_DECLS
+
+#define BZ_FLATPAK_ERROR (bz_flatpak_error_quark ())
+GQuark bz_flatpak_error_quark (void);
+
+typedef enum
+{
+  BZ_FLATPAK_ERROR_CANNOT_INITIALIZE = 0,
+  BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
+  BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+  BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+  BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+  BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
+  BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+} BzFlatpakError;
 
 #define BZ_TYPE_FLATPAK_INSTANCE (bz_flatpak_instance_get_type ())
 G_DECLARE_FINAL_TYPE (BzFlatpakInstance, bz_flatpak_instance, BZ, FLATPAK_INSTANCE, GObject)

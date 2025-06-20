@@ -26,6 +26,7 @@
 #include "bz-content-provider.h"
 #include "bz-entry-group.h"
 #include "bz-error.h"
+#include "bz-flatpak-entry.h"
 #include "bz-flatpak-instance.h"
 #include "bz-gnome-shell-search-provider.h"
 #include "bz-preferences-dialog.h"
