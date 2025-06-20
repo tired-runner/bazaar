@@ -714,20 +714,28 @@ match (BzEntryGroup   *item,
               search_token = g_ptr_array_index (search_tokens, j);
 
               if (g_strcmp0 (match_token, search_token) == 0)
-                token_score += match_token_len;
+                /* greatly reward exact matches */
+                token_score += match_token_len * 5;
               else if (g_str_match_string (match_token, search_token, TRUE))
                 {
-                  int    search_token_len = 0;
-                  double len_ratio        = 0.0;
-                  double add              = 0.0;
+                  int search_token_len = 0;
 
                   /* TODO: unify impl with BzSearchEngine */
 
                   search_token_len = strlen (search_token);
-                  len_ratio        = (double) match_token_len / (double) search_token_len;
-                  add              = (double) match_token_len * len_ratio;
 
-                  token_score += (int) MAX (round (add), 1.0);
+                  if (search_token_len == match_token_len)
+                    /* there may be captilization differences, etc */
+                    token_score += match_token_len * 4;
+                  else
+                    {
+                      double len_ratio = 0.0;
+                      double add       = 0.0;
+
+                      len_ratio = (double) match_token_len / (double) search_token_len;
+                      add       = (double) match_token_len * len_ratio;
+                      token_score += (int) MAX (round (add), 1.0);
+                    }
                 }
             }
 

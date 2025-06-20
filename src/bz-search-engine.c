@@ -244,19 +244,25 @@ query_task_fiber (QueryTaskData *data)
               token = g_ptr_array_index (edata->tokens, j);
               // g_assert (*token != '\0');
 
+              /* See BzSearchWidget */
               if (g_strcmp0 (*term, token) == 0)
-                term_score += term_len;
+                term_score += term_len * 5;
               else if (g_str_match_string (*term, token, TRUE))
                 {
-                  gint   token_len = 0;
-                  double len_ratio = 0.0;
-                  double add       = 0.0;
+                  gint token_len = 0;
 
                   token_len = strlen (token);
-                  len_ratio = (double) term_len / (double) token_len;
-                  add       = (double) term_len * len_ratio;
+                  if (token_len == term_len)
+                    term_score += term_len * 4;
+                  else
+                    {
+                      double len_ratio = 0.0;
+                      double add       = 0.0;
 
-                  term_score += (gint) MAX (round (add), 1.0);
+                      len_ratio = (double) term_len / (double) token_len;
+                      add       = (double) term_len * len_ratio;
+                      term_score += (gint) MAX (round (add), 1.0);
+                    }
                 }
             }
 
