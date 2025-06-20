@@ -480,7 +480,8 @@ ref_remote_apps_fiber (GatherEntriesData *data)
           remote       = g_ptr_array_index (user_remotes, i - system_remotes->len);
         }
 
-      if (flatpak_remote_get_disabled (remote))
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_noenumerate (remote))
         continue;
 
       job_data                     = ref_remote_apps_for_remote_data_new ();
@@ -495,6 +496,9 @@ ref_remote_apps_fiber (GatherEntriesData *data)
           ref_remote_apps_for_remote_data_ref (job_data),
           ref_remote_apps_for_remote_data_unref);
     }
+
+  if (n_jobs == 0)
+    return dex_future_new_true ();
 
   future = dex_future_all_racev (jobs, n_jobs);
   for (guint i = 0; i < n_jobs; i++)
