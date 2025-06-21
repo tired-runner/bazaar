@@ -1280,13 +1280,20 @@ static DexFuture *
 refresh_then (DexFuture     *future,
               BzApplication *self)
 {
-  g_autoptr (GError) local_error  = NULL;
-  const GValue *value             = NULL;
-  DexFuture    *ref_remote_future = NULL;
+  g_autoptr (GError) local_error       = NULL;
+  const GValue      *value             = NULL;
+  BzFlatpakInstance *flatpak           = NULL;
+  DexFuture         *ref_remote_future = NULL;
 
-  value         = dex_future_get_value (future, &local_error);
-  self->flatpak = g_value_dup_object (value);
-  bz_transaction_manager_set_backend (self->transactions, BZ_BACKEND (self->flatpak));
+  value   = dex_future_get_value (future, &local_error);
+  flatpak = g_value_get_object (value);
+
+  if (flatpak != self->flatpak)
+    {
+      g_clear_object (&self->flatpak);
+      self->flatpak = g_object_ref (flatpak);
+      bz_transaction_manager_set_backend (self->transactions, BZ_BACKEND (flatpak));
+    }
 
   ref_remote_future = bz_backend_retrieve_remote_entries_with_blocklists (
       BZ_BACKEND (self->flatpak),
@@ -1500,11 +1507,13 @@ refresh (BzApplication *self)
   g_list_store_remove_all (self->addons);
   g_list_store_remove_all (self->installed);
   g_list_store_remove_all (self->updates);
-  g_clear_object (&self->flatpak);
 
   self->online = FALSE;
 
-  future = bz_flatpak_instance_new ();
+  if (self->flatpak == NULL)
+    future = bz_flatpak_instance_new ();
+  else
+    future = dex_future_new_for_object (self->flatpak);
   future = dex_future_then (
       future, (DexFutureCallback) refresh_then,
       self, NULL);
