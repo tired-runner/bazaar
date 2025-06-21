@@ -38,6 +38,7 @@ struct _BzFlatpakInstance
   DexScheduler        *scheduler;
   FlatpakInstallation *system;
   FlatpakInstallation *user;
+  SoupSession         *http;
   GPtrArray           *cache_dirs;
 };
 
@@ -233,6 +234,7 @@ bz_flatpak_instance_dispose (GObject *object)
   dex_clear (&self->scheduler);
   g_clear_object (&self->system);
   g_clear_object (&self->user);
+  g_clear_object (&self->http);
   g_clear_pointer (&self->cache_dirs, g_ptr_array_unref);
 
   G_OBJECT_CLASS (bz_flatpak_instance_parent_class)->dispose (object);
@@ -408,8 +410,14 @@ FlatpakInstallation *
 bz_flatpak_instance_get_installation (BzFlatpakInstance *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-
   return self->system;
+}
+
+SoupSession *
+bz_flatpak_instance_get_http (BzFlatpakInstance *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
+  return self->http;
 }
 
 DexFuture *
@@ -446,6 +454,8 @@ init_fiber (InitData *data)
         BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
         "failed to initialize user installation: %s",
         local_error->message);
+
+  instance->http = soup_session_new ();
 
   return dex_future_new_for_object (instance);
 }

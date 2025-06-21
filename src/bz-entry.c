@@ -20,7 +20,12 @@
 
 #include "config.h"
 
+#include <json-glib/json-glib.h>
+#include <libdex.h>
+#include <libsoup/soup.h>
+
 #include "bz-entry.h"
+#include "bz-util.h"
 
 G_DEFINE_FLAGS_TYPE (
     BzEntryKind,
@@ -62,7 +67,11 @@ typedef struct
   char         *ratings_summary;
   GListModel   *version_history;
 
-  GHashTable *size_to_icon_hash;
+  SoupSession *http_session;
+  gboolean     is_flathub;
+  gboolean     verified;
+
+  GHashTable *flathub_prop_queries;
 } BzEntryPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (BzEntry, bz_entry, G_TYPE_OBJECT)
@@ -102,15 +111,42 @@ enum
   PROP_RATINGS_SUMMARY,
   PROP_VERSION_HISTORY,
 
+  PROP_HTTP_SESSION,
+  PROP_IS_FLATHUB,
+  PROP_VERIFIED,
+
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+BZ_DEFINE_DATA (
+    query_flathub,
+    QueryFlathub,
+    {
+      BzEntry     *self;
+      int          prop;
+      SoupSession *http_session;
+      char        *id;
+    },
+    BZ_RELEASE_DATA (http_session, g_object_unref);
+    BZ_RELEASE_DATA (id, g_free));
+static DexFuture *
+query_flathub_fiber (QueryFlathubData *data);
+static DexFuture *
+query_flathub_then (DexFuture        *future,
+                    QueryFlathubData *data);
+
+static void
+query_flathub (BzEntry *self,
+               int      prop);
 
 static void
 bz_entry_dispose (GObject *object)
 {
   BzEntry        *self = BZ_ENTRY (object);
   BzEntryPrivate *priv = bz_entry_get_instance_private (self);
+
+  g_clear_pointer (&priv->flathub_prop_queries, g_hash_table_unref);
 
   g_clear_object (&priv->runtime);
   g_clear_object (&priv->addons);
@@ -137,8 +173,6 @@ bz_entry_dispose (GObject *object)
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
   g_clear_object (&priv->version_history);
-
-  g_clear_pointer (&priv->size_to_icon_hash, g_hash_table_unref);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -241,6 +275,16 @@ bz_entry_get_property (GObject    *object,
     case PROP_VERSION_HISTORY:
       g_value_set_object (value, priv->version_history);
       break;
+    case PROP_HTTP_SESSION:
+      g_value_set_object (value, priv->http_session);
+      break;
+    case PROP_IS_FLATHUB:
+      g_value_set_boolean (value, priv->is_flathub);
+      break;
+    case PROP_VERIFIED:
+      query_flathub (self, PROP_VERIFIED);
+      g_value_set_boolean (value, priv->verified);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -295,6 +339,8 @@ bz_entry_set_property (GObject      *object,
     case PROP_REMOTE_REPO_NAME:
       g_clear_pointer (&priv->remote_repo_name, g_free);
       priv->remote_repo_name = g_value_dup_string (value);
+      priv->is_flathub       = g_strcmp0 (priv->remote_repo_name, "flathub") == 0;
+      g_object_notify_by_pspec (object, props[PROP_IS_FLATHUB]);
       break;
     case PROP_URL:
       g_clear_pointer (&priv->url, g_free);
@@ -368,6 +414,16 @@ bz_entry_set_property (GObject      *object,
     case PROP_VERSION_HISTORY:
       g_clear_object (&priv->version_history);
       priv->version_history = g_value_dup_object (value);
+      break;
+    case PROP_HTTP_SESSION:
+      g_clear_object (&priv->http_session);
+      priv->http_session = g_value_dup_object (value);
+      break;
+    case PROP_IS_FLATHUB:
+      priv->is_flathub = g_value_get_boolean (value);
+      break;
+    case PROP_VERIFIED:
+      priv->verified = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -568,6 +624,25 @@ bz_entry_class_init (BzEntryClass *klass)
           "version-history",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_HTTP_SESSION] =
+      g_param_spec_object (
+          "http-session",
+          NULL, NULL,
+          SOUP_TYPE_SESSION,
+          G_PARAM_READWRITE);
+
+  props[PROP_IS_FLATHUB] =
+      g_param_spec_boolean (
+          "is-flathub",
+          NULL, NULL, FALSE,
+          G_PARAM_READWRITE);
+
+  props[PROP_VERIFIED] =
+      g_param_spec_boolean (
+          "verified",
+          NULL, NULL, FALSE,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -781,4 +856,130 @@ bz_entry_cmp_usefulness (gconstpointer a,
   b_score += priv_b->reviews != NULL ? 1 : 0;
 
   return b_score - a_score;
+}
+
+static void
+query_flathub (BzEntry *self,
+               int      prop)
+{
+  BzEntryPrivate *priv              = NULL;
+  g_autoptr (QueryFlathubData) data = NULL;
+  g_autoptr (DexFuture) future      = NULL;
+
+  priv = bz_entry_get_instance_private (self);
+
+  if (!priv->is_flathub)
+    return;
+  if (priv->http_session == NULL)
+    {
+      g_critical ("entry does not have an http session, cannot query flathub!");
+      return;
+    }
+  if (priv->id == NULL)
+    return;
+
+  if (priv->flathub_prop_queries == NULL)
+    priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
+  else if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (prop)))
+    return;
+
+  data               = query_flathub_data_new ();
+  data->self         = self;
+  data->prop         = prop;
+  data->http_session = g_object_ref (priv->http_session);
+  data->id           = g_strdup (priv->id);
+
+  future = dex_scheduler_spawn (
+      dex_thread_pool_scheduler_get_default (),
+      0, (DexFiberFunc) query_flathub_fiber,
+      query_flathub_data_ref (data), query_flathub_data_unref);
+  future = dex_future_then (
+      future, (DexFutureCallback) query_flathub_then,
+      query_flathub_data_ref (data), query_flathub_data_unref);
+  g_hash_table_replace (
+      priv->flathub_prop_queries,
+      GINT_TO_POINTER (prop),
+      g_steal_pointer (&future));
+}
+
+static DexFuture *
+query_flathub_fiber (QueryFlathubData *data)
+{
+  int          prop                    = data->prop;
+  SoupSession *http_session            = data->http_session;
+  char        *id                      = data->id;
+  g_autoptr (GError) local_error       = NULL;
+  g_autofree char *message_uri         = NULL;
+  g_autoptr (SoupMessage) message      = NULL;
+  g_autoptr (GInputStream) response    = NULL;
+  SoupMessageHeaders *response_headers = NULL;
+  const char         *content_type     = NULL;
+  g_autoptr (JsonParser) parser        = NULL;
+  gboolean    result                   = FALSE;
+  JsonNode   *node                     = NULL;
+  JsonObject *object                   = NULL;
+
+  switch (prop)
+    {
+    case PROP_VERIFIED:
+      message_uri = g_strdup_printf ("https://flathub.org/api/v2/verification/%s/status", id);
+      break;
+    default:
+      g_assert_not_reached ();
+      return NULL;
+    }
+
+  message  = soup_message_new (SOUP_METHOD_GET, message_uri);
+  response = soup_session_send (http_session, message, NULL, &local_error);
+  if (response == NULL)
+    {
+      g_critical ("Could not retrieve property %s for %s from flathub: %s",
+                  props[prop]->name, id, local_error->message);
+      return dex_future_new_for_error (g_steal_pointer (&local_error));
+    }
+
+  response_headers = soup_message_get_response_headers (message);
+  content_type     = soup_message_headers_get_content_type (response_headers, NULL);
+  if (g_strcmp0 (content_type, "application/json") != 0)
+    return dex_future_new_reject (
+        G_IO_ERROR,
+        G_IO_ERROR_INVALID_DATA,
+        "response is not json");
+
+  parser = json_parser_new_immutable ();
+  result = json_parser_load_from_stream (parser, response, NULL, &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  node   = json_parser_get_root (parser);
+  object = json_node_get_object (node);
+  if (object == NULL)
+    return dex_future_new_reject (
+        G_IO_ERROR,
+        G_IO_ERROR_INVALID_DATA,
+        "unexpected response structure");
+
+  switch (prop)
+    {
+    case PROP_VERIFIED:
+      return dex_future_new_for_boolean (
+          json_object_get_boolean_member (object, "verified"));
+      break;
+    default:
+      g_assert_not_reached ();
+      return NULL;
+    }
+}
+
+static DexFuture *
+query_flathub_then (DexFuture        *future,
+                    QueryFlathubData *data)
+{
+  BzEntry      *self  = data->self;
+  int           prop  = data->prop;
+  const GValue *value = NULL;
+
+  value = dex_future_get_value (future, NULL);
+  g_object_set_property (G_OBJECT (self), props[prop]->name, value);
+  return NULL;
 }

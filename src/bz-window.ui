@@ -4,9 +4,9 @@
   <requires lib="Adw" version="1.0"/>
   <template class="BzWindow" parent="AdwApplicationWindow">
     <property name="default-width">1500</property>
-    <property name="default-height">1200</property>
-    <property name="width-request">400</property>
-    <property name="height-request">750</property>
+    <property name="default-height">950</property>
+    <property name="width-request">750</property>
+    <property name="height-request">800</property>
     <property name="content">
       <object class="BzCometOverlay" id="comet_overlay">
         <property name="child">

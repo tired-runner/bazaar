@@ -768,6 +768,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       "average-rating", average_rating,
       "ratings-summary", ratings_summary,
       "version-history", version_history,
+      "http-session", bz_flatpak_instance_get_http (instance),
       NULL);
 
   return g_steal_pointer (&self);

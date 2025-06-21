@@ -57,6 +57,8 @@ bz_deps = [
   dependency('glycin-1', version : '>= 1.0'),
   dependency('glycin-gtk4-1', version : '>= 1.0'),
   dependency('yaml-0.1', version : '>= 0.2.5'),
+  dependency('libsoup-3.0', version : '>= 3.6.0'),
+  dependency('json-glib-1.0', version : '>= 1.10.0'),
 ]
 
 bz_sources += gnome.compile_resources('bz-resources',
