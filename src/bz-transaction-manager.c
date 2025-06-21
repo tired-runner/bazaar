@@ -61,11 +61,12 @@ BZ_DEFINE_DATA (
     QueuedSchedule,
     {
       BzTransactionManager *self;
+      BzBackend            *backend;
       GPtrArray            *transactions;
       GHashTable           *entry_to_transaction_hash;
       GTimer               *timer;
     },
-    BZ_RELEASE_DATA (self, g_object_unref);
+    BZ_RELEASE_DATA (backend, g_object_unref);
     BZ_RELEASE_DATA (transactions, g_ptr_array_unref);
     BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref);
     BZ_RELEASE_DATA (timer, g_timer_destroy));
@@ -270,7 +271,8 @@ bz_transaction_manager_add (BzTransactionManager *self,
   g_return_if_fail (BZ_IS_TRANSACTION (transaction));
 
   data                            = queued_schedule_data_new ();
-  data->self                      = NULL;
+  data->self                      = self;
+  data->backend                   = g_object_ref (self->backend);
   data->transactions              = g_ptr_array_new_with_free_func (g_object_unref);
   data->entry_to_transaction_hash = g_hash_table_new_full (
       g_direct_hash, g_direct_equal, g_object_unref, g_object_unref);
@@ -312,8 +314,9 @@ bz_transaction_manager_add (BzTransactionManager *self,
 void
 bz_transaction_manager_clear_finished (BzTransactionManager *self)
 {
-  guint    n_items   = 0;
-  gboolean had_items = FALSE;
+  guint    n_items          = 0;
+  gboolean had_items        = FALSE;
+  gboolean had_last_success = FALSE;
 
   g_return_if_fail (BZ_IS_TRANSACTION_MANAGER (self));
 
@@ -337,8 +340,13 @@ bz_transaction_manager_clear_finished (BzTransactionManager *self)
         i++;
     }
 
+  had_last_success = self->last_success != NULL;
+  g_clear_object (&self->last_success);
+
   if (had_items && n_items == 0)
     g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
+  if (had_last_success)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LAST_SUCCESS]);
 }
 
 static void
@@ -413,6 +421,7 @@ transaction_finally (DexFuture          *future,
         }
     }
 
+  data->self->current_task = NULL;
   dispatch_next (data->self);
   return NULL;
 }
@@ -422,14 +431,11 @@ dispatch_next (BzTransactionManager *self)
 {
   g_autoptr (QueuedScheduleData) data = NULL;
   g_autoptr (GListStore) store        = NULL;
-  DexFuture *future                   = NULL;
-
-  dex_clear (&self->current_task);
+  g_autoptr (DexFuture) future        = NULL;
 
   if (self->queue.length == 0)
     goto done;
   data        = g_queue_pop_tail (&self->queue);
-  data->self  = g_object_ref (self);
   data->timer = g_timer_new ();
 
   store = g_list_store_new (BZ_TYPE_TRANSACTION);
@@ -451,7 +457,7 @@ dispatch_next (BzTransactionManager *self)
       future, (DexFutureCallback) transaction_finally,
       queued_schedule_data_ref (data),
       queued_schedule_data_unref);
-  self->current_task = future;
+  self->current_task = g_steal_pointer (&future);
 
 done:
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ACTIVE]);

@@ -312,7 +312,7 @@ load (BzAsyncTexture *self)
   future = dex_future_finally (
       future,
       (DexFutureCallback) load_finally,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   self->task = g_steal_pointer (&future);
 }
 
@@ -356,8 +356,6 @@ load_finally (DexFuture      *future,
 
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LOADED]);
     }
-
-  dex_clear (&self->task);
 
   return NULL;
 }

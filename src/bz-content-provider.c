@@ -540,7 +540,6 @@ input_init_finally (DexFuture         *future,
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
 
-  dex_clear (&data->task);
   g_list_store_remove_all (data->output);
 
   value = dex_future_get_value (future, &local_error);
@@ -790,7 +789,6 @@ input_load_finally (DexFuture         *future,
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
 
-  dex_clear (&data->task);
   g_list_store_remove_all (data->output);
   g_clear_pointer (&data->css, destroy_css);
 

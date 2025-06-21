@@ -38,6 +38,7 @@ struct _BzFlatpakInstance
   DexScheduler        *scheduler;
   FlatpakInstallation *system;
   FlatpakInstallation *user;
+  GPtrArray           *cache_dirs;
 };
 
 static void
@@ -68,7 +69,6 @@ BZ_DEFINE_DATA (
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
-    BZ_RELEASE_DATA (instance, g_object_unref);
     BZ_RELEASE_DATA (blocked_names, g_ptr_array_unref);
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
@@ -146,7 +146,6 @@ BZ_DEFINE_DATA (
       gpointer                         user_data;
       GDestroyNotify                   destroy_user_data;
     },
-    BZ_RELEASE_DATA (instance, g_object_unref);
     BZ_RELEASE_DATA (installs, g_ptr_array_unref);
     BZ_RELEASE_DATA (updates, g_ptr_array_unref);
     BZ_RELEASE_DATA (removals, g_ptr_array_unref);
@@ -182,6 +181,7 @@ BZ_DEFINE_DATA (
     idle_transaction,
     IdleTransaction,
     {
+      BzFlatpakInstance        *hold;
       TransactionOperationData *parent;
       char                     *status;
       gboolean                  is_estimating;
@@ -189,12 +189,41 @@ BZ_DEFINE_DATA (
       guint64                   bytes_transferred;
       guint64                   start_time;
     },
+    BZ_RELEASE_DATA (hold, g_object_unref);
     BZ_RELEASE_DATA (parent, transaction_operation_data_unref);
     BZ_RELEASE_DATA (status, g_free));
 static gboolean
 transaction_progress_idle (IdleTransactionData *data);
 static gboolean
 transaction_progress_timeout (IdleTransactionData *data);
+
+BZ_DEFINE_DATA (
+    add_cache_dir,
+    AddCacheDir,
+    {
+      BzFlatpakInstance *instance;
+      char              *cache_dir;
+    },
+    BZ_RELEASE_DATA (instance, g_object_unref);
+    BZ_RELEASE_DATA (cache_dir, g_free));
+static DexFuture *
+add_cache_dir_fiber (AddCacheDirData *data);
+
+static void
+add_cache_dir (BzFlatpakInstance *self,
+               const char        *cache_dir,
+               DexScheduler      *scheduler);
+
+static void
+destroy_cache_dir (gpointer ptr);
+static DexFuture *
+remove_cache_dir_fiber (const char *cache_dir);
+
+static void
+reap_cache_dir (GFile *file);
+
+static inline void
+reap_cache_dir_path (const char *path);
 
 static void
 bz_flatpak_instance_dispose (GObject *object)
@@ -204,6 +233,7 @@ bz_flatpak_instance_dispose (GObject *object)
   dex_clear (&self->scheduler);
   g_clear_object (&self->system);
   g_clear_object (&self->user);
+  g_clear_pointer (&self->cache_dirs, g_ptr_array_unref);
 
   G_OBJECT_CLASS (bz_flatpak_instance_parent_class)->dispose (object);
 }
@@ -219,7 +249,8 @@ bz_flatpak_instance_class_init (BzFlatpakInstanceClass *klass)
 static void
 bz_flatpak_instance_init (BzFlatpakInstance *self)
 {
-  self->scheduler = dex_thread_pool_scheduler_new ();
+  self->scheduler  = dex_thread_pool_scheduler_new ();
+  self->cache_dirs = g_ptr_array_new_with_free_func (destroy_cache_dir);
 }
 
 static DexFuture *
@@ -240,11 +271,14 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
   g_autoptr (GatherEntriesData) data = NULL;
 
-  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-  g_return_val_if_fail (progress_func != NULL, NULL);
+  dex_return_error_if_fail (BZ_IS_FLATPAK_INSTANCE (self));
+  dex_return_error_if_fail (progress_func != NULL);
+
+  /* clear func removes asynchronously */
+  g_ptr_array_set_size (self->cache_dirs, 0);
 
   data                    = gather_entries_data_new ();
-  data->instance          = g_object_ref (self);
+  data->instance          = self;
   data->blocked_names     = g_ptr_array_ref (blocked_names);
   data->home_scheduler    = dex_ref (home_scheduler);
   data->progress_func     = progress_func;
@@ -263,7 +297,7 @@ bz_flatpak_instance_retrieve_install_ids (BzBackend *backend)
   g_autoptr (GatherEntriesData) data = NULL;
 
   data                    = gather_entries_data_new ();
-  data->instance          = g_object_ref (self);
+  data->instance          = self;
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = NULL;
   data->user_data         = NULL;
@@ -281,7 +315,7 @@ bz_flatpak_instance_retrieve_update_ids (BzBackend *backend)
   g_autoptr (GatherEntriesData) data = NULL;
 
   data                    = gather_entries_data_new ();
-  data->instance          = g_object_ref (self);
+  data->instance          = self;
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = NULL;
   data->user_data         = NULL;
@@ -346,7 +380,7 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
     }
 
   data                    = transaction_data_new ();
-  data->instance          = g_object_ref (self);
+  data->instance          = self;
   data->installs          = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
   data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
   data->removals          = removals_dup != NULL ? g_ptr_array_new_take ((gpointer *) removals_dup, n_removals, g_object_unref) : NULL;
@@ -519,12 +553,14 @@ static DexFuture *
 ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
 {
   BzFlatpakInstance   *instance           = data->parent->instance;
+  DexScheduler        *home_scheduler     = data->parent->home_scheduler;
   FlatpakInstallation *installation       = data->installation;
   FlatpakRemote       *remote             = data->remote;
   GHashTable          *blocked_names_hash = data->blocked_names_hash;
-  const char          *remote_name        = NULL;
   g_autoptr (GError) local_error          = NULL;
-  gboolean result                         = FALSE;
+  g_autoptr (DexFuture) error_future      = NULL;
+  const char *remote_name                 = NULL;
+  gboolean    result                      = FALSE;
   g_autoptr (GFile) appstream_dir         = NULL;
   g_autofree char *appstream_dir_path     = NULL;
   g_autofree char *appstream_xml_path     = NULL;
@@ -554,12 +590,15 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-        "failed to synchronize remote '%s': %s",
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+          "failed to synchronize remote '%s': %s",
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   result = flatpak_installation_update_appstream_full_sync (
       installation,
@@ -571,32 +610,41 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-        "failed to synchronize appstream data for remote '%s': %s",
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+          "failed to synchronize appstream data for remote '%s': %s",
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   appstream_dir = flatpak_remote_get_appstream_dir (remote, NULL);
   if (appstream_dir == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to locate appstream directory for remote '%s': %s",
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+          "failed to locate appstream directory for remote '%s': %s",
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   appstream_dir_path = g_file_get_path (appstream_dir);
   appstream_xml_path = g_build_filename (appstream_dir_path, "appstream.xml.gz", NULL);
   if (!g_file_test (appstream_xml_path, G_FILE_TEST_EXISTS))
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to verify existence of appstream bundle download at path %s for remote '%s': %s",
-        appstream_xml_path,
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+          "failed to verify existence of appstream bundle download at path %s for remote '%s'",
+          appstream_xml_path,
+          remote_name);
+      goto done;
+    }
+
   appstream_xml = g_file_new_for_path (appstream_xml_path);
 
   source = xb_builder_source_new ();
@@ -608,13 +656,16 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (!result)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to load binary xml from appstream bundle download at path %s for remote '%s': %s",
-        appstream_xml_path,
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+          "failed to load binary xml from appstream bundle download at path %s for remote '%s': %s",
+          appstream_xml_path,
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   builder = xb_builder_new ();
   locales = g_get_language_names ();
@@ -628,13 +679,16 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       NULL,
       &local_error);
   if (silo == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to compile binary xml silo from appstream bundle download at path %s for remote '%s': %s",
-        appstream_xml_path,
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+          "failed to compile binary xml silo from appstream bundle download at path %s for remote '%s': %s",
+          appstream_xml_path,
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   root     = xb_silo_get_root (silo);
   children = xb_node_get_children (root);
@@ -650,25 +704,31 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       component_xml = xb_node_export (
           component_node, XB_NODE_EXPORT_FLAG_NONE, &local_error);
       if (component_xml == NULL)
-        return dex_future_new_reject (
-            BZ_FLATPAK_ERROR,
-            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-            "failed to export plain xml from appstream bundle silo originating from download at path %s for remote '%s': %s",
-            appstream_xml_path,
-            remote_name,
-            local_error->message);
+        {
+          error_future = dex_future_new_reject (
+              BZ_FLATPAK_ERROR,
+              BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+              "failed to export plain xml from appstream bundle silo originating from download at path %s for remote '%s': %s",
+              appstream_xml_path,
+              remote_name,
+              local_error->message);
+          goto done;
+        }
 
       result = as_metadata_parse_data (
           metadata, component_xml, -1,
           AS_FORMAT_KIND_XML, &local_error);
       if (!result)
-        return dex_future_new_reject (
-            BZ_FLATPAK_ERROR,
-            BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
-            "failed to create appstream metadata from appstream bundle silo originating from download at path %s for remote '%s': %s",
-            appstream_xml_path,
-            remote_name,
-            local_error->message);
+        {
+          error_future = dex_future_new_reject (
+              BZ_FLATPAK_ERROR,
+              BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
+              "failed to create appstream metadata from appstream bundle silo originating from download at path %s for remote '%s': %s",
+              appstream_xml_path,
+              remote_name,
+              local_error->message);
+          goto done;
+        }
     }
 
   components = as_metadata_get_components (metadata);
@@ -702,23 +762,29 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
           loader = gly_loader_new (remote_icon_file);
           image  = gly_loader_load (loader, &local_error);
           if (image == NULL)
-            return dex_future_new_reject (
-                BZ_FLATPAK_ERROR,
-                BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
-                "failed to download icon from uri %s for remote '%s': %s",
-                remote_icon_name,
-                remote_name,
-                local_error->message);
+            {
+              error_future = dex_future_new_reject (
+                  BZ_FLATPAK_ERROR,
+                  BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+                  "failed to download icon from uri %s for remote '%s': %s",
+                  remote_icon_name,
+                  remote_name,
+                  local_error->message);
+              goto done;
+            }
 
           frame = gly_image_next_frame (image, &local_error);
           if (frame == NULL)
-            return dex_future_new_reject (
-                BZ_FLATPAK_ERROR,
-                BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
-                "failed to decode frame from downloaded icon from uri %s for remote '%s': %s",
-                remote_icon_name,
-                remote_name,
-                local_error->message);
+            {
+              error_future = dex_future_new_reject (
+                  BZ_FLATPAK_ERROR,
+                  BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+                  "failed to decode frame from downloaded icon from uri %s for remote '%s': %s",
+                  remote_icon_name,
+                  remote_name,
+                  local_error->message);
+              goto done;
+            }
 
           texture = gly_gtk_frame_get_texture (frame);
           if (texture != NULL)
@@ -729,21 +795,28 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   refs = flatpak_installation_list_remote_refs_sync (
       installation, remote_name, NULL, &local_error);
   if (refs == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-        "failed to enumerate refs for remote '%s': %s",
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+          "failed to enumerate refs for remote '%s': %s",
+          remote_name,
+          local_error->message);
+      goto done;
+    }
 
   output_dir_path = g_dir_make_tmp (NULL, &local_error);
   if (output_dir_path == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to ensure utility directory in /tmp for remote '%s': %s",
-        remote_name,
-        local_error->message);
+    {
+      error_future = dex_future_new_reject (
+          BZ_FLATPAK_ERROR,
+          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+          "failed to ensure utility directory in /tmp for remote '%s': %s",
+          remote_name,
+          local_error->message);
+      goto done;
+    }
+  add_cache_dir (instance, output_dir_path, home_scheduler);
 
   jobs = g_malloc0_n (refs->len, sizeof (*jobs));
   for (guint i = 0; i < refs->len; i++)
@@ -777,13 +850,28 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     }
 
   if (n_jobs == 0)
-    return dex_future_new_true ();
+    goto done;
 
   future = dex_future_all_racev (jobs, n_jobs);
   for (guint i = 0; i < n_jobs; i++)
     dex_unref (jobs[i]);
 
-  return g_steal_pointer (&future);
+  result = dex_await (g_steal_pointer (&future), &local_error);
+  if (!result)
+    {
+      error_future = dex_future_new_for_error (g_steal_pointer (&local_error));
+      goto done;
+    }
+
+done:
+  if (error_future != NULL)
+    {
+      if (output_dir_path != NULL)
+        reap_cache_dir_path (output_dir_path);
+      return g_steal_pointer (&error_future);
+    }
+  else
+    return dex_future_new_true ();
 }
 
 static DexFuture *
@@ -1160,6 +1248,7 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
   g_autoptr (IdleTransactionData) idle_data = NULL;
 
   idle_data                    = idle_transaction_data_new ();
+  idle_data->hold              = g_object_ref (data->parent->instance);
   idle_data->parent            = transaction_operation_data_ref (data);
   idle_data->status            = flatpak_transaction_progress_get_status (progress);
   idle_data->is_estimating     = flatpak_transaction_progress_get_is_estimating (progress);
@@ -1221,4 +1310,118 @@ transaction_progress_timeout (IdleTransactionData *data)
       data->parent->parent->user_data);
 
   return G_SOURCE_CONTINUE;
+}
+
+static void
+add_cache_dir (BzFlatpakInstance *self,
+               const char        *cache_dir,
+               DexScheduler      *scheduler)
+{
+  g_autoptr (AddCacheDirData) data = NULL;
+
+  data            = add_cache_dir_data_new ();
+  data->instance  = g_object_ref (self);
+  data->cache_dir = g_strdup (cache_dir);
+
+  dex_await (
+      dex_scheduler_spawn (
+          scheduler, 0, (DexFiberFunc) add_cache_dir_fiber,
+          add_cache_dir_data_ref (data), add_cache_dir_data_unref),
+      NULL);
+}
+
+static DexFuture *
+add_cache_dir_fiber (AddCacheDirData *data)
+{
+  g_ptr_array_add (
+      data->instance->cache_dirs,
+      g_steal_pointer (&data->cache_dir));
+  return NULL;
+}
+
+static void
+destroy_cache_dir (gpointer ptr)
+{
+  char *cache_dir = ptr;
+
+  dex_future_disown (dex_scheduler_spawn (
+      dex_thread_pool_scheduler_get_default (),
+      0, (DexFiberFunc) remove_cache_dir_fiber,
+      cache_dir, g_free));
+}
+
+static DexFuture *
+remove_cache_dir_fiber (const char *cache_dir)
+{
+  reap_cache_dir_path (cache_dir);
+  return NULL;
+}
+
+static void
+reap_cache_dir (GFile *file)
+{
+  g_autoptr (GError) local_error         = NULL;
+  g_autofree gchar *uri                  = NULL;
+  g_autoptr (GFileEnumerator) enumerator = NULL;
+  gboolean result                        = FALSE;
+
+  uri        = g_file_get_uri (file);
+  enumerator = g_file_enumerate_children (
+      file,
+      G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK
+      "," G_FILE_ATTRIBUTE_STANDARD_NAME
+      "," G_FILE_ATTRIBUTE_STANDARD_TYPE
+      "," G_FILE_ATTRIBUTE_TIME_MODIFIED,
+      G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+      NULL,
+      &local_error);
+  if (enumerator == NULL)
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+      g_clear_pointer (&local_error, g_error_free);
+      return;
+    }
+
+  for (;;)
+    {
+      g_autoptr (GFileInfo) info = NULL;
+      g_autoptr (GFile) child    = NULL;
+      GFileType file_type        = G_FILE_TYPE_UNKNOWN;
+
+      info = g_file_enumerator_next_file (enumerator, NULL, &local_error);
+      if (info == NULL)
+        {
+          if (local_error != NULL)
+            g_critical ("failed to enumerate cache directory '%s': %s", uri, local_error->message);
+          g_clear_pointer (&local_error, g_error_free);
+          break;
+        }
+
+      child     = g_file_enumerator_get_child (enumerator, info);
+      file_type = g_file_info_get_file_type (info);
+
+      if (!g_file_info_get_is_symlink (info) && file_type == G_FILE_TYPE_DIRECTORY)
+        reap_cache_dir (child);
+
+      result = g_file_delete (child, NULL, &local_error);
+      if (!result)
+        {
+          g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+          g_clear_pointer (&local_error, g_error_free);
+        }
+    }
+
+  result = g_file_enumerator_close (enumerator, NULL, &local_error);
+  if (!result)
+    g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+}
+
+static inline void
+reap_cache_dir_path (const char *path)
+{
+  g_autoptr (GFile) file = NULL;
+
+  file = g_file_new_for_path (path);
+  reap_cache_dir (file);
 }

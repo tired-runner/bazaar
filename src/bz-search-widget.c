@@ -955,7 +955,7 @@ screenshot_activate (GtkListView    *list_view,
   future = dex_future_finally (
       future,
       (DexFutureCallback) open_screenshots_external_finally,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
 
   self->loading_image_viewer = future;
   gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), TRUE);
@@ -1185,6 +1185,7 @@ open_screenshots_external_finally (DexFuture      *future,
     }
 
   gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
-  dex_clear (&self->loading_image_viewer);
+
+  self->loading_image_viewer = NULL;
   return NULL;
 }

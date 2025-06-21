@@ -36,7 +36,6 @@ BZ_DEFINE_DATA (
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
-    BZ_RELEASE_DATA (backend, g_object_unref);
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
     BZ_RELEASE_DATA (blocklists, g_ptr_array_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
@@ -142,7 +141,7 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
   g_return_val_if_fail (G_LIST_MODEL (blocklists), NULL);
 
   data                    = retrieve_with_blocklists_data_new ();
-  data->backend           = g_object_ref (self);
+  data->backend           = self;
   data->home_scheduler    = home_scheduler != NULL ? dex_ref (home_scheduler) : dex_scheduler_ref_thread_default ();
   data->blocklists        = g_ptr_array_new_with_free_func (g_free);
   data->progress_func     = progress_func;

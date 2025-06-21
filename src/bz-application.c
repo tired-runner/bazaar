@@ -45,9 +45,9 @@ struct _BzApplication
   BzTransactionManager *transactions;
   BzContentProvider    *content_provider;
 
-  gboolean running;
-  gboolean busy;
-  gboolean online;
+  gboolean   running;
+  DexFuture *refresh_task;
+  gboolean   online;
 
   GtkCssProvider  *css;
   GtkMapListModel *content_configs_to_files;
@@ -193,7 +193,7 @@ bz_application_get_property (GObject    *object,
       g_value_set_object (value, self->content_provider);
       break;
     case PROP_BUSY:
-      g_value_set_boolean (value, self->busy);
+      g_value_set_boolean (value, self->refresh_task != NULL);
       break;
     case PROP_ONLINE:
       g_value_set_boolean (value, self->online);
@@ -778,7 +778,7 @@ bz_application_command_line (GApplication            *app,
               cli_transact_data_unref);
           future = dex_future_then (
               future, (DexFutureCallback) cli_transact_then,
-              g_object_ref (self), g_object_unref);
+              self, NULL);
           dex_future_disown (g_steal_pointer (&future));
         }
       else if (g_strcmp0 (argv[1], "quit") == 0)
@@ -1104,7 +1104,6 @@ static void
 bz_application_init (BzApplication *self)
 {
   self->running = FALSE;
-  self->busy    = FALSE;
 
   self->transactions = bz_transaction_manager_new ();
   g_signal_connect (self->transactions, "notify::last-success",
@@ -1263,8 +1262,8 @@ last_success_changed (BzTransactionManager *manager,
           BzEntryGroup *group       = NULL;
 
           entry = g_list_model_get_item (removals, i);
-          g_assert (g_list_store_find (self->installed, entry, &idx));
-          g_list_store_remove (self->installed, idx);
+          if (g_list_store_find (self->installed, entry, &idx))
+            g_list_store_remove (self->installed, idx);
 
           unique_id = bz_entry_get_unique_id (entry);
           g_hash_table_remove (self->installed_unique_ids_set, unique_id);
@@ -1294,16 +1293,16 @@ refresh_then (DexFuture     *future,
       NULL,
       self->blocklists,
       (BzBackendGatherEntriesFunc) gather_entries_progress,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_refs_then,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_installs_then,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_updates_then,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
 
   return ref_remote_future;
 }
@@ -1450,8 +1449,7 @@ refresh_finally (DexFuture     *future,
 {
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
-
-  self->busy = FALSE;
+  DexFuture    *task             = NULL;
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
@@ -1474,9 +1472,9 @@ refresh_finally (DexFuture     *future,
         }
     }
 
+  self->refresh_task = NULL;
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
-
   bz_content_provider_unblock (self->content_provider);
 
   return NULL;
@@ -1487,7 +1485,7 @@ refresh (BzApplication *self)
 {
   g_autoptr (DexFuture) future = NULL;
 
-  if (self->busy)
+  if (self->refresh_task != NULL)
     return;
 
   bz_content_provider_block (self->content_provider);
@@ -1504,19 +1502,19 @@ refresh (BzApplication *self)
   g_list_store_remove_all (self->updates);
   g_clear_object (&self->flatpak);
 
-  self->busy   = TRUE;
   self->online = FALSE;
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   future = bz_flatpak_instance_new ();
   future = dex_future_then (
       future, (DexFutureCallback) refresh_then,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   future = dex_future_finally (
       future, (DexFutureCallback) refresh_finally,
-      g_object_ref (self), g_object_unref);
-  dex_future_disown (g_steal_pointer (&future));
+      self, NULL);
+  self->refresh_task = g_steal_pointer (&future);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 }
 
 static DexFuture *
@@ -1672,7 +1670,7 @@ new_window (BzApplication *self)
       "applications", self->applications,
       "installed", self->installed,
       "updates", self->updates,
-      "busy", self->busy,
+      "busy", self->refresh_task != NULL,
       "online", self->online,
       NULL);
   g_object_bind_property (

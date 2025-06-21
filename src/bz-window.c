@@ -48,7 +48,6 @@ struct _BzWindow
   gboolean              busy;
   gboolean              online;
 
-  GListStore   *bg_entries;
   BzEntryGroup *pending_group;
 
   /* Template widgets */
@@ -186,7 +185,6 @@ bz_window_dispose (GObject *object)
   g_clear_object (&self->updates);
 
   g_clear_object (&self->pending_group);
-  g_clear_object (&self->bg_entries);
 
   G_OBJECT_CLASS (bz_window_parent_class)->dispose (object);
 }
@@ -624,8 +622,8 @@ install_confirmation_response (AdwAlertDialog *alert,
       else
         transact (self, bz_entry_group_get_ui_entry (group), should_remove);
     }
-  else
-    g_clear_object (&self->pending_group);
+
+  g_clear_object (&self->pending_group);
 }
 
 static void
