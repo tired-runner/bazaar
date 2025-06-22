@@ -278,7 +278,7 @@
                         <property name="homogeneous">TRUE</property>
                         <child>
                           <object class="AdwToggle">
-                            <property name="tooltip" translatable="yes">View Curated Applications</property>
+                            <property name="tooltip" translatable="yes">View curated applications</property>
                             <property name="name">curated</property>
                             <property name="child">
                               <object class="GtkBox">
@@ -303,7 +303,7 @@
                         </child>
                         <child>
                           <object class="AdwToggle">
-                            <property name="tooltip" translatable="yes">View Installed Applications</property>
+                            <property name="tooltip" translatable="yes">View installed applications</property>
                             <property name="name">installed</property>
                             <property name="child">
                               <object class="GtkBox">

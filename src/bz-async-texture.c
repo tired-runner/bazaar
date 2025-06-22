@@ -24,6 +24,7 @@
 #include <libdex.h>
 
 #include "bz-async-texture.h"
+#include "bz-global-state.h"
 #include "bz-util.h"
 
 struct _BzAsyncTexture
@@ -306,7 +307,7 @@ load (BzAsyncTexture *self)
   future = dex_scheduler_spawn (
       self->scheduler != NULL
           ? self->scheduler
-          : dex_thread_pool_scheduler_get_default (),
+          : bz_get_global_image_download_scheduler (),
       0, (DexFiberFunc) load_fiber,
       load_data_ref (data), load_data_unref);
   future = dex_future_finally (
@@ -319,23 +320,89 @@ load (BzAsyncTexture *self)
 static DexFuture *
 load_fiber (LoadData *data)
 {
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GlyLoader) loader   = NULL;
-  g_autoptr (GlyImage) image     = NULL;
-  g_autoptr (GlyFrame) frame     = NULL;
-  g_autoptr (GdkTexture) texture = NULL;
+  /* TODO: use `gly_loader_new_for_stream` with libsoup once glycin-2 releases */
 
-  loader = gly_loader_new (data->file);
-  image  = gly_loader_load (loader, &local_error);
+  GFile *file                       = data->file;
+  g_autoptr (GError) local_error    = NULL;
+  g_autofree char *uri              = NULL;
+  g_autofree char *uri_scheme       = NULL;
+  gboolean         is_http          = FALSE;
+  g_autoptr (GFileIOStream) io      = NULL;
+  g_autoptr (GFile) dl_tmp_file     = NULL;
+  GOutputStream *dl_tmp_file_dest   = NULL;
+  g_autoptr (SoupMessage) message   = NULL;
+  g_autoptr (GInputStream) response = NULL;
+  gssize size_spliced               = 0;
+  g_autoptr (GlyLoader) loader      = NULL;
+  g_autoptr (GlyImage) image        = NULL;
+  g_autoptr (GlyFrame) frame        = NULL;
+  g_autoptr (GdkTexture) texture    = NULL;
+
+  uri        = g_file_get_uri (file);
+  uri_scheme = g_file_get_uri_scheme (file);
+  is_http    = g_str_has_prefix (uri_scheme, "http");
+
+  if (is_http)
+    {
+      dl_tmp_file = g_file_new_tmp (NULL, &io, &local_error);
+      if (dl_tmp_file == NULL)
+        goto done;
+      dl_tmp_file_dest = g_io_stream_get_output_stream (G_IO_STREAM (io));
+
+      message  = soup_message_new (SOUP_METHOD_GET, uri);
+      response = soup_session_send (bz_get_global_http_session (), message, NULL, &local_error);
+      if (response == NULL)
+        goto done;
+
+      size_spliced = g_output_stream_splice (
+          dl_tmp_file_dest,
+          response,
+          G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE | G_OUTPUT_STREAM_SPLICE_CLOSE_TARGET,
+          NULL,
+          &local_error);
+      if (size_spliced < 0)
+        goto done;
+
+      loader = gly_loader_new (dl_tmp_file);
+    }
+  else
+    loader = gly_loader_new (file);
+
+  image = gly_loader_load (loader, &local_error);
   if (image == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    goto done;
 
   frame = gly_image_next_frame (image, &local_error);
   if (frame == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
+    goto done;
 
   texture = gly_gtk_frame_get_texture (frame);
-  return dex_future_new_for_object (texture);
+
+done:
+  if (is_http)
+    g_file_delete (dl_tmp_file, NULL, NULL);
+
+  if (texture != NULL)
+    return dex_future_new_for_object (texture);
+  else if (local_error != NULL)
+    {
+      g_critical (
+          "Failed to download file with "
+          "uri '%s' into texture: %s",
+          uri, local_error->message);
+      return dex_future_new_for_error (g_steal_pointer (&local_error));
+    }
+  else
+    {
+      g_critical (
+          "Failed to download file with "
+          "uri '%s' into texture: unknown cause",
+          uri);
+      return dex_future_new_reject (
+          G_IO_ERROR,
+          G_IO_ERROR_FAILED,
+          "IO failed");
+    }
 }
 
 static DexFuture *

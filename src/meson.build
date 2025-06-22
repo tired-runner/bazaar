@@ -23,6 +23,7 @@ bz_sources = [
   'bz-flatpak-instance.c',
   'bz-full-view.c',
   'bz-global-progress.c',
+  'bz-global-state.c',
   'bz-gnome-shell-search-provider.c',
   'bz-installed-page.c',
   'bz-issue.c',

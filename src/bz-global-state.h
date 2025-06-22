@@ -1,4 +1,4 @@
-/* main.c
+/* bz-global-state.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -18,39 +18,20 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
+#pragma once
 
-#include <glib/gi18n.h>
 #include <libdex.h>
+#include <libsoup/soup.h>
 
-#include "bz-application.h"
+G_BEGIN_DECLS
 
-int
-main (int   argc,
-      char *argv[])
-{
-  g_autoptr (BzApplication) app = NULL;
-  int ret;
+SoupSession *
+bz_get_global_http_session (void);
 
-  if (argc > 1 && g_strcmp0 (argv[1], "--version") == 0)
-    {
-      g_print ("%s\n", PACKAGE_VERSION);
-      return 0;
-    }
+DexScheduler *
+bz_get_global_image_download_scheduler (void);
 
-  dex_init ();
+DexScheduler *
+bz_get_global_flathub_query_scheduler (void);
 
-  bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
-  bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
-  textdomain (GETTEXT_PACKAGE);
-
-  app = g_object_new (
-      BZ_TYPE_APPLICATION,
-      "application-id", "io.github.kolunmi.bazaar",
-      "flags", G_APPLICATION_HANDLES_COMMAND_LINE,
-      "resource-base-path", "/io/github/kolunmi/bazaar",
-      NULL);
-  ret = g_application_run (G_APPLICATION (app), argc, argv);
-
-  return ret;
-}
+G_END_DECLS

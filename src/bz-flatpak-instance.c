@@ -38,7 +38,6 @@ struct _BzFlatpakInstance
   DexScheduler        *scheduler;
   FlatpakInstallation *system;
   FlatpakInstallation *user;
-  SoupSession         *http;
   GPtrArray           *cache_dirs;
 };
 
@@ -234,7 +233,6 @@ bz_flatpak_instance_dispose (GObject *object)
   dex_clear (&self->scheduler);
   g_clear_object (&self->system);
   g_clear_object (&self->user);
-  g_clear_object (&self->http);
   g_clear_pointer (&self->cache_dirs, g_ptr_array_unref);
 
   G_OBJECT_CLASS (bz_flatpak_instance_parent_class)->dispose (object);
@@ -413,13 +411,6 @@ bz_flatpak_instance_get_installation (BzFlatpakInstance *self)
   return self->system;
 }
 
-SoupSession *
-bz_flatpak_instance_get_http (BzFlatpakInstance *self)
-{
-  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
-  return self->http;
-}
-
 DexFuture *
 bz_flatpak_instance_new (void)
 {
@@ -454,8 +445,6 @@ init_fiber (InitData *data)
         BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
         "failed to initialize user installation: %s",
         local_error->message);
-
-  instance->http = soup_session_new ();
 
   return dex_future_new_for_object (instance);
 }
@@ -584,13 +573,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   g_autoptr (AsMetadata) metadata         = NULL;
   AsComponentBox *components              = NULL;
   g_autoptr (GHashTable) id_hash          = NULL;
-  g_autofree char *remote_icon_name       = NULL;
-  g_autoptr (GdkPaintable) remote_icon    = NULL;
-  g_autoptr (GPtrArray) refs              = NULL;
-  guint                  n_jobs           = 0;
-  g_autofree char       *output_dir_path  = NULL;
-  g_autofree DexFuture **jobs             = NULL;
-  g_autoptr (DexFuture) future            = NULL;
+  // g_autofree char *remote_icon_name       = NULL;
+  g_autoptr (GdkPaintable) remote_icon   = NULL;
+  g_autoptr (GPtrArray) refs             = NULL;
+  guint                  n_jobs          = 0;
+  g_autofree char       *output_dir_path = NULL;
+  g_autofree DexFuture **jobs            = NULL;
+  g_autoptr (DexFuture) future           = NULL;
 
   remote_name = flatpak_remote_get_name (remote);
 
@@ -756,51 +745,55 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
         g_hash_table_replace (id_hash, g_strdup (id), g_object_ref (component));
     }
 
-  remote_icon_name = flatpak_remote_get_icon (remote);
-  if (remote_icon_name != NULL)
-    {
-      g_autoptr (GFile) remote_icon_file = NULL;
+  /* Disabled for now, as it is causing issues and
+   * we shouldn't be using GFile for http
+   */
 
-      remote_icon_file = g_file_new_for_uri (remote_icon_name);
-      if (remote_icon_file != NULL)
-        {
-          g_autoptr (GlyLoader) loader = NULL;
-          g_autoptr (GlyImage) image   = NULL;
-          g_autoptr (GlyFrame) frame   = NULL;
-          GdkTexture *texture          = NULL;
+  // remote_icon_name = flatpak_remote_get_icon (remote);
+  // if (remote_icon_name != NULL)
+  //   {
+  //     g_autoptr (GFile) remote_icon_file = NULL;
 
-          loader = gly_loader_new (remote_icon_file);
-          image  = gly_loader_load (loader, &local_error);
-          if (image == NULL)
-            {
-              error_future = dex_future_new_reject (
-                  BZ_FLATPAK_ERROR,
-                  BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
-                  "failed to download icon from uri %s for remote '%s': %s",
-                  remote_icon_name,
-                  remote_name,
-                  local_error->message);
-              goto done;
-            }
+  //     remote_icon_file = g_file_new_for_uri (remote_icon_name);
+  //     if (remote_icon_file != NULL)
+  //       {
+  //         g_autoptr (GlyLoader) loader = NULL;
+  //         g_autoptr (GlyImage) image   = NULL;
+  //         g_autoptr (GlyFrame) frame   = NULL;
+  //         GdkTexture *texture          = NULL;
 
-          frame = gly_image_next_frame (image, &local_error);
-          if (frame == NULL)
-            {
-              error_future = dex_future_new_reject (
-                  BZ_FLATPAK_ERROR,
-                  BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
-                  "failed to decode frame from downloaded icon from uri %s for remote '%s': %s",
-                  remote_icon_name,
-                  remote_name,
-                  local_error->message);
-              goto done;
-            }
+  //         loader = gly_loader_new (remote_icon_file);
+  //         image  = gly_loader_load (loader, &local_error);
+  //         if (image == NULL)
+  //           {
+  //             error_future = dex_future_new_reject (
+  //                 BZ_FLATPAK_ERROR,
+  //                 BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+  //                 "failed to download icon from uri %s for remote '%s': %s",
+  //                 remote_icon_name,
+  //                 remote_name,
+  //                 local_error->message);
+  //             goto done;
+  //           }
 
-          texture = gly_gtk_frame_get_texture (frame);
-          if (texture != NULL)
-            remote_icon = GDK_PAINTABLE (texture);
-        }
-    }
+  //         frame = gly_image_next_frame (image, &local_error);
+  //         if (frame == NULL)
+  //           {
+  //             error_future = dex_future_new_reject (
+  //                 BZ_FLATPAK_ERROR,
+  //                 BZ_FLATPAK_ERROR_GLYCIN_FAILURE,
+  //                 "failed to decode frame from downloaded icon from uri %s for remote '%s': %s",
+  //                 remote_icon_name,
+  //                 remote_name,
+  //                 local_error->message);
+  //             goto done;
+  //           }
+
+  //         texture = gly_gtk_frame_get_texture (frame);
+  //         if (texture != NULL)
+  //           remote_icon = GDK_PAINTABLE (texture);
+  //       }
+  //   }
 
   refs = flatpak_installation_list_remote_refs_sync (
       installation, remote_name, NULL, &local_error);

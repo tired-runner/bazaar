@@ -22,9 +22,9 @@
 
 #include <json-glib/json-glib.h>
 #include <libdex.h>
-#include <libsoup/soup.h>
 
 #include "bz-entry.h"
+#include "bz-global-state.h"
 #include "bz-util.h"
 
 G_DEFINE_FLAGS_TYPE (
@@ -67,9 +67,8 @@ typedef struct
   char         *ratings_summary;
   GListModel   *version_history;
 
-  SoupSession *http_session;
-  gboolean     is_flathub;
-  gboolean     verified;
+  gboolean is_flathub;
+  gboolean verified;
 
   GHashTable *flathub_prop_queries;
 } BzEntryPrivate;
@@ -111,7 +110,6 @@ enum
   PROP_RATINGS_SUMMARY,
   PROP_VERSION_HISTORY,
 
-  PROP_HTTP_SESSION,
   PROP_IS_FLATHUB,
   PROP_VERIFIED,
 
@@ -123,12 +121,10 @@ BZ_DEFINE_DATA (
     query_flathub,
     QueryFlathub,
     {
-      BzEntry     *self;
-      int          prop;
-      SoupSession *http_session;
-      char        *id;
+      BzEntry *self;
+      int      prop;
+      char    *id;
     },
-    BZ_RELEASE_DATA (http_session, g_object_unref);
     BZ_RELEASE_DATA (id, g_free));
 static DexFuture *
 query_flathub_fiber (QueryFlathubData *data);
@@ -275,9 +271,6 @@ bz_entry_get_property (GObject    *object,
     case PROP_VERSION_HISTORY:
       g_value_set_object (value, priv->version_history);
       break;
-    case PROP_HTTP_SESSION:
-      g_value_set_object (value, priv->http_session);
-      break;
     case PROP_IS_FLATHUB:
       g_value_set_boolean (value, priv->is_flathub);
       break;
@@ -414,10 +407,6 @@ bz_entry_set_property (GObject      *object,
     case PROP_VERSION_HISTORY:
       g_clear_object (&priv->version_history);
       priv->version_history = g_value_dup_object (value);
-      break;
-    case PROP_HTTP_SESSION:
-      g_clear_object (&priv->http_session);
-      priv->http_session = g_value_dup_object (value);
       break;
     case PROP_IS_FLATHUB:
       priv->is_flathub = g_value_get_boolean (value);
@@ -624,13 +613,6 @@ bz_entry_class_init (BzEntryClass *klass)
           "version-history",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
-          G_PARAM_READWRITE);
-
-  props[PROP_HTTP_SESSION] =
-      g_param_spec_object (
-          "http-session",
-          NULL, NULL,
-          SOUP_TYPE_SESSION,
           G_PARAM_READWRITE);
 
   props[PROP_IS_FLATHUB] =
@@ -870,11 +852,6 @@ query_flathub (BzEntry *self,
 
   if (!priv->is_flathub)
     return;
-  if (priv->http_session == NULL)
-    {
-      g_critical ("entry does not have an http session, cannot query flathub!");
-      return;
-    }
   if (priv->id == NULL)
     return;
 
@@ -883,14 +860,13 @@ query_flathub (BzEntry *self,
   else if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (prop)))
     return;
 
-  data               = query_flathub_data_new ();
-  data->self         = self;
-  data->prop         = prop;
-  data->http_session = g_object_ref (priv->http_session);
-  data->id           = g_strdup (priv->id);
+  data       = query_flathub_data_new ();
+  data->self = self;
+  data->prop = prop;
+  data->id   = g_strdup (priv->id);
 
   future = dex_scheduler_spawn (
-      dex_thread_pool_scheduler_get_default (),
+      bz_get_global_flathub_query_scheduler (),
       0, (DexFiberFunc) query_flathub_fiber,
       query_flathub_data_ref (data), query_flathub_data_unref);
   future = dex_future_then (
@@ -905,9 +881,8 @@ query_flathub (BzEntry *self,
 static DexFuture *
 query_flathub_fiber (QueryFlathubData *data)
 {
-  int          prop                    = data->prop;
-  SoupSession *http_session            = data->http_session;
-  char        *id                      = data->id;
+  int   prop                           = data->prop;
+  char *id                             = data->id;
   g_autoptr (GError) local_error       = NULL;
   g_autofree char *message_uri         = NULL;
   g_autoptr (SoupMessage) message      = NULL;
@@ -930,7 +905,7 @@ query_flathub_fiber (QueryFlathubData *data)
     }
 
   message  = soup_message_new (SOUP_METHOD_GET, message_uri);
-  response = soup_session_send (http_session, message, NULL, &local_error);
+  response = soup_session_send (bz_get_global_http_session (), message, NULL, &local_error);
   if (response == NULL)
     {
       g_critical ("Could not retrieve property %s for %s from flathub: %s",

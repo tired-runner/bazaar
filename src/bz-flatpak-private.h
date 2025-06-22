@@ -22,7 +22,6 @@
 
 #include <appstream.h>
 #include <flatpak.h>
-#include <libsoup/soup.h>
 
 #include "bz-flatpak-entry.h"
 #include "bz-flatpak-instance.h"
@@ -33,9 +32,6 @@ G_BEGIN_DECLS
 
 FlatpakInstallation *
 bz_flatpak_instance_get_installation (BzFlatpakInstance *self);
-
-SoupSession *
-bz_flatpak_instance_get_http (BzFlatpakInstance *self);
 
 /* BzFlatpakEntry */
 
