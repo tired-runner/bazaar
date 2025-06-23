@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=io.github.kolunmi.bazaar
+SystemdService=io.github.kolunmi.bazaar.service
