@@ -35,8 +35,6 @@ struct _BzAsyncTexture
   gboolean loaded;
 
   gboolean      lazy;
-  DexScheduler *scheduler;
-
   DexFuture    *task;
   GdkPaintable *paintable;
 };
@@ -80,7 +78,6 @@ bz_async_texture_dispose (GObject *object)
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (object);
 
   g_clear_object (&self->source);
-  dex_clear (&self->scheduler);
   dex_clear (&self->task);
   g_clear_object (&self->paintable);
 
@@ -253,10 +250,9 @@ bz_async_texture_new (GFile *source)
 
   g_return_val_if_fail (G_IS_FILE (source), NULL);
 
-  self            = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
-  self->source    = g_object_ref (source);
-  self->lazy      = FALSE;
-  self->scheduler = NULL;
+  self         = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
+  self->source = g_object_ref (source);
+  self->lazy   = FALSE;
 
   load (self);
 
@@ -264,18 +260,15 @@ bz_async_texture_new (GFile *source)
 }
 
 BzAsyncTexture *
-bz_async_texture_new_lazy (GFile        *source,
-                           DexScheduler *scheduler)
+bz_async_texture_new_lazy (GFile *source)
 {
   BzAsyncTexture *self = NULL;
 
   g_return_val_if_fail (G_IS_FILE (source), NULL);
-  g_return_val_if_fail (scheduler == NULL || DEX_IS_SCHEDULER (scheduler), NULL);
 
-  self            = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
-  self->source    = g_object_ref (source);
-  self->lazy      = TRUE;
-  self->scheduler = scheduler != NULL ? dex_ref (scheduler) : NULL;
+  self         = g_object_new (BZ_TYPE_ASYNC_TEXTURE, NULL);
+  self->source = g_object_ref (source);
+  self->lazy   = TRUE;
 
   return self;
 }
@@ -305,9 +298,7 @@ load (BzAsyncTexture *self)
   data->file = g_object_ref (self->source);
 
   future = dex_scheduler_spawn (
-      self->scheduler != NULL
-          ? self->scheduler
-          : bz_get_global_image_download_scheduler (),
+      dex_scheduler_get_default (),
       0, (DexFiberFunc) load_fiber,
       load_data_ref (data), load_data_unref);
   future = dex_future_finally (
@@ -350,7 +341,7 @@ load_fiber (LoadData *data)
       dl_tmp_file_dest = g_io_stream_get_output_stream (G_IO_STREAM (io));
 
       message  = soup_message_new (SOUP_METHOD_GET, uri);
-      response = soup_session_send (bz_get_global_http_session (), message, NULL, &local_error);
+      response = dex_await_object (bz_send_with_global_http_session (message), &local_error);
       if (response == NULL)
         goto done;
 

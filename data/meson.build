@@ -37,10 +37,19 @@ test('Validate schema file',
 service_conf = configuration_data()
 service_conf.set('bindir', get_option('prefix') / get_option('bindir'))
 configure_file(
-  input: 'io.github.kolunmi.bazaar.service.in',
+  input: 'io.github.kolunmi.bazaar.dbus.in',
   output: 'io.github.kolunmi.bazaar.service',
   configuration: service_conf,
   install_dir: get_option('datadir') / 'dbus-1' / 'services'
+)
+
+service_conf = configuration_data()
+service_conf.set('bindir', get_option('prefix') / get_option('bindir'))
+configure_file(
+  input: 'io.github.kolunmi.bazaar.service.in',
+  output: 'io.github.kolunmi.bazaar.service',
+  configuration: service_conf,
+  install_dir: get_option('prefix') / 'lib' / 'systemd' / 'user'
 )
 
 service_conf = configuration_data()

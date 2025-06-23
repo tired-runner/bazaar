@@ -1,3 +1,12 @@
-[D-BUS Service]
-Name=io.github.kolunmi.bazaar
-Exec=@bindir@/bazaar service
+[Unit]
+Description=Bazaar Service
+ConditionUser=!@system
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@bindir@/bazaar service
+
+[Install]
+WantedBy=multi-user.target

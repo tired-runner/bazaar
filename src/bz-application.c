@@ -303,23 +303,24 @@ bz_application_command_line (GApplication            *app,
       g_auto (GStrv) content_configs_strv       = NULL;
       g_autoptr (GtkStringList) content_configs = NULL;
 
+      GOptionEntry main_entries[] = {
+        { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+        { "is-running", 0, 0, G_OPTION_ARG_NONE, &is_running, "Exit successfully if the Bazaar service is running" },
+        { "extra-blocklist", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "Add an extra blocklist to read from" },
+        { "extra-content-config", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "Add an extra yaml file with which to configure the app browser" },
+        { NULL }
+      };
+
+      g_option_context_add_main_entries (context, main_entries, NULL);
+      g_option_context_set_ignore_unknown_options (context, window_autostart);
+      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+        {
+          g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+          return EXIT_FAILURE;
+        }
+
       if (!window_autostart)
         {
-          GOptionEntry main_entries[] = {
-            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
-            { "is-running", 0, 0, G_OPTION_ARG_NONE, &is_running, "Exit successfully if the Bazaar service is running" },
-            { "extra-blocklist", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &blocklists_strv, "Add an extra blocklist to read from" },
-            { "extra-content-config", 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &content_configs_strv, "Add an extra yaml file with which to configure the app browser" },
-            { NULL }
-          };
-
-          g_option_context_add_main_entries (context, main_entries, NULL);
-          if (!g_option_context_parse (context, &argc, &argv, &local_error))
-            {
-              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
-              return EXIT_FAILURE;
-            }
-
           if (help)
             {
               g_autofree char *help_text = NULL;

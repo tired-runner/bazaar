@@ -32,8 +32,7 @@ BzAsyncTexture *
 bz_async_texture_new (GFile *source);
 
 BzAsyncTexture *
-bz_async_texture_new_lazy (GFile        *source,
-                           DexScheduler *scheduler);
+bz_async_texture_new_lazy (GFile *source);
 
 gboolean
 bz_async_texture_get_loaded (BzAsyncTexture *self);

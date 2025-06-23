@@ -18,5 +18,7 @@ RUN apt-get update && apt-get install -y \
     liblcms2-dev \
     libxmlb-dev \
     libyaml-dev \
+    libsoup-3.0-dev \
+    libjson-glib-dev \
     meson \
     ninja-build

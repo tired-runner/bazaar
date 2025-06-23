@@ -231,7 +231,7 @@ map_files_to_textures (GFile            *file,
   result = g_hash_table_lookup (self->cache, file);
   if (result == NULL)
     {
-      result = bz_async_texture_new_lazy (file, NULL);
+      result = bz_async_texture_new_lazy (file);
       g_hash_table_replace (self->cache, g_object_ref (file), result);
     }
 

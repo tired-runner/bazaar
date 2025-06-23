@@ -28,10 +28,7 @@ G_BEGIN_DECLS
 SoupSession *
 bz_get_global_http_session (void);
 
-DexScheduler *
-bz_get_global_image_download_scheduler (void);
-
-DexScheduler *
-bz_get_global_flathub_query_scheduler (void);
+DexFuture *
+bz_send_with_global_http_session (SoupMessage *message);
 
 G_END_DECLS
