@@ -33,13 +33,7 @@ test('Validate schema file',
      compile_schemas,
      args: ['--strict', '--dry-run', meson.current_source_dir()])
 
-
-service_conf = configuration_data()
-service_conf.set('bindir', get_option('prefix') / get_option('bindir'))
-configure_file(
-  input: 'io.github.kolunmi.bazaar.dbus.in',
-  output: 'io.github.kolunmi.bazaar.service',
-  configuration: service_conf,
+install_data('io.github.kolunmi.bazaar.service',
   install_dir: get_option('datadir') / 'dbus-1' / 'services'
 )
 

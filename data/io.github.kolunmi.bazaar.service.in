@@ -1,12 +1,8 @@
 [Unit]
 Description=Bazaar Service
-ConditionUser=!@system
-After=network-online.target
-Wants=network-online.target
+PartOf=graphical-session.target
 
 [Service]
-Type=simple
+Type=dbus
+BusName=io.github.kolunmi.bazaar
 ExecStart=@bindir@/bazaar service
-
-[Install]
-WantedBy=multi-user.target
