@@ -314,7 +314,7 @@
                             <property name="has-tooltip">TRUE</property>
                             <property name="tooltip-text" translatable="yes">This flatpak is verified by the original developers of the software.</property>
                             <property name="icon-name">verified-checkmark-symbolic</property>
-                            <property name="icon-size">large</property>
+                            <property name="icon-size">small</property>
                           </object>
                         </property>
                       </object>
