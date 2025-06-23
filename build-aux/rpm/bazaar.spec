@@ -20,6 +20,7 @@ BuildRequires:  glycin-devel
 BuildRequires:  glycin-gtk4-devel
 BuildRequires:  libdex-devel
 BuildRequires:  desktop-file-utils
+BuildRequires:  systemd-rpm-macros
 Requires:       glycin-libs
 Requires:       libadwaita
 
@@ -36,12 +37,22 @@ Requires:       libadwaita
 %install
 %meson_install
 
+%post
+%systemd_user_post %{appid}.service
+
+%preun
+%systemd_user_preun %{appid}.service
+
+%postun
+%systemd_user_postun_with_restart %{appid}.service
+
 %files
 %license COPYING
 %doc README.md
 %{_datadir}/applications/%{appid}.desktop
 %{_bindir}/%{name}
 %{_datadir}/dbus-1/services/%{appid}.service
+%{_userunitdir}/%{appid}.service
 %{_datadir}/glib-2.0/schemas/%{appid}.gschema.xml
 %{_datadir}/icons/hicolor/scalable/apps/%{appid}.svg
 %{_datadir}/icons/hicolor/symbolic/apps/%{appid}-symbolic.svg
