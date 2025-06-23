@@ -866,7 +866,7 @@ query_flathub (BzEntry *self,
   data->id   = g_strdup (priv->id);
 
   future = dex_scheduler_spawn (
-      bz_get_global_flathub_query_scheduler (),
+      dex_scheduler_get_default (),
       0, (DexFiberFunc) query_flathub_fiber,
       query_flathub_data_ref (data), query_flathub_data_unref);
   future = dex_future_then (
@@ -905,7 +905,7 @@ query_flathub_fiber (QueryFlathubData *data)
     }
 
   message  = soup_message_new (SOUP_METHOD_GET, message_uri);
-  response = soup_session_send (bz_get_global_http_session (), message, NULL, &local_error);
+  response = dex_await_object (bz_send_with_global_http_session (message), &local_error);
   if (response == NULL)
     {
       g_critical ("Could not retrieve property %s for %s from flathub: %s",

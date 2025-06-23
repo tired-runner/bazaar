@@ -20,6 +20,14 @@
 
 #include "bz-global-state.h"
 
+static DexFuture *
+http_send_fiber (SoupMessage *message);
+
+static void
+http_send_finish (GObject      *object,
+                  GAsyncResult *result,
+                  gpointer      user_data);
+
 SoupSession *
 bz_get_global_http_session (void)
 {
@@ -31,24 +39,52 @@ bz_get_global_http_session (void)
   return session;
 }
 
-DexScheduler *
-bz_get_global_image_download_scheduler (void)
+DexFuture *
+bz_send_with_global_http_session (SoupMessage *message)
 {
-  static DexScheduler *scheduler = NULL;
+  dex_return_error_if_fail (SOUP_IS_MESSAGE (message));
 
-  if (g_once_init_enter_pointer (&scheduler))
-    g_once_init_leave_pointer (&scheduler, dex_thread_pool_scheduler_new ());
-
-  return scheduler;
+  return dex_scheduler_spawn (
+      dex_scheduler_get_default (), 0,
+      (DexFiberFunc) http_send_fiber,
+      g_object_ref (message), g_object_unref);
 }
 
-DexScheduler *
-bz_get_global_flathub_query_scheduler (void)
+static DexFuture *
+http_send_fiber (SoupMessage *message)
 {
-  static DexScheduler *scheduler = NULL;
+  g_autoptr (DexPromise) promise = NULL;
 
-  if (g_once_init_enter_pointer (&scheduler))
-    g_once_init_leave_pointer (&scheduler, dex_thread_pool_scheduler_new ());
+  promise = dex_promise_new_cancellable ();
+  soup_session_send_async (
+      bz_get_global_http_session (),
+      message,
+      G_PRIORITY_DEFAULT,
+      dex_promise_get_cancellable (promise),
+      http_send_finish,
+      dex_ref (promise));
 
-  return scheduler;
+  return DEX_FUTURE (g_steal_pointer (&promise));
+}
+
+static void
+http_send_finish (GObject      *object,
+                  GAsyncResult *result,
+                  gpointer      user_data)
+{
+  DexPromise *promise             = user_data;
+  g_autoptr (GError) local_error  = NULL;
+  g_autoptr (GInputStream) stream = NULL;
+
+  g_assert (SOUP_IS_SESSION (object));
+  g_assert (G_IS_ASYNC_RESULT (result));
+  g_assert (DEX_IS_PROMISE (promise));
+
+  stream = soup_session_send_finish (SOUP_SESSION (object), result, &local_error);
+  if (stream != NULL)
+    dex_promise_resolve_object (promise, g_steal_pointer (&stream));
+  else
+    dex_promise_reject (promise, g_steal_pointer (&local_error));
+
+  dex_unref (promise);
 }

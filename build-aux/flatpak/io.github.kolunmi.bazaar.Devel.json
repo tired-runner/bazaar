@@ -285,21 +285,21 @@
                 }
             ]
         },
-        {
-            "name": "glycin-loaders",
-            "buildsystem": "meson",
-            "config-opts": [
-                "-Dglycin-loaders=true",
-                "-Dlibglycin=true"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://gitlab.gnome.org/sophie-h/glycin.git",
-                    "tag": "1.2.1"
-                }
-            ]
-        },
+        // {
+        //     "name": "glycin-loaders",
+        //     "buildsystem": "meson",
+        //     "config-opts": [
+        //         "-Dglycin-loaders=true",
+        //         "-Dlibglycin=true"
+        //     ],
+        //     "sources": [
+        //         {
+        //             "type": "git",
+        //             "url": "https://gitlab.gnome.org/sophie-h/glycin.git",
+        //             "tag": "1.2.1"
+        //         }
+        //     ]
+        // },
         {
             "name": "bazaar",
             "buildsystem": "meson",
