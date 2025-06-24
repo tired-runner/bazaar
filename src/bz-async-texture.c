@@ -371,7 +371,7 @@ load_fiber (LoadData *data)
 
 done:
   if (is_http)
-    g_file_delete (dl_tmp_file, NULL, NULL);
+    dex_await (dex_file_delete (dl_tmp_file, G_PRIORITY_DEFAULT), NULL);
 
   if (texture != NULL)
     return dex_future_new_for_object (texture);
