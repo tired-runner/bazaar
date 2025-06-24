@@ -16,6 +16,8 @@ bz_sources = [
   'bz-comet.c',
   'bz-content-provider.c',
   'bz-content-section.c',
+  'bz-data-graph.c',
+  'bz-data-point.c',
   'bz-entry-group.c',
   'bz-entry.c',
   'bz-error.c',
