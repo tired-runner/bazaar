@@ -38,9 +38,10 @@ struct _BzDataGraph
   int         dependent_decimals;
   double      transition_progress;
 
-  GskPath       *path;
-  GskRenderNode *fg;
-  gboolean       wants_animate;
+  GskPath        *path;
+  GskPathMeasure *path_measure;
+  GskRenderNode  *fg;
+  gboolean        wants_animate;
 };
 
 G_DEFINE_FINAL_TYPE (BzDataGraph, bz_data_graph, GTK_TYPE_WIDGET)
@@ -85,6 +86,7 @@ bz_data_graph_dispose (GObject *object)
   g_clear_pointer (&self->independent_axis_label, g_free);
   g_clear_pointer (&self->dependent_axis_label, g_free);
   g_clear_pointer (&self->path, gsk_path_unref);
+  g_clear_pointer (&self->path_measure, gsk_path_measure_unref);
   g_clear_pointer (&self->fg, gsk_render_node_unref);
 
   G_OBJECT_CLASS (bz_data_graph_parent_class)->dispose (object);
@@ -172,15 +174,12 @@ static void
 bz_data_graph_snapshot (GtkWidget   *widget,
                         GtkSnapshot *snapshot)
 {
-  BzDataGraph     *self            = BZ_DATA_GRAPH (widget);
-  AdwStyleManager *style_manager   = NULL;
-  g_autoptr (GdkRGBA) accent_color = NULL;
-  GdkRGBA widget_color             = { 0 };
-  g_autoptr (GskStroke) stroke     = NULL;
-  double          widget_width     = 0.0;
-  double          widget_height    = 0.0;
-  graphene_rect_t clip_rect        = { 0 };
-  GskRoundedRect  clip_rrect       = { 0 };
+  BzDataGraph     *self             = BZ_DATA_GRAPH (widget);
+  AdwStyleManager *style_manager    = NULL;
+  g_autoptr (GdkRGBA) accent_color  = NULL;
+  GdkRGBA widget_color              = { 0 };
+  g_autoptr (GskPath) transitioning = NULL;
+  g_autoptr (GskStroke) stroke      = NULL;
 
   if (self->path == NULL)
     return;
@@ -189,26 +188,24 @@ bz_data_graph_snapshot (GtkWidget   *widget,
   accent_color  = adw_style_manager_get_accent_color_rgba (style_manager);
   gtk_widget_get_color (widget, &widget_color);
 
+  if (self->transition_progress > 0.0 && self->transition_progress < 1.0)
+    {
+      GskPathPoint point0                = { 0 };
+      double       path_distance         = 0.0;
+      GskPathPoint point1                = { 0 };
+      g_autoptr (GskPathBuilder) builder = NULL;
+
+      gsk_path_get_start_point (self->path, &point0);
+      path_distance = gsk_path_measure_get_length (self->path_measure) * self->transition_progress;
+      gsk_path_measure_get_point (self->path_measure, path_distance, &point1);
+
+      builder = gsk_path_builder_new ();
+      gsk_path_builder_add_segment (builder, self->path, &point0, &point1);
+      transitioning = gsk_path_builder_to_path (builder);
+    }
+
   stroke = gsk_stroke_new (6.0);
   gsk_stroke_set_line_cap (stroke, GSK_LINE_CAP_ROUND);
-
-  widget_width  = (double) gtk_widget_get_width (widget);
-  widget_height = (double) gtk_widget_get_height (widget);
-
-  clip_rect = GRAPHENE_RECT_INIT (
-      0.0, 0.0,
-      (widget_width - LABEL_MARGIN * 2.0) * self->transition_progress,
-      widget_height - LABEL_MARGIN * 2.0);
-
-  clip_rrect.bounds           = clip_rect;
-  clip_rrect.corner[0].width  = 0.0;
-  clip_rrect.corner[0].height = 0.0;
-  clip_rrect.corner[1].width  = 0.0;
-  clip_rrect.corner[1].height = 0.0;
-  clip_rrect.corner[2].width  = 0.0;
-  clip_rrect.corner[2].height = 0.0;
-  clip_rrect.corner[3].width  = 0.0;
-  clip_rrect.corner[3].height = 0.0;
 
   gtk_snapshot_save (snapshot);
   gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (LABEL_MARGIN, LABEL_MARGIN));
@@ -226,10 +223,14 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       gtk_snapshot_pop (snapshot);
     }
 
-  gtk_snapshot_push_rounded_clip (snapshot, &clip_rrect);
-  gtk_snapshot_append_stroke (snapshot, self->path, stroke, accent_color);
-  gtk_snapshot_pop (snapshot);
-
+  if (self->transition_progress > 0.0)
+    gtk_snapshot_append_stroke (
+        snapshot,
+        transitioning != NULL
+            ? transitioning
+            : self->path,
+        stroke,
+        accent_color);
   gtk_snapshot_restore (snapshot);
 
   if (self->wants_animate)
@@ -481,6 +482,7 @@ refresh_path (BzDataGraph *self,
   g_autoptr (GskStroke) grid_stroke        = NULL;
 
   g_clear_pointer (&self->path, gsk_path_unref);
+  g_clear_pointer (&self->path_measure, gsk_path_measure_unref);
   g_clear_pointer (&self->fg, gsk_render_node_unref);
 
   if (self->model == NULL)
@@ -647,6 +649,7 @@ refresh_path (BzDataGraph *self,
   gtk_snapshot_append_stroke (snapshot, grid, grid_stroke, &(GdkRGBA) { 1.0, 1.0, 1.0, 1.0 });
   gtk_snapshot_pop (snapshot);
 
-  self->path = gsk_path_builder_to_path (curve_builder);
-  self->fg   = gtk_snapshot_to_node (snapshot);
+  self->path         = gsk_path_builder_to_path (curve_builder);
+  self->path_measure = gsk_path_measure_new (self->path);
+  self->fg           = gtk_snapshot_to_node (snapshot);
 }
