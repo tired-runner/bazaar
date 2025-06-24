@@ -22,6 +22,7 @@
 
 #include <glib/gi18n.h>
 
+#include "bz-data-graph.h"
 #include "bz-full-view.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
@@ -190,6 +191,43 @@ share_cb (BzFullView *self,
 }
 
 static void
+dl_stats_cb (BzFullView *self,
+             GtkButton  *button)
+{
+  AdwDialog *dialog     = NULL;
+  GtkWidget *overlay    = NULL;
+  BzEntry   *ui_entry   = NULL;
+  GtkWidget *graph      = NULL;
+  GtkWidget *header_bar = NULL;
+
+  if (self->group == NULL)
+    return;
+
+  dialog = adw_dialog_new ();
+  gtk_widget_set_size_request (GTK_WIDGET (dialog), 400, 300);
+  adw_dialog_set_content_width (dialog, 2000);
+  adw_dialog_set_content_height (dialog, 1500);
+  adw_dialog_set_title (dialog, "Downloads Over Time");
+
+  overlay = gtk_overlay_new ();
+  adw_dialog_set_child (dialog, overlay);
+
+  ui_entry = bz_entry_group_get_ui_entry (self->group);
+  graph    = bz_data_graph_new ();
+  g_object_bind_property (ui_entry, "download-stats", graph, "model", G_BINDING_SYNC_CREATE);
+  gtk_overlay_set_child (GTK_OVERLAY (overlay), graph);
+
+  header_bar = adw_header_bar_new ();
+  gtk_widget_set_halign (header_bar, GTK_ALIGN_FILL);
+  gtk_widget_set_valign (header_bar, GTK_ALIGN_START);
+  gtk_widget_add_css_class (header_bar, "flat");
+  gtk_overlay_add_overlay (GTK_OVERLAY (overlay), header_bar);
+
+  adw_dialog_present (dialog, GTK_WIDGET (self));
+  bz_data_graph_animate_open (BZ_DATA_GRAPH (graph));
+}
+
+static void
 install_cb (BzFullView *self,
             GtkButton  *button)
 {
@@ -285,6 +323,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
   gtk_widget_class_bind_template_callback (widget_class, format_as_link);
   gtk_widget_class_bind_template_callback (widget_class, share_cb);
+  gtk_widget_class_bind_template_callback (widget_class, dl_stats_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);

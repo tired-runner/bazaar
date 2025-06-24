@@ -237,15 +237,35 @@
                                           </object>
                                         </child>
                                         <child>
-                                          <object class="GtkButton">
+                                          <object class="GtkBox">
                                             <style>
-                                              <class name="pill"/>
+                                              <class name="linked"/>
                                             </style>
-                                            <property name="vexpand">FALSE</property>
-                                            <property name="has-tooltip">TRUE</property>
-                                            <property name="tooltip-text" translatable="yes">Share this application</property>
-                                            <property name="icon-name">share-symbolic</property>
-                                            <signal name="clicked" handler="share_cb" swapped="true" object="BzFullView"/>
+                                            <property name="orientation">horizontal</property>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <style>
+                                                  <class name="pill"/>
+                                                </style>
+                                                <property name="vexpand">FALSE</property>
+                                                <property name="has-tooltip">TRUE</property>
+                                                <property name="tooltip-text" translatable="yes">Share this application</property>
+                                                <property name="icon-name">share-symbolic</property>
+                                                <signal name="clicked" handler="share_cb" swapped="true" object="BzFullView"/>
+                                              </object>
+                                            </child>
+                                            <child>
+                                              <object class="GtkButton">
+                                                <style>
+                                                  <class name="pill"/>
+                                                </style>
+                                                <property name="vexpand">FALSE</property>
+                                                <property name="has-tooltip">TRUE</property>
+                                                <property name="tooltip-text" translatable="yes">View this application's download statistics</property>
+                                                <property name="icon-name">graph-symbolic</property>
+                                                <signal name="clicked" handler="dl_stats_cb" swapped="true" object="BzFullView"/>
+                                              </object>
+                                            </child>
                                           </object>
                                         </child>
                                       </object>

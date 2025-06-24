@@ -23,6 +23,7 @@
 #include <json-glib/json-glib.h>
 #include <libdex.h>
 
+#include "bz-data-point.h"
 #include "bz-entry.h"
 #include "bz-global-state.h"
 #include "bz-util.h"
@@ -67,8 +68,9 @@ typedef struct
   char         *ratings_summary;
   GListModel   *version_history;
 
-  gboolean is_flathub;
-  gboolean verified;
+  gboolean    is_flathub;
+  gboolean    verified;
+  GListModel *download_stats;
 
   GHashTable *flathub_prop_queries;
 } BzEntryPrivate;
@@ -112,6 +114,7 @@ enum
 
   PROP_IS_FLATHUB,
   PROP_VERIFIED,
+  PROP_DOWNLOAD_STATS,
 
   LAST_PROP
 };
@@ -135,6 +138,12 @@ query_flathub_then (DexFuture        *future,
 static void
 query_flathub (BzEntry *self,
                int      prop);
+
+static void
+download_stats_per_day_foreach (JsonObject  *object,
+                                const gchar *member_name,
+                                JsonNode    *member_node,
+                                GListStore  *store);
 
 static void
 bz_entry_dispose (GObject *object)
@@ -169,6 +178,7 @@ bz_entry_dispose (GObject *object)
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
   g_clear_object (&priv->version_history);
+  g_clear_object (&priv->download_stats);
 
   G_OBJECT_CLASS (bz_entry_parent_class)->dispose (object);
 }
@@ -277,6 +287,10 @@ bz_entry_get_property (GObject    *object,
     case PROP_VERIFIED:
       query_flathub (self, PROP_VERIFIED);
       g_value_set_boolean (value, priv->verified);
+      break;
+    case PROP_DOWNLOAD_STATS:
+      query_flathub (self, PROP_DOWNLOAD_STATS);
+      g_value_set_object (value, priv->download_stats);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -413,6 +427,10 @@ bz_entry_set_property (GObject      *object,
       break;
     case PROP_VERIFIED:
       priv->verified = g_value_get_boolean (value);
+      break;
+    case PROP_DOWNLOAD_STATS:
+      g_clear_object (&priv->download_stats);
+      priv->download_stats = g_value_dup_object (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -625,6 +643,13 @@ bz_entry_class_init (BzEntryClass *klass)
       g_param_spec_boolean (
           "verified",
           NULL, NULL, FALSE,
+          G_PARAM_READWRITE);
+
+  props[PROP_DOWNLOAD_STATS] =
+      g_param_spec_object (
+          "download-stats",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -899,6 +924,9 @@ query_flathub_fiber (QueryFlathubData *data)
     case PROP_VERIFIED:
       message_uri = g_strdup_printf ("https://flathub.org/api/v2/verification/%s/status", id);
       break;
+    case PROP_DOWNLOAD_STATS:
+      message_uri = g_strdup_printf ("https://flathub.org/api/v2/stats/%s?all=false&days=100", id);
+      break;
     default:
       g_assert_not_reached ();
       return NULL;
@@ -940,6 +968,22 @@ query_flathub_fiber (QueryFlathubData *data)
       return dex_future_new_for_boolean (
           json_object_get_boolean_member (object, "verified"));
       break;
+    case PROP_DOWNLOAD_STATS:
+      {
+        JsonObject *per_day          = NULL;
+        g_autoptr (GListStore) store = NULL;
+
+        per_day = json_object_get_object_member (object, "installs_per_day");
+        store   = g_list_store_new (BZ_TYPE_DATA_POINT);
+
+        json_object_foreach_member (
+            per_day,
+            (JsonObjectForeach) download_stats_per_day_foreach,
+            store);
+
+        return dex_future_new_for_object (store);
+      }
+      break;
     default:
       g_assert_not_reached ();
       return NULL;
@@ -957,4 +1001,26 @@ query_flathub_then (DexFuture        *future,
   value = dex_future_get_value (future, NULL);
   g_object_set_property (G_OBJECT (self), props[prop]->name, value);
   return NULL;
+}
+
+static void
+download_stats_per_day_foreach (JsonObject  *object,
+                                const gchar *member_name,
+                                JsonNode    *member_node,
+                                GListStore  *store)
+{
+  double independent            = 0;
+  double dependent              = 0;
+  g_autoptr (BzDataPoint) point = NULL;
+
+  independent = g_list_model_get_n_items (G_LIST_MODEL (store));
+  dependent   = json_node_get_int (member_node);
+
+  point = g_object_new (
+      BZ_TYPE_DATA_POINT,
+      "independent", independent,
+      "dependent", dependent,
+      "label", member_name,
+      NULL);
+  g_list_store_append (store, point);
 }
