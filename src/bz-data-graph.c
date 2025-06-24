@@ -39,7 +39,7 @@ struct _BzDataGraph
   double      transition_progress;
 
   GskPath       *path;
-  GskRenderNode *text;
+  GskRenderNode *fg;
   gboolean       wants_animate;
 };
 
@@ -85,7 +85,7 @@ bz_data_graph_dispose (GObject *object)
   g_clear_pointer (&self->independent_axis_label, g_free);
   g_clear_pointer (&self->dependent_axis_label, g_free);
   g_clear_pointer (&self->path, gsk_path_unref);
-  g_clear_pointer (&self->text, gsk_render_node_unref);
+  g_clear_pointer (&self->fg, gsk_render_node_unref);
 
   G_OBJECT_CLASS (bz_data_graph_parent_class)->dispose (object);
 }
@@ -213,22 +213,22 @@ bz_data_graph_snapshot (GtkWidget   *widget,
   gtk_snapshot_save (snapshot);
   gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (LABEL_MARGIN, LABEL_MARGIN));
 
-  gtk_snapshot_push_rounded_clip (snapshot, &clip_rrect);
-  gtk_snapshot_append_stroke (snapshot, self->path, stroke, accent_color);
-  gtk_snapshot_pop (snapshot);
-
-  if (self->text != NULL)
+  if (self->fg != NULL)
     {
       graphene_rect_t bounds = { 0 };
 
-      gsk_render_node_get_bounds (self->text, &bounds);
+      gsk_render_node_get_bounds (self->fg, &bounds);
 
       gtk_snapshot_push_mask (snapshot, GSK_MASK_MODE_ALPHA);
-      gtk_snapshot_append_node (snapshot, self->text);
+      gtk_snapshot_append_node (snapshot, self->fg);
       gtk_snapshot_pop (snapshot);
       gtk_snapshot_append_color (snapshot, &widget_color, &bounds);
       gtk_snapshot_pop (snapshot);
     }
+
+  gtk_snapshot_push_rounded_clip (snapshot, &clip_rrect);
+  gtk_snapshot_append_stroke (snapshot, self->path, stroke, accent_color);
+  gtk_snapshot_pop (snapshot);
 
   gtk_snapshot_restore (snapshot);
 
@@ -474,11 +474,14 @@ refresh_path (BzDataGraph *self,
   double            font_height            = 0.0;
   int               independent_label_step = 0;
   int               dependent_label_step   = 0;
-  g_autoptr (GskPathBuilder) builder       = NULL;
+  g_autoptr (GskPathBuilder) curve_builder = NULL;
   g_autoptr (GtkSnapshot) snapshot         = NULL;
+  g_autoptr (GskPathBuilder) grid_builder  = NULL;
+  g_autoptr (GskPath) grid                 = NULL;
+  g_autoptr (GskStroke) grid_stroke        = NULL;
 
   g_clear_pointer (&self->path, gsk_path_unref);
-  g_clear_pointer (&self->text, gsk_render_node_unref);
+  g_clear_pointer (&self->fg, gsk_render_node_unref);
 
   if (self->model == NULL)
     return;
@@ -522,8 +525,9 @@ refresh_path (BzDataGraph *self,
   independent_label_step = n_items / MAX (1, floor (width / MAX (font_height + 10.0, LABEL_MARGIN)));
   dependent_label_step   = MAX (1, floor (height / (font_height + 10.0)));
 
-  builder  = gsk_path_builder_new ();
-  snapshot = gtk_snapshot_new ();
+  curve_builder = gsk_path_builder_new ();
+  snapshot      = gtk_snapshot_new ();
+  grid_builder  = gsk_path_builder_new ();
 
   for (guint i = 0; i < n_items; i++)
     {
@@ -541,9 +545,9 @@ refresh_path (BzDataGraph *self,
       y = (1.0 - (dependent - min_dependent) / (max_dependent - min_dependent)) * height;
 
       if (i == 0)
-        gsk_path_builder_move_to (builder, x, y);
+        gsk_path_builder_move_to (curve_builder, x, y);
       else
-        gsk_path_builder_line_to (builder, x, y);
+        gsk_path_builder_line_to (curve_builder, x, y);
 
       if (i % independent_label_step == 0)
         {
@@ -584,11 +588,16 @@ refresh_path (BzDataGraph *self,
           /* white so we can modulate later without regenerating */
           gtk_snapshot_append_layout (snapshot, layout, &(GdkRGBA) { 1.0, 1.0, 1.0, 1.0 });
           gtk_snapshot_restore (snapshot);
+
+          gsk_path_builder_move_to (grid_builder, x, 0.0);
+          gsk_path_builder_line_to (grid_builder, x, height);
         }
     }
+  gsk_path_builder_move_to (grid_builder, width, 0);
+  gsk_path_builder_line_to (grid_builder, width, height);
 
   gtk_snapshot_save (snapshot);
-  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (-LABEL_MARGIN / 2.0, 0.0));
+  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (-LABEL_MARGIN / 2.0, -font_height / 2.0));
   for (int i = 0; i < dependent_label_step; i++)
     {
       double value                   = 0.0;
@@ -624,9 +633,20 @@ refresh_path (BzDataGraph *self,
 
       gtk_snapshot_append_layout (snapshot, layout, &(GdkRGBA) { 1.0, 1.0, 1.0, 1.0 });
       gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (0, font_height + 10.0));
+
+      gsk_path_builder_move_to (grid_builder, 0.0, (font_height + 10.0) * (double) i);
+      gsk_path_builder_line_to (grid_builder, width, (font_height + 10.0) * (double) i);
     }
+  gsk_path_builder_move_to (grid_builder, 0.0, height);
+  gsk_path_builder_line_to (grid_builder, width, height);
   gtk_snapshot_restore (snapshot);
 
-  self->path = gsk_path_builder_to_path (builder);
-  self->text = gtk_snapshot_to_node (snapshot);
+  grid        = gsk_path_builder_to_path (grid_builder);
+  grid_stroke = gsk_stroke_new (1.0);
+  gtk_snapshot_push_opacity (snapshot, 0.25);
+  gtk_snapshot_append_stroke (snapshot, grid, grid_stroke, &(GdkRGBA) { 1.0, 1.0, 1.0, 1.0 });
+  gtk_snapshot_pop (snapshot);
+
+  self->path = gsk_path_builder_to_path (curve_builder);
+  self->fg   = gtk_snapshot_to_node (snapshot);
 }
