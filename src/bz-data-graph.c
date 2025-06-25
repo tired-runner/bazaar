@@ -178,7 +178,6 @@ bz_data_graph_snapshot (GtkWidget   *widget,
   AdwStyleManager *style_manager    = NULL;
   g_autoptr (GdkRGBA) accent_color  = NULL;
   GdkRGBA widget_color              = { 0 };
-  double  path_length               = 0.0;
   g_autoptr (GskPath) transitioning = NULL;
   g_autoptr (GskStroke) stroke      = NULL;
 
@@ -189,15 +188,16 @@ bz_data_graph_snapshot (GtkWidget   *widget,
   accent_color  = adw_style_manager_get_accent_color_rgba (style_manager);
   gtk_widget_get_color (widget, &widget_color);
 
-  path_length = gsk_path_measure_get_length (self->path_measure);
-  if (self->transition_progress > 0.0 && self->transition_progress < path_length)
+  if (self->transition_progress > 0.0 && self->transition_progress < 1.0)
     {
       GskPathPoint point0                = { 0 };
+      double       path_distance         = 0.0;
       GskPathPoint point1                = { 0 };
       g_autoptr (GskPathBuilder) builder = NULL;
 
       gsk_path_get_start_point (self->path, &point0);
-      gsk_path_measure_get_point (self->path_measure, self->transition_progress, &point1);
+      path_distance = gsk_path_measure_get_length (self->path_measure) * self->transition_progress;
+      gsk_path_measure_get_point (self->path_measure, path_distance, &point1);
 
       builder = gsk_path_builder_new ();
       gsk_path_builder_add_segment (builder, self->path, &point0, &point1);
@@ -242,13 +242,8 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       self->wants_animate = FALSE;
 
       transition_target = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
-      transition_spring = adw_spring_params_new (1.0, 1.0, 6.5);
-      transition        = adw_spring_animation_new (
-          GTK_WIDGET (self),
-          0.0,
-          path_length,
-          transition_spring,
-          transition_target);
+      transition_spring = adw_spring_params_new (1.0, 1.0, 10.0);
+      transition        = adw_spring_animation_new (GTK_WIDGET (self), 0.0, 1.0, transition_spring, transition_target);
       adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (transition), 0.00001);
       adw_animation_play (transition);
     }
