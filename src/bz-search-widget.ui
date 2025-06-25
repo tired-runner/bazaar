@@ -157,8 +157,10 @@
                         <setter object="title_label" property="ellipsize">end</setter>
                         <setter object="developer_label" property="width-chars">-1</setter>
                         <setter object="developer_label" property="max-width-chars">-1</setter>
+                        <setter object="developer_label" property="ellipsize">end</setter>
                         <setter object="description_label" property="width-chars">-1</setter>
                         <setter object="description_label" property="max-width-chars">-1</setter>
+                        <setter object="description_label" property="ellipsize">end</setter>
                         <setter object="license_label" property="width-chars">13</setter>
                         <setter object="license_label" property="max-width-chars">13</setter>
                         <setter object="remote_repo_label" property="width-chars">13</setter>
@@ -168,11 +170,14 @@
                         <setter object="size_label" property="width-chars">13</setter>
                         <setter object="size_label" property="max-width-chars">13</setter>
                         
-                        <setter object="screenshot_scroll" property="height-request">300</setter>
+                        <setter object="screenshot_scroll" property="height-request">100</setter>
                         <setter object="screenshot_scroll" property="propagate-natural-height">TRUE</setter>
                         <setter object="screenshot_scroll" property="vexpand">TRUE</setter>
 
                         <setter object="entry_list_scroll" property="vexpand">TRUE</setter>
+
+                        <setter object="icon_image" property="visible">TRUE</setter>
+                        <setter object="icon_picture" property="visible">FALSE</setter>
                       </object>
                     </child>
                     <property name="child">
@@ -292,7 +297,7 @@
                                     <property name="orientation">vertical</property>
                                     <property name="spacing">25</property>
                                     <child>
-                                      <object class="GtkPicture" id="app-icon">
+                                      <object class="GtkPicture" id="icon_picture">
                                         <property name="vexpand">FALSE</property>
                                         <property name="width-request">128</property>
                                         <property name="height-request">128</property>
@@ -523,6 +528,21 @@
                                       <object class="GtkBox" id="title_label_bar">
                                         <property name="orientation">horizontal</property>
                                         <property name="spacing">10</property>
+                                        <child>
+                                          <object class="GtkImage" id="icon_image">
+                                            <property name="visible">FALSE</property>
+                                            <property name="icon-size">large</property>
+                                            <binding name="paintable">
+                                              <lookup name="icon-paintable" type="BzEntry">
+                                                <lookup name="ui-entry" type="BzEntryGroup">
+                                                  <lookup name="selected-item" type="GtkSingleSelection">
+                                                    <lookup name="model">list_view</lookup>
+                                                  </lookup>
+                                                </lookup>
+                                              </lookup>
+                                            </binding>
+                                          </object>
+                                        </child>
                                         <child>
                                           <object class="GtkLabel" id="title_label">
                                             <style>

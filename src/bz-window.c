@@ -65,6 +65,9 @@ struct _BzWindow
   AdwToggleGroup      *title_toggle_group;
   GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
+  AdwToolbarView      *toolbar_view;
+  AdwHeaderBar        *top_header_bar;
+  AdwHeaderBar        *bottom_header_bar;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -364,6 +367,22 @@ page_toggled_cb (BzWindow       *self,
 }
 
 static void
+breakpoint_apply_cb (BzWindow      *self,
+                     AdwBreakpoint *breakpoint)
+{
+  adw_header_bar_set_title_widget (self->top_header_bar, NULL);
+  adw_header_bar_set_title_widget (self->bottom_header_bar, GTK_WIDGET (self->title_revealer));
+}
+
+static void
+breakpoint_unapply_cb (BzWindow      *self,
+                       AdwBreakpoint *breakpoint)
+{
+  adw_header_bar_set_title_widget (self->bottom_header_bar, NULL);
+  adw_header_bar_set_title_widget (self->top_header_bar, GTK_WIDGET (self->title_revealer));
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -454,6 +473,9 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, toolbar_view);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, top_header_bar);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, bottom_header_bar);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
   gtk_widget_class_bind_template_callback (widget_class, full_view_install_cb);
@@ -461,6 +483,8 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, installed_page_install_cb);
   gtk_widget_class_bind_template_callback (widget_class, installed_page_remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, page_toggled_cb);
+  gtk_widget_class_bind_template_callback (widget_class, breakpoint_apply_cb);
+  gtk_widget_class_bind_template_callback (widget_class, breakpoint_unapply_cb);
 }
 
 static void
