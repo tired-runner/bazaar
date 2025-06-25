@@ -15,6 +15,7 @@
     <file preprocess="xml-stripblanks">bz-search-widget.ui</file>
     <file preprocess="xml-stripblanks">bz-section-view.ui</file>
     <file preprocess="xml-stripblanks">bz-share-dialog.ui</file>
+    <file preprocess="xml-stripblanks">bz-stats-dialog.ui</file>
     <file preprocess="xml-stripblanks">bz-transaction-view.ui</file>
     <file preprocess="xml-stripblanks">bz-update-dialog.ui</file>
     <file preprocess="xml-stripblanks">bz-window.ui</file>

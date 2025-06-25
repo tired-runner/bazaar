@@ -25,7 +25,7 @@
 #include "bz-data-graph.h"
 #include "bz-data-point.h"
 
-#define LABEL_MARGIN 100.0
+#define LABEL_MARGIN 75.0
 
 struct _BzDataGraph
 {
@@ -36,6 +36,10 @@ struct _BzDataGraph
   char       *dependent_axis_label;
   int         independent_decimals;
   int         dependent_decimals;
+  gboolean    has_dependent_min;
+  double      dependent_min;
+  gboolean    has_dependent_max;
+  double      dependent_max;
   double      transition_progress;
 
   GskPath        *path;
@@ -55,6 +59,10 @@ enum
   PROP_DEPENDENT_AXIS_LABEL,
   PROP_INDEPENDENT_DECIMALS,
   PROP_DEPENDENT_DECIMALS,
+  PROP_HAS_DEPENDENT_MIN,
+  PROP_DEPENDENT_MIN,
+  PROP_HAS_DEPENDENT_MAX,
+  PROP_DEPENDENT_MAX,
   PROP_TRANSITION_PROGRESS,
 
   LAST_PROP
@@ -117,6 +125,18 @@ bz_data_graph_get_property (GObject    *object,
     case PROP_DEPENDENT_DECIMALS:
       g_value_set_int (value, bz_data_graph_get_dependent_decimals (self));
       break;
+    case PROP_HAS_DEPENDENT_MIN:
+      g_value_set_boolean (value, bz_data_graph_get_has_dependent_min (self));
+      break;
+    case PROP_DEPENDENT_MIN:
+      g_value_set_double (value, bz_data_graph_get_dependent_min (self));
+      break;
+    case PROP_HAS_DEPENDENT_MAX:
+      g_value_set_boolean (value, bz_data_graph_get_has_dependent_max (self));
+      break;
+    case PROP_DEPENDENT_MAX:
+      g_value_set_double (value, bz_data_graph_get_dependent_max (self));
+      break;
     case PROP_TRANSITION_PROGRESS:
       g_value_set_double (value, bz_data_graph_get_transition_progress (self));
       break;
@@ -149,6 +169,18 @@ bz_data_graph_set_property (GObject      *object,
       break;
     case PROP_DEPENDENT_DECIMALS:
       bz_data_graph_set_dependent_decimals (self, g_value_get_int (value));
+      break;
+    case PROP_HAS_DEPENDENT_MIN:
+      bz_data_graph_set_has_dependent_min (self, g_value_get_boolean (value));
+      break;
+    case PROP_DEPENDENT_MIN:
+      bz_data_graph_set_dependent_min (self, g_value_get_double (value));
+      break;
+    case PROP_HAS_DEPENDENT_MAX:
+      bz_data_graph_set_has_dependent_max (self, g_value_get_boolean (value));
+      break;
+    case PROP_DEPENDENT_MAX:
+      bz_data_graph_set_dependent_max (self, g_value_get_double (value));
       break;
     case PROP_TRANSITION_PROGRESS:
       bz_data_graph_set_transition_progress (self, g_value_get_double (value));
@@ -242,9 +274,9 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       self->wants_animate = FALSE;
 
       transition_target = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
-      transition_spring = adw_spring_params_new (1.0, 1.0, 10.0);
+      transition_spring = adw_spring_params_new (1.0, 1.0, 80.0);
       transition        = adw_spring_animation_new (GTK_WIDGET (self), 0.0, 1.0, transition_spring, transition_target);
-      adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (transition), 0.00001);
+      adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (transition), 0.000001);
       adw_animation_play (transition);
     }
 }
@@ -292,6 +324,32 @@ bz_data_graph_class_init (BzDataGraphClass *klass)
           -1, 4, (int) 0,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
+  props[PROP_HAS_DEPENDENT_MIN] =
+      g_param_spec_boolean (
+          "has-dependent-min",
+          NULL, NULL, FALSE,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_DEPENDENT_MIN] =
+      g_param_spec_double (
+          "dependent-min",
+          NULL, NULL,
+          0.0, G_MAXDOUBLE, 0.0,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_HAS_DEPENDENT_MAX] =
+      g_param_spec_boolean (
+          "has-dependent-max",
+          NULL, NULL, FALSE,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_DEPENDENT_MAX] =
+      g_param_spec_double (
+          "dependent-max",
+          NULL, NULL,
+          0.0, G_MAXDOUBLE, 1.0,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
   props[PROP_TRANSITION_PROGRESS] =
       g_param_spec_double (
           "transition-progress",
@@ -308,6 +366,8 @@ bz_data_graph_class_init (BzDataGraphClass *klass)
 static void
 bz_data_graph_init (BzDataGraph *self)
 {
+  self->dependent_min = 0.0;
+  self->dependent_max = 1.0;
 }
 
 GtkWidget *
@@ -349,6 +409,34 @@ bz_data_graph_get_dependent_decimals (BzDataGraph *self)
 {
   g_return_val_if_fail (BZ_IS_DATA_GRAPH (self), 0);
   return self->dependent_decimals;
+}
+
+gboolean
+bz_data_graph_get_has_dependent_min (BzDataGraph *self)
+{
+  g_return_val_if_fail (BZ_IS_DATA_GRAPH (self), FALSE);
+  return self->has_dependent_min;
+}
+
+double
+bz_data_graph_get_dependent_min (BzDataGraph *self)
+{
+  g_return_val_if_fail (BZ_IS_DATA_GRAPH (self), 0.0);
+  return self->dependent_min;
+}
+
+gboolean
+bz_data_graph_get_has_dependent_max (BzDataGraph *self)
+{
+  g_return_val_if_fail (BZ_IS_DATA_GRAPH (self), FALSE);
+  return self->has_dependent_max;
+}
+
+double
+bz_data_graph_get_dependent_max (BzDataGraph *self)
+{
+  g_return_val_if_fail (BZ_IS_DATA_GRAPH (self), 0.0);
+  return self->dependent_max;
 }
 
 double
@@ -427,6 +515,54 @@ bz_data_graph_set_dependent_decimals (BzDataGraph *self,
 
   gtk_widget_queue_allocate (GTK_WIDGET (self));
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEPENDENT_DECIMALS]);
+}
+
+void
+bz_data_graph_set_has_dependent_min (BzDataGraph *self,
+                                     gboolean     has_dependent_min)
+{
+  g_return_if_fail (BZ_IS_DATA_GRAPH (self));
+
+  self->has_dependent_min = has_dependent_min;
+
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_DEPENDENT_MIN]);
+}
+
+void
+bz_data_graph_set_dependent_min (BzDataGraph *self,
+                                 double       dependent_min)
+{
+  g_return_if_fail (BZ_IS_DATA_GRAPH (self));
+
+  self->dependent_min = dependent_min;
+
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEPENDENT_MIN]);
+}
+
+void
+bz_data_graph_set_has_dependent_max (BzDataGraph *self,
+                                     gboolean     has_dependent_max)
+{
+  g_return_if_fail (BZ_IS_DATA_GRAPH (self));
+
+  self->has_dependent_max = has_dependent_max;
+
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_DEPENDENT_MAX]);
+}
+
+void
+bz_data_graph_set_dependent_max (BzDataGraph *self,
+                                 double       dependent_max)
+{
+  g_return_if_fail (BZ_IS_DATA_GRAPH (self));
+
+  self->dependent_max = dependent_max;
+
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEPENDENT_MAX]);
 }
 
 void
@@ -520,6 +656,11 @@ refresh_path (BzDataGraph *self,
         }
     }
 
+  if (self->has_dependent_min)
+    min_dependent = MIN (min_dependent, self->dependent_min);
+  if (self->has_dependent_max)
+    max_dependent = MAX (max_dependent, self->dependent_max);
+
   pango       = gtk_widget_get_pango_context (GTK_WIDGET (self));
   metrics     = pango_context_get_metrics (pango, NULL, NULL);
   font_height = (double) (int) PANGO_PIXELS_CEIL (pango_font_metrics_get_height (metrics));
@@ -599,7 +740,7 @@ refresh_path (BzDataGraph *self,
   gsk_path_builder_line_to (grid_builder, width, height);
 
   gtk_snapshot_save (snapshot);
-  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (-LABEL_MARGIN / 2.0, -font_height / 2.0));
+  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (-LABEL_MARGIN * 0.75, -font_height / 2.0));
   for (int i = 0; i < dependent_label_step; i++)
     {
       double value                   = 0.0;

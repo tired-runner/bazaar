@@ -27,6 +27,7 @@
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
 #include "bz-share-dialog.h"
+#include "bz-stats-dialog.h"
 
 struct _BzFullView
 {
@@ -194,37 +195,20 @@ static void
 dl_stats_cb (BzFullView *self,
              GtkButton  *button)
 {
-  AdwDialog *dialog     = NULL;
-  GtkWidget *overlay    = NULL;
-  BzEntry   *ui_entry   = NULL;
-  GtkWidget *graph      = NULL;
-  GtkWidget *header_bar = NULL;
+  BzEntry   *ui_entry = NULL;
+  AdwDialog *dialog   = NULL;
 
   if (self->group == NULL)
     return;
 
-  dialog = adw_dialog_new ();
-  gtk_widget_set_size_request (GTK_WIDGET (dialog), 400, 300);
+  ui_entry = bz_entry_group_get_ui_entry (self->group);
+  dialog   = bz_stats_dialog_new (NULL);
   adw_dialog_set_content_width (dialog, 2000);
   adw_dialog_set_content_height (dialog, 1500);
-  adw_dialog_set_title (dialog, "Downloads Over Time");
-
-  overlay = gtk_overlay_new ();
-  adw_dialog_set_child (dialog, overlay);
-
-  ui_entry = bz_entry_group_get_ui_entry (self->group);
-  graph    = bz_data_graph_new ();
-  g_object_bind_property (ui_entry, "download-stats", graph, "model", G_BINDING_SYNC_CREATE);
-  gtk_overlay_set_child (GTK_OVERLAY (overlay), graph);
-
-  header_bar = adw_header_bar_new ();
-  gtk_widget_set_halign (header_bar, GTK_ALIGN_FILL);
-  gtk_widget_set_valign (header_bar, GTK_ALIGN_START);
-  gtk_widget_add_css_class (header_bar, "flat");
-  gtk_overlay_add_overlay (GTK_OVERLAY (overlay), header_bar);
+  g_object_bind_property (ui_entry, "download-stats", dialog, "model", G_BINDING_SYNC_CREATE);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
-  bz_data_graph_animate_open (BZ_DATA_GRAPH (graph));
+  bz_stats_dialog_animate_open (BZ_STATS_DIALOG (dialog));
 }
 
 static void

@@ -925,7 +925,7 @@ query_flathub_fiber (QueryFlathubData *data)
       message_uri = g_strdup_printf ("https://flathub.org/api/v2/verification/%s/status", id);
       break;
     case PROP_DOWNLOAD_STATS:
-      message_uri = g_strdup_printf ("https://flathub.org/api/v2/stats/%s?all=false&days=100", id);
+      message_uri = g_strdup_printf ("https://flathub.org/api/v2/stats/%s?all=false&days=175", id);
       break;
     default:
       g_assert_not_reached ();

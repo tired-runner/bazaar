@@ -45,6 +45,18 @@ bz_data_graph_get_independent_decimals (BzDataGraph *self);
 int
 bz_data_graph_get_dependent_decimals (BzDataGraph *self);
 
+gboolean
+bz_data_graph_get_has_dependent_min (BzDataGraph *self);
+
+double
+bz_data_graph_get_dependent_min (BzDataGraph *self);
+
+gboolean
+bz_data_graph_get_has_dependent_max (BzDataGraph *self);
+
+double
+bz_data_graph_get_dependent_max (BzDataGraph *self);
+
 double
 bz_data_graph_get_transition_progress (BzDataGraph *self);
 
@@ -67,6 +79,22 @@ bz_data_graph_set_independent_decimals (BzDataGraph *self,
 void
 bz_data_graph_set_dependent_decimals (BzDataGraph *self,
                                       int          dependent_decimals);
+
+void
+bz_data_graph_set_has_dependent_min (BzDataGraph *self,
+                                     gboolean     dependent_min);
+
+void
+bz_data_graph_set_dependent_min (BzDataGraph *self,
+                                 double       dependent_min);
+
+void
+bz_data_graph_set_has_dependent_max (BzDataGraph *self,
+                                     gboolean     dependent_max);
+
+void
+bz_data_graph_set_dependent_max (BzDataGraph *self,
+                                 double       dependent_max);
 
 void
 bz_data_graph_set_transition_progress (BzDataGraph *self,

@@ -39,6 +39,7 @@ bz_sources = [
   'bz-search-widget.c',
   'bz-section-view.c',
   'bz-share-dialog.c',
+  'bz-stats-dialog.c',
   'bz-transaction-manager.c',
   'bz-transaction-view.c',
   'bz-transaction.c',
