@@ -45,7 +45,13 @@ struct _BzDataGraph
   GskPath        *path;
   GskPathMeasure *path_measure;
   GskRenderNode  *fg;
-  gboolean        wants_animate;
+  gboolean        wants_animate_open;
+  double          data_dependent_min;
+  double          data_dependent_max;
+  double          actual_dependent_min;
+  double          actual_dependent_max;
+  AdwAnimation   *lower_bound_anim;
+  AdwAnimation   *upper_bound_anim;
 };
 
 G_DEFINE_FINAL_TYPE (BzDataGraph, bz_data_graph, GTK_TYPE_WIDGET)
@@ -77,9 +83,27 @@ items_changed (GListModel  *model,
                BzDataGraph *self);
 
 static void
+animate_lower_bound_cb (double       value,
+                        BzDataGraph *self);
+
+static void
+animate_upper_bound_cb (double       value,
+                        BzDataGraph *self);
+
+static void
 refresh_path (BzDataGraph *self,
               double       width,
               double       height);
+
+static void
+animate_lower_bound (BzDataGraph *self,
+                     double       from,
+                     double       to);
+
+static void
+animate_upper_bound (BzDataGraph *self,
+                     double       from,
+                     double       to);
 
 static void
 bz_data_graph_dispose (GObject *object)
@@ -96,6 +120,8 @@ bz_data_graph_dispose (GObject *object)
   g_clear_pointer (&self->path, gsk_path_unref);
   g_clear_pointer (&self->path_measure, gsk_path_measure_unref);
   g_clear_pointer (&self->fg, gsk_render_node_unref);
+  g_clear_object (&self->lower_bound_anim);
+  g_clear_object (&self->upper_bound_anim);
 
   G_OBJECT_CLASS (bz_data_graph_parent_class)->dispose (object);
 }
@@ -265,13 +291,13 @@ bz_data_graph_snapshot (GtkWidget   *widget,
         accent_color);
   gtk_snapshot_restore (snapshot);
 
-  if (self->wants_animate)
+  if (self->wants_animate_open)
     {
       AdwAnimationTarget *transition_target = NULL;
       AdwSpringParams    *transition_spring = NULL;
       g_autoptr (AdwAnimation) transition   = NULL;
 
-      self->wants_animate = FALSE;
+      self->wants_animate_open = FALSE;
 
       transition_target = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
       transition_spring = adw_spring_params_new (1.0, 1.0, 80.0);
@@ -366,8 +392,31 @@ bz_data_graph_class_init (BzDataGraphClass *klass)
 static void
 bz_data_graph_init (BzDataGraph *self)
 {
+  AdwAnimationTarget *lower_bound_transition_target = NULL;
+  AdwSpringParams    *lower_bound_transition_spring = NULL;
+  g_autoptr (AdwAnimation) lower_bound_transition   = NULL;
+  AdwAnimationTarget *upper_bound_transition_target = NULL;
+  AdwSpringParams    *upper_bound_transition_spring = NULL;
+  g_autoptr (AdwAnimation) upper_bound_transition   = NULL;
+
   self->dependent_min = 0.0;
   self->dependent_max = 1.0;
+
+  lower_bound_transition_target = adw_callback_animation_target_new (
+      (AdwAnimationTargetFunc) animate_lower_bound_cb, self, NULL);
+  lower_bound_transition_spring = adw_spring_params_new (1.0, 1.0, 300.0);
+  lower_bound_transition        = adw_spring_animation_new (
+      GTK_WIDGET (self), 0.0, 0.0, lower_bound_transition_spring, lower_bound_transition_target);
+  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (lower_bound_transition), 0.00001);
+  self->lower_bound_anim = g_steal_pointer (&lower_bound_transition);
+
+  upper_bound_transition_target = adw_callback_animation_target_new (
+      (AdwAnimationTargetFunc) animate_upper_bound_cb, self, NULL);
+  upper_bound_transition_spring = adw_spring_params_new (1.0, 1.0, 300.0);
+  upper_bound_transition        = adw_spring_animation_new (
+      GTK_WIDGET (self), 0.0, 0.0, upper_bound_transition_spring, upper_bound_transition_target);
+  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (upper_bound_transition), 0.00001);
+  self->upper_bound_anim = g_steal_pointer (&upper_bound_transition);
 }
 
 GtkWidget *
@@ -524,6 +573,12 @@ bz_data_graph_set_has_dependent_min (BzDataGraph *self,
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
   self->has_dependent_min = has_dependent_min;
+  animate_lower_bound (
+      self,
+      self->actual_dependent_min,
+      has_dependent_min
+          ? self->dependent_min
+          : self->data_dependent_min);
 
   gtk_widget_queue_allocate (GTK_WIDGET (self));
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_DEPENDENT_MIN]);
@@ -533,9 +588,12 @@ void
 bz_data_graph_set_dependent_min (BzDataGraph *self,
                                  double       dependent_min)
 {
+  g_autoptr (AdwAnimation) transition = NULL;
+
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
   self->dependent_min = dependent_min;
+  animate_lower_bound (self, self->dependent_min, dependent_min);
 
   gtk_widget_queue_allocate (GTK_WIDGET (self));
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEPENDENT_MIN]);
@@ -548,6 +606,10 @@ bz_data_graph_set_has_dependent_max (BzDataGraph *self,
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
   self->has_dependent_max = has_dependent_max;
+  if (has_dependent_max)
+    animate_upper_bound (self, self->actual_dependent_max, self->dependent_max);
+  else
+    animate_upper_bound (self, self->actual_dependent_max, self->data_dependent_max);
 
   gtk_widget_queue_allocate (GTK_WIDGET (self));
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_DEPENDENT_MAX]);
@@ -560,6 +622,7 @@ bz_data_graph_set_dependent_max (BzDataGraph *self,
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
   self->dependent_max = dependent_max;
+  animate_upper_bound (self, self->dependent_max, dependent_max);
 
   gtk_widget_queue_allocate (GTK_WIDGET (self));
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEPENDENT_MAX]);
@@ -582,7 +645,7 @@ bz_data_graph_animate_open (BzDataGraph *self)
 {
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
-  self->wants_animate = TRUE;
+  self->wants_animate_open = TRUE;
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
@@ -593,6 +656,22 @@ items_changed (GListModel  *model,
                guint        added,
                BzDataGraph *self)
 {
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+}
+
+static void
+animate_lower_bound_cb (double       value,
+                        BzDataGraph *self)
+{
+  self->actual_dependent_min = value;
+  gtk_widget_queue_allocate (GTK_WIDGET (self));
+}
+
+static void
+animate_upper_bound_cb (double       value,
+                        BzDataGraph *self)
+{
+  self->actual_dependent_max = value;
   gtk_widget_queue_allocate (GTK_WIDGET (self));
 }
 
@@ -655,11 +734,20 @@ refresh_path (BzDataGraph *self,
           max_dependent   = MAX (dependent, max_dependent);
         }
     }
+  self->data_dependent_min = min_dependent;
+  self->data_dependent_max = max_dependent;
 
-  if (self->has_dependent_min)
-    min_dependent = MIN (min_dependent, self->dependent_min);
-  if (self->has_dependent_max)
-    max_dependent = MAX (max_dependent, self->dependent_max);
+  if (self->has_dependent_min ||
+      adw_animation_get_state (self->lower_bound_anim) == ADW_ANIMATION_PLAYING)
+    min_dependent = MIN (min_dependent, self->actual_dependent_min);
+  else
+    self->actual_dependent_min = min_dependent;
+
+  if (self->has_dependent_max ||
+      adw_animation_get_state (self->upper_bound_anim) == ADW_ANIMATION_PLAYING)
+    max_dependent = MAX (max_dependent, self->actual_dependent_max);
+  else
+    self->actual_dependent_max = max_dependent;
 
   pango       = gtk_widget_get_pango_context (GTK_WIDGET (self));
   metrics     = pango_context_get_metrics (pango, NULL, NULL);
@@ -793,4 +881,40 @@ refresh_path (BzDataGraph *self,
   self->path         = gsk_path_builder_to_path (curve_builder);
   self->path_measure = gsk_path_measure_new (self->path);
   self->fg           = gtk_snapshot_to_node (snapshot);
+}
+
+static void
+animate_lower_bound (BzDataGraph *self,
+                     double       from,
+                     double       to)
+{
+  adw_spring_animation_set_initial_velocity (
+      ADW_SPRING_ANIMATION (self->lower_bound_anim),
+      adw_spring_animation_get_velocity (
+          ADW_SPRING_ANIMATION (self->lower_bound_anim)));
+  adw_spring_animation_set_value_from (
+      ADW_SPRING_ANIMATION (self->lower_bound_anim),
+      from);
+  adw_spring_animation_set_value_to (
+      ADW_SPRING_ANIMATION (self->lower_bound_anim),
+      to);
+  adw_animation_play (self->lower_bound_anim);
+}
+
+static void
+animate_upper_bound (BzDataGraph *self,
+                     double       from,
+                     double       to)
+{
+  adw_spring_animation_set_initial_velocity (
+      ADW_SPRING_ANIMATION (self->upper_bound_anim),
+      adw_spring_animation_get_velocity (
+          ADW_SPRING_ANIMATION (self->upper_bound_anim)));
+  adw_spring_animation_set_value_from (
+      ADW_SPRING_ANIMATION (self->upper_bound_anim),
+      from);
+  adw_spring_animation_set_value_to (
+      ADW_SPRING_ANIMATION (self->upper_bound_anim),
+      to);
+  adw_animation_play (self->upper_bound_anim);
 }
