@@ -75,7 +75,7 @@ static void
 transaction_progress (BzEntry            *entry,
                       const char         *status,
                       gboolean            is_estimating,
-                      int                 progress,
+                      double              progress,
                       guint64             bytes_transferred,
                       guint64             start_time,
                       QueuedScheduleData *data);
@@ -353,15 +353,11 @@ static void
 transaction_progress (BzEntry            *entry,
                       const char         *status,
                       gboolean            is_estimating,
-                      int                 progress,
+                      double              progress,
                       guint64             bytes_transferred,
                       guint64             start_time,
                       QueuedScheduleData *data)
 {
-  double progress_double = 0.0;
-
-  progress_double = (double) progress / 100.0;
-
   if (entry != NULL)
     {
       BzTransaction *transaction = NULL;
@@ -373,11 +369,11 @@ transaction_progress (BzEntry            *entry,
           transaction,
           "pending", is_estimating,
           "status", status,
-          "progress", progress_double,
+          "progress", progress,
           NULL);
     }
 
-  data->self->current_progress = progress_double;
+  data->self->current_progress = progress;
   g_object_notify_by_pspec (G_OBJECT (data->self), props[PROP_CURRENT_PROGRESS]);
 }
 

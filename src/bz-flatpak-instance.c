@@ -145,6 +145,8 @@ BZ_DEFINE_DATA (
       BzBackendTransactionProgressFunc progress_func;
       gpointer                         user_data;
       GDestroyNotify                   destroy_user_data;
+      int                              n_operations;
+      int                              n_finished_operations;
     },
     BZ_RELEASE_DATA (installs, g_ptr_array_unref);
     BZ_RELEASE_DATA (updates, g_ptr_array_unref);
@@ -158,9 +160,11 @@ transaction_new_operation (FlatpakTransaction          *object,
                            FlatpakTransactionOperation *operation,
                            FlatpakTransactionProgress  *progress,
                            TransactionData             *data);
+
 static BzFlatpakEntry *
 find_entry_from_operation (TransactionData             *data,
-                           FlatpakTransactionOperation *operation);
+                           FlatpakTransactionOperation *operation,
+                           int                         *n_operations);
 
 BZ_DEFINE_DATA (
     transaction_operation,
@@ -185,7 +189,7 @@ BZ_DEFINE_DATA (
       TransactionOperationData *parent;
       char                     *status;
       gboolean                  is_estimating;
-      int                       progress_num;
+      double                    progress;
       guint64                   bytes_transferred;
       guint64                   start_time;
     },
@@ -379,15 +383,17 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
         removals_dup[i] = g_object_ref (BZ_FLATPAK_ENTRY (removals[i]));
     }
 
-  data                    = transaction_data_new ();
-  data->instance          = self;
-  data->installs          = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
-  data->updates           = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
-  data->removals          = removals_dup != NULL ? g_ptr_array_new_take ((gpointer *) removals_dup, n_removals, g_object_unref) : NULL;
-  data->ref_to_entry_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
-  data->progress_func     = progress_func;
-  data->user_data         = user_data;
-  data->destroy_user_data = destroy_user_data;
+  data                        = transaction_data_new ();
+  data->instance              = self;
+  data->installs              = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
+  data->updates               = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
+  data->removals              = removals_dup != NULL ? g_ptr_array_new_take ((gpointer *) removals_dup, n_removals, g_object_unref) : NULL;
+  data->ref_to_entry_hash     = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+  data->progress_func         = progress_func;
+  data->user_data             = user_data;
+  data->destroy_user_data     = destroy_user_data;
+  data->n_operations          = 0;
+  data->n_finished_operations = -1;
 
   return dex_scheduler_spawn (
       self->scheduler, 0, (DexFiberFunc) transaction_fiber,
@@ -1160,6 +1166,21 @@ transaction_fiber (TransactionData *data)
 
   if (!flatpak_transaction_is_empty (system_transaction))
     {
+      g_autolist (GObject) operations = NULL;
+
+      operations = flatpak_transaction_get_operations (system_transaction);
+      data->n_operations += g_list_length (operations);
+    }
+  if (!flatpak_transaction_is_empty (user_transaction))
+    {
+      g_autolist (GObject) operations = NULL;
+
+      operations = flatpak_transaction_get_operations (user_transaction);
+      data->n_operations += g_list_length (operations);
+    }
+
+  if (!flatpak_transaction_is_empty (system_transaction))
+    {
       g_signal_connect (system_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
       result = flatpak_transaction_run (system_transaction, NULL, &local_error);
       if (!result)
@@ -1191,32 +1212,34 @@ transaction_new_operation (FlatpakTransaction          *transaction,
                            FlatpakTransactionProgress  *progress,
                            TransactionData             *data)
 {
-  flatpak_transaction_progress_set_update_frequency (progress, 50);
+  BzFlatpakEntry *entry                               = NULL;
+  g_autoptr (TransactionOperationData) operation_data = NULL;
 
-  if (data->progress_func != NULL)
-    {
-      BzFlatpakEntry *entry                               = NULL;
-      g_autoptr (TransactionOperationData) operation_data = NULL;
+  data->n_finished_operations++;
 
-      entry = find_entry_from_operation (data, operation);
+  if (data->progress_func == NULL)
+    return;
 
-      operation_data                 = transaction_operation_data_new ();
-      operation_data->parent         = transaction_data_ref (data);
-      operation_data->entry          = entry != NULL ? g_object_ref (entry) : NULL;
-      operation_data->timeout_handle = 0;
+  flatpak_transaction_progress_set_update_frequency (progress, 150);
+  entry = find_entry_from_operation (data, operation, &data->n_operations);
 
-      g_signal_connect_data (
-          progress, "changed",
-          G_CALLBACK (transaction_progress_changed),
-          transaction_operation_data_ref (operation_data),
-          transaction_operation_data_unref_closure,
-          G_CONNECT_DEFAULT);
-    }
+  operation_data                 = transaction_operation_data_new ();
+  operation_data->parent         = transaction_data_ref (data);
+  operation_data->entry          = entry != NULL ? g_object_ref (entry) : NULL;
+  operation_data->timeout_handle = 0;
+
+  g_signal_connect_data (
+      progress, "changed",
+      G_CALLBACK (transaction_progress_changed),
+      transaction_operation_data_ref (operation_data),
+      transaction_operation_data_unref_closure,
+      G_CONNECT_DEFAULT);
 }
 
 static BzFlatpakEntry *
 find_entry_from_operation (TransactionData             *data,
-                           FlatpakTransactionOperation *operation)
+                           FlatpakTransactionOperation *operation,
+                           int                         *n_operations)
 {
   const char     *ref_fmt        = NULL;
   BzFlatpakEntry *entry          = NULL;
@@ -1235,8 +1258,11 @@ find_entry_from_operation (TransactionData             *data,
     {
       FlatpakTransactionOperation *related_op = NULL;
 
+      if (n_operations != NULL)
+        (*n_operations)++;
+
       related_op = g_ptr_array_index (related_to_ops, i);
-      entry      = find_entry_from_operation (data, related_op);
+      entry      = find_entry_from_operation (data, related_op, n_operations);
       if (entry != NULL)
         return entry;
     }
@@ -1250,12 +1276,14 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
 {
   g_autoptr (IdleTransactionData) idle_data = NULL;
 
-  idle_data                    = idle_transaction_data_new ();
-  idle_data->hold              = g_object_ref (data->parent->instance);
-  idle_data->parent            = transaction_operation_data_ref (data);
-  idle_data->status            = flatpak_transaction_progress_get_status (progress);
-  idle_data->is_estimating     = flatpak_transaction_progress_get_is_estimating (progress);
-  idle_data->progress_num      = flatpak_transaction_progress_get_progress (progress);
+  idle_data                = idle_transaction_data_new ();
+  idle_data->hold          = g_object_ref (data->parent->instance);
+  idle_data->parent        = transaction_operation_data_ref (data);
+  idle_data->status        = flatpak_transaction_progress_get_status (progress);
+  idle_data->is_estimating = flatpak_transaction_progress_get_is_estimating (progress);
+  idle_data->progress      = (double) (flatpak_transaction_progress_get_progress (progress) +
+                                  (100 * data->parent->n_finished_operations)) /
+                        (100.0 * MAX (1.0, (double) (data->parent->n_operations)));
   idle_data->bytes_transferred = flatpak_transaction_progress_get_bytes_transferred (progress);
   idle_data->start_time        = flatpak_transaction_progress_get_start_time (progress);
 
@@ -1290,7 +1318,7 @@ transaction_progress_idle (IdleTransactionData *data)
           : NULL,
       data->status,
       data->is_estimating,
-      data->progress_num,
+      data->progress,
       data->bytes_transferred,
       data->start_time,
       data->parent->parent->user_data);
@@ -1307,7 +1335,7 @@ transaction_progress_timeout (IdleTransactionData *data)
           : NULL,
       data->status,
       data->is_estimating,
-      data->progress_num,
+      data->progress,
       data->bytes_transferred,
       data->start_time,
       data->parent->parent->user_data);

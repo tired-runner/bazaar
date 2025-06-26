@@ -38,7 +38,7 @@ typedef void (*BzBackendTransactionProgressFunc) (
     BzEntry    *entry,
     const char *status,
     gboolean    is_estimating,
-    int         progress_num,
+    double      progress,
     guint64     bytes_transferred,
     guint64     start_time,
     gpointer    user_data);
