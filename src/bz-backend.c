@@ -33,11 +33,13 @@ BZ_DEFINE_DATA (
       DexScheduler              *home_scheduler;
       GPtrArray                 *blocklists;
       BzBackendGatherEntriesFunc progress_func;
+      GCancellable              *cancellable;
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
     BZ_RELEASE_DATA (blocklists, g_ptr_array_unref);
+    BZ_RELEASE_DATA (cancellable, g_object_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
 static DexFuture *
 retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data);
@@ -53,6 +55,7 @@ bz_backend_real_retrieve_remote_entries (BzBackend                 *self,
                                          DexScheduler              *home_scheduler,
                                          GPtrArray                 *blocked_names,
                                          BzBackendGatherEntriesFunc progress_func,
+                                         GCancellable              *cancellable,
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data)
 {
@@ -60,13 +63,15 @@ bz_backend_real_retrieve_remote_entries (BzBackend                 *self,
 }
 
 static DexFuture *
-bz_backend_real_retrieve_install_ids (BzBackend *self)
+bz_backend_real_retrieve_install_ids (BzBackend    *self,
+                                      GCancellable *cancellable)
 {
   return NULL;
 }
 
 static DexFuture *
-bz_backend_real_retrieve_update_ids (BzBackend *self)
+bz_backend_real_retrieve_update_ids (BzBackend    *self,
+                                     GCancellable *cancellable)
 {
   return NULL;
 }
@@ -80,6 +85,7 @@ bz_backend_real_schedule_transaction (BzBackend                       *self,
                                       BzEntry                        **removals,
                                       guint                            n_removals,
                                       BzBackendTransactionProgressFunc progress_func,
+                                      GCancellable                    *cancellable,
                                       gpointer                         user_data,
                                       GDestroyNotify                   destroy_user_data)
 {
@@ -99,8 +105,7 @@ bz_backend_default_init (BzBackendInterface *iface)
 DexFuture *
 bz_backend_refresh (BzBackend *self)
 {
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
   return BZ_BACKEND_GET_IFACE (self)->refresh (self);
 }
 
@@ -109,17 +114,19 @@ bz_backend_retrieve_remote_entries (BzBackend                 *self,
                                     DexScheduler              *home_scheduler,
                                     GPtrArray                 *blocked_names,
                                     BzBackendGatherEntriesFunc progress_func,
+                                    GCancellable              *cancellable,
                                     gpointer                   user_data,
                                     GDestroyNotify             destroy_user_data)
 {
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler), NULL);
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
+  dex_return_error_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler));
 
   return BZ_BACKEND_GET_IFACE (self)->retrieve_remote_entries (
       self,
       home_scheduler != NULL ? home_scheduler : dex_scheduler_get_thread_default (),
       blocked_names,
       progress_func,
+      cancellable,
       user_data,
       destroy_user_data);
 }
@@ -129,22 +136,23 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
                                                     DexScheduler              *home_scheduler,
                                                     GListModel                *blocklists,
                                                     BzBackendGatherEntriesFunc progress_func,
+                                                    GCancellable              *cancellable,
                                                     gpointer                   user_data,
                                                     GDestroyNotify             destroy_user_data)
 {
-
   g_autoptr (RetrieveWithBlocklistsData) data = NULL;
   guint n_blocklists                          = 0;
 
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler), NULL);
-  g_return_val_if_fail (G_LIST_MODEL (blocklists), NULL);
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
+  dex_return_error_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler));
+  dex_return_error_if_fail (G_LIST_MODEL (blocklists));
 
   data                    = retrieve_with_blocklists_data_new ();
   data->backend           = self;
   data->home_scheduler    = home_scheduler != NULL ? dex_ref (home_scheduler) : dex_scheduler_ref_thread_default ();
   data->blocklists        = g_ptr_array_new_with_free_func (g_free);
   data->progress_func     = progress_func;
+  data->cancellable       = cancellable != NULL ? g_object_ref (cancellable) : NULL;
   data->user_data         = user_data;
   data->destroy_user_data = destroy_user_data;
 
@@ -169,19 +177,19 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
 }
 
 DexFuture *
-bz_backend_retrieve_install_ids (BzBackend *self)
+bz_backend_retrieve_install_ids (BzBackend    *self,
+                                 GCancellable *cancellable)
 {
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-
-  return BZ_BACKEND_GET_IFACE (self)->retrieve_install_ids (self);
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
+  return BZ_BACKEND_GET_IFACE (self)->retrieve_install_ids (self, cancellable);
 }
 
 DexFuture *
-bz_backend_retrieve_update_ids (BzBackend *self)
+bz_backend_retrieve_update_ids (BzBackend    *self,
+                                GCancellable *cancellable)
 {
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-
-  return BZ_BACKEND_GET_IFACE (self)->retrieve_update_ids (self);
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
+  return BZ_BACKEND_GET_IFACE (self)->retrieve_update_ids (self, cancellable);
 }
 
 DexFuture *
@@ -193,28 +201,28 @@ bz_backend_schedule_transaction (BzBackend                       *self,
                                  BzEntry                        **removals,
                                  guint                            n_removals,
                                  BzBackendTransactionProgressFunc progress_func,
+                                 GCancellable                    *cancellable,
                                  gpointer                         user_data,
                                  GDestroyNotify                   destroy_user_data)
 {
-  g_return_val_if_fail (BZ_IS_BACKEND (self), NULL);
-  g_return_val_if_fail ((installs != NULL && n_installs > 0) ||
+  dex_return_error_if_fail (BZ_IS_BACKEND (self));
+  dex_return_error_if_fail ((installs != NULL && n_installs > 0) ||
                             (updates != NULL && n_updates > 0) ||
-                            (removals != NULL && n_removals),
-                        NULL);
+                            (removals != NULL && n_removals));
   if (installs != NULL)
     {
       for (guint i = 0; i < n_installs; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (installs[i]), NULL);
+        dex_return_error_if_fail (BZ_IS_ENTRY (installs[i]));
     }
   if (updates != NULL)
     {
       for (guint i = 0; i < n_updates; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (updates[i]), NULL);
+        dex_return_error_if_fail (BZ_IS_ENTRY (updates[i]));
     }
   if (removals != NULL)
     {
       for (guint i = 0; i < n_removals; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (removals[i]), NULL);
+        dex_return_error_if_fail (BZ_IS_ENTRY (removals[i]));
     }
 
   return BZ_BACKEND_GET_IFACE (self)->schedule_transaction (
@@ -226,6 +234,7 @@ bz_backend_schedule_transaction (BzBackend                       *self,
       removals,
       n_removals,
       progress_func,
+      cancellable,
       user_data,
       destroy_user_data);
 }
@@ -234,6 +243,7 @@ DexFuture *
 bz_backend_merge_and_schedule_transactions (BzBackend                       *self,
                                             GListModel                      *transactions,
                                             BzBackendTransactionProgressFunc progress_func,
+                                            GCancellable                    *cancellable,
                                             gpointer                         user_data,
                                             GDestroyNotify                   destroy_user_data)
 {
@@ -291,6 +301,7 @@ bz_backend_merge_and_schedule_transactions (BzBackend                       *sel
       (BzEntry **) removals_pa->pdata,
       removals_pa->len,
       progress_func,
+      cancellable,
       user_data,
       destroy_user_data);
 }
@@ -341,6 +352,7 @@ retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data)
           data->home_scheduler,
           blocked_names,
           data->progress_func,
+          data->cancellable,
           g_steal_pointer (&data->user_data),
           data->destroy_user_data);
 }

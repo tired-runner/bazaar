@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+// This file is an utter mess
+
 #include "config.h"
 
 #include <glib/gi18n.h>
@@ -63,6 +65,8 @@ struct _BzWindow
   GtkButton           *update_button;
   GtkRevealer         *title_revealer;
   AdwToggleGroup      *title_toggle_group;
+  GtkToggleButton     *transactions_pause;
+  GtkButton           *transactions_stop;
   GtkButton           *transactions_clear;
   AdwToastOverlay     *toasts;
   AdwToolbarView      *toolbar_view;
@@ -92,6 +96,11 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 static void setting_changed (GSettings   *settings,
                              const gchar *pkey,
                              BzWindow    *self);
+
+static void
+transactions_active_changed (BzTransactionManager *manager,
+                             GParamSpec           *pspec,
+                             BzWindow             *self);
 
 static void
 has_transactions_changed (BzTransactionManager *manager,
@@ -174,8 +183,12 @@ bz_window_dispose (GObject *object)
     g_signal_handlers_disconnect_by_func (
         self->settings, setting_changed, self);
   if (self->transaction_manager != NULL)
-    g_signal_handlers_disconnect_by_func (
-        self->transaction_manager, has_transactions_changed, self);
+    {
+      g_signal_handlers_disconnect_by_func (
+          self->transaction_manager, transactions_active_changed, self);
+      g_signal_handlers_disconnect_by_func (
+          self->transaction_manager, has_transactions_changed, self);
+    }
   if (self->updates != NULL)
     g_signal_handlers_disconnect_by_func (
         self->updates, updates_changed, self);
@@ -257,14 +270,23 @@ bz_window_set_property (GObject      *object,
       break;
     case PROP_TRANSACTION_MANAGER:
       if (self->transaction_manager != NULL)
-        g_signal_handlers_disconnect_by_func (
-            self->transaction_manager, has_transactions_changed, self);
+        {
+          g_signal_handlers_disconnect_by_func (
+              self->transaction_manager, transactions_active_changed, self);
+          g_signal_handlers_disconnect_by_func (
+              self->transaction_manager, has_transactions_changed, self);
+        }
       g_clear_object (&self->transaction_manager);
       self->transaction_manager = g_value_dup_object (value);
       if (self->transaction_manager != NULL)
-        g_signal_connect (
-            self->transaction_manager, "notify::has-transactions",
-            G_CALLBACK (has_transactions_changed), self);
+        {
+          g_signal_connect (
+              self->transaction_manager, "notify::active",
+              G_CALLBACK (transactions_active_changed), self);
+          g_signal_connect (
+              self->transaction_manager, "notify::has-transactions",
+              G_CALLBACK (has_transactions_changed), self);
+        }
       check_transactions (self);
       break;
     case PROP_CONTENT_PROVIDER:
@@ -383,6 +405,25 @@ breakpoint_unapply_cb (BzWindow      *self,
 }
 
 static void
+pause_transactions_cb (BzWindow        *self,
+                       GtkToggleButton *toggle)
+{
+  gboolean paused = FALSE;
+
+  paused = gtk_toggle_button_get_active (toggle);
+  bz_transaction_manager_set_paused (self->transaction_manager, paused);
+  check_transactions (self);
+}
+
+static void
+stop_transactions_cb (BzWindow  *self,
+                      GtkButton *button)
+{
+  bz_transaction_manager_set_paused (self->transaction_manager, TRUE);
+  bz_transaction_manager_cancel_current (self->transaction_manager);
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -472,6 +513,8 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_pause);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stop);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_clear);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toolbar_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, top_header_bar);
@@ -485,6 +528,8 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, page_toggled_cb);
   gtk_widget_class_bind_template_callback (widget_class, breakpoint_apply_cb);
   gtk_widget_class_bind_template_callback (widget_class, breakpoint_unapply_cb);
+  gtk_widget_class_bind_template_callback (widget_class, pause_transactions_cb);
+  gtk_widget_class_bind_template_callback (widget_class, stop_transactions_cb);
 }
 
 static void
@@ -524,6 +569,14 @@ setting_changed (GSettings   *settings,
       //         settings,
       //         "show-animated-background"));
     }
+}
+
+static void
+transactions_active_changed (BzTransactionManager *manager,
+                             GParamSpec           *pspec,
+                             BzWindow             *self)
+{
+  check_transactions (self);
 }
 
 static void
@@ -579,7 +632,6 @@ static void
 transactions_clear_clicked (GtkButton *button,
                             BzWindow  *self)
 {
-  /* if the button is clickable, there has to be a transaction manager */
   bz_transaction_manager_clear_finished (self->transaction_manager);
 }
 
@@ -941,15 +993,42 @@ static void
 check_transactions (BzWindow *self)
 {
   gboolean has_transactions = FALSE;
+  gboolean paused           = FALSE;
+  gboolean active           = FALSE;
 
   if (self->transaction_manager != NULL)
-    g_object_get (self->transaction_manager, "has-transactions", &has_transactions, NULL);
-
+    has_transactions = bz_transaction_manager_get_has_transactions (self->transaction_manager);
   adw_view_stack_set_visible_child_name (
       self->transactions_stack,
       has_transactions
           ? "content"
           : "empty");
+
+  if (self->transaction_manager == NULL)
+    return;
+
+  paused = gtk_toggle_button_get_active (self->transactions_pause);
+  active = bz_transaction_manager_get_active (self->transaction_manager);
+
+  // ugh, this is so messy
+
+  if (paused)
+    {
+      gtk_button_set_icon_name (GTK_BUTTON (self->transactions_pause), "media-playback-start-symbolic");
+      gtk_widget_set_tooltip_text (GTK_WIDGET (self->transactions_pause), _ ("Resume the execution of transactions"));
+      gtk_widget_add_css_class (GTK_WIDGET (self->transactions_pause), "suggested-action");
+    }
+  else
+    {
+      gtk_button_set_icon_name (GTK_BUTTON (self->transactions_pause), "media-playback-pause-symbolic");
+      gtk_widget_set_tooltip_text (GTK_WIDGET (self->transactions_pause), _ ("Pause the execution of transactions"));
+      gtk_widget_remove_css_class (GTK_WIDGET (self->transactions_pause), "suggested-action");
+    }
+
+  if (active)
+    gtk_widget_add_css_class (GTK_WIDGET (self->transactions_stop), "destructive-action");
+  else
+    gtk_widget_remove_css_class (GTK_WIDGET (self->transactions_stop), "destructive-action");
 }
 
 static void

@@ -50,6 +50,10 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/newspaper-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/verified-checkmark-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/graph-symbolic.svg</file>
-    
+    <file preprocess="xml-stripblanks">icons/scalable/actions/media-playback-pause-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/media-playback-start-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/media-playback-stop-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/cross-large-circle-filled-symbolic.svg</file>
+
   </gresource>
 </gresources>

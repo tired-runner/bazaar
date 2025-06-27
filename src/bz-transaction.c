@@ -259,7 +259,7 @@ bz_transaction_init (BzTransaction *self)
   priv = bz_transaction_get_instance_private (self);
 
   now        = g_date_time_new_now_local ();
-  priv->name = g_date_time_format (now, _ ("Requested: %c"));
+  priv->name = g_date_time_format (now, _ ("%X"));
 
   priv->installs = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
   priv->updates  = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
@@ -322,6 +322,58 @@ bz_transaction_new_full (BzEntry **installs,
     }
 
   return g_steal_pointer (&self);
+}
+
+BzTransaction *
+bz_transaction_new_merged (BzTransaction **transactions,
+                           guint           n_transactions)
+{
+  g_autoptr (GPtrArray) installs_pa = NULL;
+  g_autoptr (GPtrArray) updates_pa  = NULL;
+  g_autoptr (GPtrArray) removals_pa = NULL;
+
+  g_return_val_if_fail (transactions != NULL, NULL);
+  g_return_val_if_fail (n_transactions >= 2, NULL);
+
+  installs_pa = g_ptr_array_new_with_free_func (g_object_unref);
+  updates_pa  = g_ptr_array_new_with_free_func (g_object_unref);
+  removals_pa = g_ptr_array_new_with_free_func (g_object_unref);
+
+  for (guint i = 0; i < n_transactions; i++)
+    {
+      GListModel *installs   = NULL;
+      GListModel *updates    = NULL;
+      GListModel *removals   = NULL;
+      guint       n_installs = 0;
+      guint       n_updates  = 0;
+      guint       n_removals = 0;
+
+      installs = bz_transaction_get_installs (transactions[i]);
+      updates  = bz_transaction_get_updates (transactions[i]);
+      removals = bz_transaction_get_removals (transactions[i]);
+
+      if (installs != NULL)
+        n_installs = g_list_model_get_n_items (installs);
+      if (updates != NULL)
+        n_updates = g_list_model_get_n_items (updates);
+      if (removals != NULL)
+        n_removals = g_list_model_get_n_items (removals);
+
+      for (guint j = 0; j < n_installs; j++)
+        g_ptr_array_add (installs_pa, g_list_model_get_item (installs, j));
+      for (guint j = 0; j < n_updates; j++)
+        g_ptr_array_add (updates_pa, g_list_model_get_item (updates, j));
+      for (guint j = 0; j < n_removals; j++)
+        g_ptr_array_add (removals_pa, g_list_model_get_item (removals, j));
+    }
+
+  return bz_transaction_new_full (
+      (BzEntry **) installs_pa->pdata,
+      installs_pa->len,
+      (BzEntry **) updates_pa->pdata,
+      updates_pa->len,
+      (BzEntry **) removals_pa->pdata,
+      removals_pa->len);
 }
 
 GListModel *

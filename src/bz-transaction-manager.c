@@ -31,12 +31,15 @@ struct _BzTransactionManager
   GObject parent_instance;
 
   BzBackend     *backend;
+  gboolean       paused;
   GListStore    *transactions;
   double         current_progress;
   BzTransaction *last_success;
 
-  DexFuture *current_task;
-  GQueue     queue;
+  DexFuture    *current_task;
+  GCancellable *cancellable;
+
+  GQueue queue;
 };
 
 G_DEFINE_FINAL_TYPE (BzTransactionManager, bz_transaction_manager, G_TYPE_OBJECT)
@@ -46,6 +49,7 @@ enum
   PROP_0,
 
   PROP_BACKEND,
+  PROP_PAUSED,
   PROP_TRANSACTIONS,
   PROP_HAS_TRANSACTIONS,
   PROP_ACTIVE,
@@ -62,13 +66,11 @@ BZ_DEFINE_DATA (
     {
       BzTransactionManager *self;
       BzBackend            *backend;
-      GPtrArray            *transactions;
-      GHashTable           *entry_to_transaction_hash;
+      BzTransaction        *transaction;
       GTimer               *timer;
     },
     BZ_RELEASE_DATA (backend, g_object_unref);
-    BZ_RELEASE_DATA (transactions, g_ptr_array_unref);
-    BZ_RELEASE_DATA (entry_to_transaction_hash, g_hash_table_unref);
+    BZ_RELEASE_DATA (transaction, g_object_unref);
     BZ_RELEASE_DATA (timer, g_timer_destroy));
 
 static void
@@ -97,6 +99,7 @@ bz_transaction_manager_dispose (GObject *object)
   g_clear_object (&self->last_success);
   g_queue_clear_full (&self->queue, queued_schedule_data_unref);
   dex_clear (&self->current_task);
+  g_clear_object (&self->cancellable);
 
   G_OBJECT_CLASS (bz_transaction_manager_parent_class)->dispose (object);
 }
@@ -114,14 +117,17 @@ bz_transaction_manager_get_property (GObject    *object,
     case PROP_BACKEND:
       g_value_set_object (value, bz_transaction_manager_get_backend (self));
       break;
+    case PROP_PAUSED:
+      g_value_set_boolean (value, bz_transaction_manager_get_paused (self));
+      break;
     case PROP_TRANSACTIONS:
       g_value_set_object (value, self->transactions);
       break;
     case PROP_HAS_TRANSACTIONS:
-      g_value_set_boolean (value, g_list_model_get_n_items (G_LIST_MODEL (self->transactions)) > 0);
+      g_value_set_boolean (value, bz_transaction_manager_get_has_transactions (self));
       break;
     case PROP_ACTIVE:
-      g_value_set_boolean (value, self->current_task != NULL);
+      g_value_set_boolean (value, bz_transaction_manager_get_active (self));
       break;
     case PROP_CURRENT_PROGRESS:
       g_value_set_double (value, self->current_progress);
@@ -147,6 +153,9 @@ bz_transaction_manager_set_property (GObject      *object,
     case PROP_BACKEND:
       bz_transaction_manager_set_backend (self, g_value_get_object (value));
       break;
+    case PROP_PAUSED:
+      bz_transaction_manager_set_paused (self, g_value_get_boolean (value));
+      break;
     case PROP_TRANSACTIONS:
     case PROP_HAS_TRANSACTIONS:
     case PROP_ACTIVE:
@@ -171,42 +180,46 @@ bz_transaction_manager_class_init (BzTransactionManagerClass *klass)
           "backend",
           NULL, NULL,
           BZ_TYPE_BACKEND,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_PAUSED] =
+      g_param_spec_boolean (
+          "paused",
+          NULL, NULL, FALSE,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_TRANSACTIONS] =
       g_param_spec_object (
           "transactions",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
-          G_PARAM_READABLE);
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   props[PROP_HAS_TRANSACTIONS] =
       g_param_spec_boolean (
           "has-transactions",
-          NULL, NULL,
-          FALSE,
-          G_PARAM_READABLE);
+          NULL, NULL, FALSE,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   props[PROP_ACTIVE] =
       g_param_spec_boolean (
           "active",
-          NULL, NULL,
-          FALSE,
-          G_PARAM_READABLE);
+          NULL, NULL, FALSE,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   props[PROP_CURRENT_PROGRESS] =
       g_param_spec_double (
           "current-progress",
           NULL, NULL,
           0.0, 1.0, 0.0,
-          G_PARAM_READABLE);
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   props[PROP_LAST_SUCCESS] =
       g_param_spec_object (
           "last-success",
           NULL, NULL,
           BZ_TYPE_TRANSACTION,
-          G_PARAM_READABLE);
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   g_type_ensure (BZ_TYPE_TRANSACTION_VIEW);
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -246,6 +259,44 @@ bz_transaction_manager_get_backend (BzTransactionManager *self)
   return self->backend;
 }
 
+void
+bz_transaction_manager_set_paused (BzTransactionManager *self,
+                                   gboolean              paused)
+{
+  g_return_if_fail (BZ_IS_TRANSACTION_MANAGER (self));
+
+  if ((self->paused && paused) ||
+      (!self->paused && !paused))
+    return;
+
+  self->paused = paused;
+  if (!paused)
+    dispatch_next (self);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PAUSED]);
+}
+
+gboolean
+bz_transaction_manager_get_paused (BzTransactionManager *self)
+{
+  g_return_val_if_fail (BZ_IS_TRANSACTION_MANAGER (self), FALSE);
+  return self->paused;
+}
+
+gboolean
+bz_transaction_manager_get_active (BzTransactionManager *self)
+{
+  g_return_val_if_fail (BZ_IS_TRANSACTION_MANAGER (self), FALSE);
+  return self->current_task != NULL;
+}
+
+gboolean
+bz_transaction_manager_get_has_transactions (BzTransactionManager *self)
+{
+  g_return_val_if_fail (BZ_IS_TRANSACTION_MANAGER (self), FALSE);
+  return g_list_model_get_n_items (G_LIST_MODEL (self->transactions)) > 0;
+}
+
 BzTransaction *
 bz_transaction_manager_get_last_success (BzTransactionManager *self)
 {
@@ -257,58 +308,62 @@ void
 bz_transaction_manager_add (BzTransactionManager *self,
                             BzTransaction        *transaction)
 {
-  /* TODO: be smarter and merge transactions based on stuff */
   g_autoptr (QueuedScheduleData) data = NULL;
-  GListModel *installs                = NULL;
-  GListModel *updates                 = NULL;
-  GListModel *removals                = NULL;
-  guint       n_installs              = 0;
-  guint       n_updates               = 0;
-  guint       n_removals              = 0;
 
   g_return_if_fail (BZ_IS_TRANSACTION_MANAGER (self));
   g_return_if_fail (self->backend != NULL);
   g_return_if_fail (BZ_IS_TRANSACTION (transaction));
 
-  data                            = queued_schedule_data_new ();
-  data->self                      = self;
-  data->backend                   = g_object_ref (self->backend);
-  data->transactions              = g_ptr_array_new_with_free_func (g_object_unref);
-  data->entry_to_transaction_hash = g_hash_table_new_full (
-      g_direct_hash, g_direct_equal, g_object_unref, g_object_unref);
+  if (self->queue.length > 0)
+    {
+      BzTransaction *to_merge[2] = { 0 };
+      guint          position    = 0;
 
-  g_ptr_array_add (data->transactions, g_object_ref (transaction));
+      data = g_queue_pop_head (&self->queue);
 
-  installs = bz_transaction_get_installs (transaction);
-  updates  = bz_transaction_get_updates (transaction);
-  removals = bz_transaction_get_removals (transaction);
+      to_merge[0] = data->transaction;
+      to_merge[1] = g_steal_pointer (&transaction);
+      transaction = bz_transaction_new_merged (to_merge, G_N_ELEMENTS (to_merge));
 
-  if (installs != NULL)
-    n_installs = g_list_model_get_n_items (installs);
-  if (updates != NULL)
-    n_updates = g_list_model_get_n_items (updates);
-  if (removals != NULL)
-    n_removals = g_list_model_get_n_items (removals);
+      g_list_store_find (self->transactions, data->transaction, &position);
+      g_list_store_splice (self->transactions, position, 1, (gpointer *) &transaction, 1);
 
-  for (guint i = 0; i < n_installs; i++)
-    g_hash_table_replace (data->entry_to_transaction_hash,
-                          g_list_model_get_item (installs, i),
-                          g_object_ref (transaction));
-  for (guint i = 0; i < n_updates; i++)
-    g_hash_table_replace (data->entry_to_transaction_hash,
-                          g_list_model_get_item (updates, i),
-                          g_object_ref (transaction));
-  for (guint i = 0; i < n_removals; i++)
-    g_hash_table_replace (data->entry_to_transaction_hash,
-                          g_list_model_get_item (removals, i),
-                          g_object_ref (transaction));
+      g_clear_object (&data->transaction);
+      data->transaction = transaction;
+    }
+  else
+    {
+      data              = queued_schedule_data_new ();
+      data->self        = self;
+      data->backend     = g_object_ref (self->backend);
+      data->transaction = g_object_ref (transaction);
+
+      g_list_store_insert (self->transactions, 0, transaction);
+    }
 
   g_queue_push_head (&self->queue, queued_schedule_data_ref (data));
   if (self->current_task == NULL)
     dispatch_next (self);
-
-  g_list_store_insert (self->transactions, 0, transaction);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_TRANSACTIONS]);
+}
+
+DexFuture *
+bz_transaction_manager_cancel_current (BzTransactionManager *self)
+{
+  dex_return_error_if_fail (BZ_IS_TRANSACTION_MANAGER (self));
+
+  if (self->current_task != NULL)
+    {
+      DexFuture *task = NULL;
+
+      g_cancellable_cancel (self->cancellable);
+      task = g_steal_pointer (&self->current_task);
+
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ACTIVE]);
+      return task;
+    }
+  else
+    return NULL;
 }
 
 void
@@ -358,20 +413,12 @@ transaction_progress (BzEntry            *entry,
                       guint64             start_time,
                       QueuedScheduleData *data)
 {
-  if (entry != NULL)
-    {
-      BzTransaction *transaction = NULL;
-
-      transaction = g_hash_table_lookup (data->entry_to_transaction_hash, entry);
-      g_assert (transaction != NULL);
-
-      g_object_set (
-          transaction,
-          "pending", is_estimating,
-          "status", status,
-          "progress", progress,
-          NULL);
-    }
+  g_object_set (
+      data->transaction,
+      "pending", is_estimating,
+      "status", status,
+      "progress", progress,
+      NULL);
 
   data->self->current_progress = progress;
   g_object_notify_by_pspec (G_OBJECT (data->self), props[PROP_CURRENT_PROGRESS]);
@@ -392,67 +439,64 @@ transaction_finally (DexFuture          *future,
       _ ("Finished in %.02f seconds"),
       g_timer_elapsed (data->timer, NULL));
 
-  for (guint i = 0; i < data->transactions->len; i++)
+  g_object_set (
+      data->transaction,
+      "status", status,
+      "progress", 1.0,
+      "finished", TRUE,
+      "success", value != NULL,
+      "error", local_error != NULL ? local_error->message : NULL,
+      NULL);
+
+  if (value != NULL)
     {
-      BzTransaction *transaction = NULL;
+      g_clear_object (&data->self->last_success);
+      data->self->last_success = g_object_ref (data->transaction);
 
-      transaction = g_ptr_array_index (data->transactions, i);
-      g_object_set (
-          transaction,
-          "status", status,
-          "progress", 1.0,
-          "finished", TRUE,
-          "success", value != NULL,
-          "error", local_error != NULL ? local_error->message : NULL,
-          NULL);
-
-      if (value != NULL)
-        {
-          g_clear_object (&data->self->last_success);
-          data->self->last_success = g_object_ref (transaction);
-
-          g_object_notify_by_pspec (
-              G_OBJECT (data->self),
-              props[PROP_LAST_SUCCESS]);
-        }
+      g_object_notify_by_pspec (
+          G_OBJECT (data->self),
+          props[PROP_LAST_SUCCESS]);
     }
 
+  g_clear_object (&data->self->cancellable);
   data->self->current_task = NULL;
   dispatch_next (data->self);
+
   return NULL;
 }
 
 static void
 dispatch_next (BzTransactionManager *self)
 {
-  g_autoptr (QueuedScheduleData) data = NULL;
-  g_autoptr (GListStore) store        = NULL;
-  g_autoptr (DexFuture) future        = NULL;
+  g_autoptr (QueuedScheduleData) data  = NULL;
+  g_autoptr (GListStore) store         = NULL;
+  g_autoptr (GCancellable) cancellable = NULL;
+  g_autoptr (DexFuture) future         = NULL;
 
-  if (self->queue.length == 0)
+  if (self->paused ||
+      self->cancellable != NULL ||
+      self->queue.length == 0)
     goto done;
+
   data        = g_queue_pop_tail (&self->queue);
   data->timer = g_timer_new ();
 
   store = g_list_store_new (BZ_TYPE_TRANSACTION);
-  for (guint i = 0; i < data->transactions->len; i++)
-    {
-      BzTransaction *transaction = NULL;
+  g_list_store_append (store, data->transaction);
 
-      transaction = g_ptr_array_index (data->transactions, i);
-      g_list_store_append (store, transaction);
-    }
-
-  future = bz_backend_merge_and_schedule_transactions (
+  cancellable = g_cancellable_new ();
+  future      = bz_backend_merge_and_schedule_transactions (
       self->backend,
       G_LIST_MODEL (store),
       (BzBackendTransactionProgressFunc) transaction_progress,
+      cancellable,
       queued_schedule_data_ref (data),
       queued_schedule_data_unref);
   future = dex_future_finally (
       future, (DexFutureCallback) transaction_finally,
       queued_schedule_data_ref (data),
       queued_schedule_data_unref);
+  self->cancellable  = g_steal_pointer (&cancellable);
   self->current_task = g_steal_pointer (&future);
 
 done:

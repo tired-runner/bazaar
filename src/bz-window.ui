@@ -98,10 +98,39 @@
                                     <property name="show-end-title-buttons">FALSE</property>
                                     <property name="show-title">FALSE</property>
                                     <child type="end">
-                                      <object class="GtkButton" id="transactions_clear">
-                                        <property name="has-tooltip">TRUE</property>
-                                        <property name="tooltip-text" translatable="yes">Clear all finished transactions</property>
-                                        <property name="icon-name">edit-clear-all</property>
+                                      <object class="GtkBox">
+                                        <style>
+                                          <class name="linked"/>
+                                        </style>
+                                        <child>
+                                          <object class="GtkToggleButton" id="transactions_pause">
+                                            <property name="has-tooltip">TRUE</property>
+                                            <binding name="active">
+                                              <lookup name="paused" type="BzTransactionManager">
+                                                <lookup name="transaction-manager">BzWindow</lookup>
+                                              </lookup>
+                                            </binding>
+                                            <signal name="toggled" handler="pause_transactions_cb" swapped="true" object="BzWindow"/>
+                                          </object>
+                                        </child>
+                                        <child>
+                                          <object class="GtkButton" id="transactions_stop">
+                                            <property name="has-tooltip">TRUE</property>
+                                            <property name="icon-name">media-playback-stop-symbolic</property>
+                                            <binding name="sensitive">
+                                              <lookup name="active" type="BzTransactionManager">
+                                                <lookup name="transaction-manager">BzWindow</lookup>
+                                              </lookup>
+                                            </binding>
+                                            <signal name="clicked" handler="stop_transactions_cb" swapped="true" object="BzWindow"/>
+                                          </object>
+                                        </child>
+                                        <child>
+                                          <object class="GtkButton" id="transactions_clear">
+                                            <property name="has-tooltip">TRUE</property>
+                                            <property name="icon-name">edit-clear-all-symbolic</property>
+                                          </object>
+                                        </child>
                                       </object>
                                     </child>
                                   </object>

@@ -40,6 +40,10 @@ bz_transaction_new_full (BzEntry **installs,
                          BzEntry **removals,
                          guint     n_removals);
 
+BzTransaction *
+bz_transaction_new_merged (BzTransaction **transactions,
+                           guint           n_transactions);
+
 GListModel *
 bz_transaction_get_installs (BzTransaction *self);
 

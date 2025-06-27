@@ -1301,7 +1301,7 @@ refresh_then (DexFuture     *future,
       NULL,
       self->blocklists,
       (BzBackendGatherEntriesFunc) gather_entries_progress,
-      self, NULL);
+      NULL, self, NULL);
   ref_remote_future = dex_future_then (
       ref_remote_future, (DexFutureCallback) fetch_refs_then,
       self, NULL);
@@ -1367,7 +1367,7 @@ fetch_refs_then (DexFuture     *future,
         }
     }
 
-  return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak));
+  return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak), NULL);
 }
 
 static DexFuture *
@@ -1407,7 +1407,7 @@ fetch_installs_then (DexFuture     *future,
         }
     }
 
-  return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak));
+  return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak), NULL);
 }
 
 static DexFuture *

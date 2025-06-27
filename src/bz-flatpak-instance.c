@@ -62,6 +62,7 @@ BZ_DEFINE_DATA (
     gather_entries,
     GatherEntries,
     {
+      GCancellable              *cancellable;
       BzFlatpakInstance         *instance;
       GPtrArray                 *blocked_names;
       DexScheduler              *home_scheduler;
@@ -69,6 +70,7 @@ BZ_DEFINE_DATA (
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
     },
+    BZ_RELEASE_DATA (cancellable, g_object_unref);
     BZ_RELEASE_DATA (blocked_names, g_ptr_array_unref);
     BZ_RELEASE_DATA (home_scheduler, dex_unref);
     BZ_RELEASE_DATA (user_data, self->destroy_user_data))
@@ -137,6 +139,7 @@ BZ_DEFINE_DATA (
     transaction,
     Transaction,
     {
+      GCancellable                    *cancellable;
       BzFlatpakInstance               *instance;
       GPtrArray                       *installs;
       GPtrArray                       *updates;
@@ -148,6 +151,7 @@ BZ_DEFINE_DATA (
       int                              n_operations;
       int                              n_finished_operations;
     },
+    BZ_RELEASE_DATA (cancellable, g_object_unref);
     BZ_RELEASE_DATA (installs, g_ptr_array_unref);
     BZ_RELEASE_DATA (updates, g_ptr_array_unref);
     BZ_RELEASE_DATA (removals, g_ptr_array_unref);
@@ -269,6 +273,7 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
                                              DexScheduler              *home_scheduler,
                                              GPtrArray                 *blocked_names,
                                              BzBackendGatherEntriesFunc progress_func,
+                                             GCancellable              *cancellable,
                                              gpointer                   user_data,
                                              GDestroyNotify             destroy_user_data)
 {
@@ -282,6 +287,7 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   g_ptr_array_set_size (self->cache_dirs, 0);
 
   data                    = gather_entries_data_new ();
+  data->cancellable       = cancellable != NULL ? g_object_ref (cancellable) : NULL;
   data->instance          = self;
   data->blocked_names     = g_ptr_array_ref (blocked_names);
   data->home_scheduler    = dex_ref (home_scheduler);
@@ -295,12 +301,14 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
 }
 
 static DexFuture *
-bz_flatpak_instance_retrieve_install_ids (BzBackend *backend)
+bz_flatpak_instance_retrieve_install_ids (BzBackend    *backend,
+                                          GCancellable *cancellable)
 {
   BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
   g_autoptr (GatherEntriesData) data = NULL;
 
   data                    = gather_entries_data_new ();
+  data->cancellable       = cancellable != NULL ? g_object_ref (cancellable) : NULL;
   data->instance          = self;
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = NULL;
@@ -313,12 +321,14 @@ bz_flatpak_instance_retrieve_install_ids (BzBackend *backend)
 }
 
 static DexFuture *
-bz_flatpak_instance_retrieve_update_ids (BzBackend *backend)
+bz_flatpak_instance_retrieve_update_ids (BzBackend    *backend,
+                                         GCancellable *cancellable)
 {
   BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
   g_autoptr (GatherEntriesData) data = NULL;
 
   data                    = gather_entries_data_new ();
+  data->cancellable       = cancellable != NULL ? g_object_ref (cancellable) : NULL;
   data->instance          = self;
   data->home_scheduler    = dex_scheduler_ref_thread_default ();
   data->progress_func     = NULL;
@@ -339,6 +349,7 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
                                           BzEntry                        **removals,
                                           guint                            n_removals,
                                           BzBackendTransactionProgressFunc progress_func,
+                                          GCancellable                    *cancellable,
                                           gpointer                         user_data,
                                           GDestroyNotify                   destroy_user_data)
 {
@@ -384,6 +395,7 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
     }
 
   data                        = transaction_data_new ();
+  data->cancellable           = cancellable != NULL ? g_object_ref (cancellable) : NULL;
   data->instance              = self;
   data->installs              = installs_dup != NULL ? g_ptr_array_new_take ((gpointer *) installs_dup, n_installs, g_object_unref) : NULL;
   data->updates               = updates_dup != NULL ? g_ptr_array_new_take ((gpointer *) updates_dup, n_updates, g_object_unref) : NULL;
@@ -458,6 +470,7 @@ init_fiber (InitData *data)
 static DexFuture *
 ref_remote_apps_fiber (GatherEntriesData *data)
 {
+  GCancellable      *cancellable            = data->cancellable;
   BzFlatpakInstance *instance               = data->instance;
   GPtrArray         *blocked_names          = data->blocked_names;
   g_autoptr (GError) local_error            = NULL;
@@ -469,7 +482,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   DexFuture             *future             = NULL;
 
   system_remotes = flatpak_installation_list_remotes (
-      instance->system, NULL, &local_error);
+      instance->system, cancellable, &local_error);
   if (system_remotes == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -478,7 +491,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
         local_error->message);
 
   user_remotes = flatpak_installation_list_remotes (
-      instance->user, NULL, &local_error);
+      instance->user, cancellable, &local_error);
   if (user_remotes == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -557,6 +570,7 @@ gather_entries_update_progress (const char        *status,
 static DexFuture *
 ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
 {
+  GCancellable        *cancellable        = data->parent->cancellable;
   BzFlatpakInstance   *instance           = data->parent->instance;
   DexScheduler        *home_scheduler     = data->parent->home_scheduler;
   FlatpakInstallation *installation       = data->installation;
@@ -592,7 +606,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   result = flatpak_installation_update_remote_sync (
       installation,
       remote_name,
-      NULL,
+      cancellable,
       &local_error);
   if (!result)
     {
@@ -612,7 +626,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       (FlatpakProgressCallback) gather_entries_update_progress,
       data,
       NULL,
-      NULL,
+      cancellable,
       &local_error);
   if (!result)
     {
@@ -658,7 +672,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       appstream_xml,
       XB_BUILDER_SOURCE_FLAG_WATCH_FILE |
           XB_BUILDER_SOURCE_FLAG_LITERAL_TEXT,
-      NULL,
+      cancellable,
       &local_error);
   if (!result)
     {
@@ -681,7 +695,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   silo = xb_builder_compile (
       builder,
       XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
-      NULL,
+      cancellable,
       &local_error);
   if (silo == NULL)
     {
@@ -802,7 +816,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   //   }
 
   refs = flatpak_installation_list_remote_refs_sync (
-      installation, remote_name, NULL, &local_error);
+      installation, remote_name, cancellable, &local_error);
   if (refs == NULL)
     {
       error_future = dex_future_new_reject (
@@ -925,6 +939,7 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
 static DexFuture *
 ref_installs_fiber (GatherEntriesData *data)
 {
+  GCancellable      *cancellable    = data->cancellable;
   BzFlatpakInstance *instance       = data->instance;
   g_autoptr (GError) local_error    = NULL;
   g_autoptr (GPtrArray) system_refs = NULL;
@@ -932,7 +947,7 @@ ref_installs_fiber (GatherEntriesData *data)
   g_autoptr (GHashTable) ids        = NULL;
 
   system_refs = flatpak_installation_list_installed_refs (
-      instance->system, NULL, &local_error);
+      instance->system, cancellable, &local_error);
   if (system_refs == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -941,7 +956,7 @@ ref_installs_fiber (GatherEntriesData *data)
         local_error->message);
 
   user_refs = flatpak_installation_list_installed_refs (
-      instance->user, NULL, &local_error);
+      instance->user, cancellable, &local_error);
   if (user_refs == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -977,6 +992,7 @@ ref_installs_fiber (GatherEntriesData *data)
 static DexFuture *
 ref_updates_fiber (GatherEntriesData *data)
 {
+  GCancellable      *cancellable    = data->cancellable;
   BzFlatpakInstance *instance       = data->instance;
   g_autoptr (GError) local_error    = NULL;
   g_autoptr (GPtrArray) system_refs = NULL;
@@ -984,7 +1000,7 @@ ref_updates_fiber (GatherEntriesData *data)
   g_autoptr (GPtrArray) ids         = NULL;
 
   system_refs = flatpak_installation_list_installed_refs_for_update (
-      instance->system, NULL, &local_error);
+      instance->system, cancellable, &local_error);
   if (system_refs == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -993,7 +1009,7 @@ ref_updates_fiber (GatherEntriesData *data)
         local_error->message);
 
   user_refs = flatpak_installation_list_installed_refs_for_update (
-      instance->user, NULL, &local_error);
+      instance->user, cancellable, &local_error);
   if (user_refs == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -1041,6 +1057,7 @@ gather_entries_job_update (GatherEntriesUpdateData *data)
 static DexFuture *
 transaction_fiber (TransactionData *data)
 {
+  GCancellable      *cancellable                    = data->cancellable;
   BzFlatpakInstance *instance                       = data->instance;
   GPtrArray         *installations                  = data->installs;
   GPtrArray         *updates                        = data->updates;
@@ -1051,7 +1068,8 @@ transaction_fiber (TransactionData *data)
   gboolean result                                   = FALSE;
   g_autoptr (FlatpakTransactionProgress) progress   = NULL;
 
-  system_transaction = flatpak_transaction_new_for_installation (instance->system, NULL, &local_error);
+  system_transaction = flatpak_transaction_new_for_installation (
+      instance->system, cancellable, &local_error);
   if (system_transaction == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -1059,7 +1077,8 @@ transaction_fiber (TransactionData *data)
         "failed to initialize potential transaction for system installation: %s",
         local_error->message);
 
-  user_transaction = flatpak_transaction_new_for_installation (instance->user, NULL, &local_error);
+  user_transaction = flatpak_transaction_new_for_installation (
+      instance->user, cancellable, &local_error);
   if (user_transaction == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
@@ -1182,7 +1201,7 @@ transaction_fiber (TransactionData *data)
   if (!flatpak_transaction_is_empty (system_transaction))
     {
       g_signal_connect (system_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
-      result = flatpak_transaction_run (system_transaction, NULL, &local_error);
+      result = flatpak_transaction_run (system_transaction, cancellable, &local_error);
       if (!result)
         return dex_future_new_reject (
             BZ_FLATPAK_ERROR,
@@ -1194,7 +1213,7 @@ transaction_fiber (TransactionData *data)
   if (!flatpak_transaction_is_empty (user_transaction))
     {
       g_signal_connect (user_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
-      result = flatpak_transaction_run (user_transaction, NULL, &local_error);
+      result = flatpak_transaction_run (user_transaction, cancellable, &local_error);
       if (!result)
         return dex_future_new_reject (
             BZ_FLATPAK_ERROR,
@@ -1299,7 +1318,7 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
         /* We'll send an update periodically so the UI can pulse */
         data->timeout_handle = g_timeout_add_full (
             G_PRIORITY_DEFAULT,
-            50,
+            150,
             (GSourceFunc) transaction_progress_timeout,
             idle_transaction_data_ref (idle_data),
             idle_transaction_data_unref);

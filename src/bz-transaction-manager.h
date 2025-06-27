@@ -38,12 +38,28 @@ bz_transaction_manager_set_backend (BzTransactionManager *self,
 BzBackend *
 bz_transaction_manager_get_backend (BzTransactionManager *self);
 
+void
+bz_transaction_manager_set_paused (BzTransactionManager *self,
+                                   gboolean              paused);
+
+gboolean
+bz_transaction_manager_get_paused (BzTransactionManager *self);
+
+gboolean
+bz_transaction_manager_get_active (BzTransactionManager *self);
+
+gboolean
+bz_transaction_manager_get_has_transactions (BzTransactionManager *self);
+
 BzTransaction *
 bz_transaction_manager_get_last_success (BzTransactionManager *self);
 
 void
 bz_transaction_manager_add (BzTransactionManager *self,
                             BzTransaction        *transaction);
+
+DexFuture *
+bz_transaction_manager_cancel_current (BzTransactionManager *self);
 
 void
 bz_transaction_manager_clear_finished (BzTransactionManager *self);

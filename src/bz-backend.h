@@ -55,14 +55,17 @@ struct _BzBackendInterface
                                          DexScheduler              *home_scheduler,
                                          GPtrArray                 *blocked_names,
                                          BzBackendGatherEntriesFunc progress_func,
+                                         GCancellable              *cancellable,
                                          gpointer                   user_data,
                                          GDestroyNotify             destroy_user_data);
 
   /* DexFuture* -> GHashTable* */
-  DexFuture *(*retrieve_install_ids) (BzBackend *self);
+  DexFuture *(*retrieve_install_ids) (BzBackend    *self,
+                                      GCancellable *cancellable);
 
   /* DexFuture* -> GPtrArray* -> char* */
-  DexFuture *(*retrieve_update_ids) (BzBackend *self);
+  DexFuture *(*retrieve_update_ids) (BzBackend    *self,
+                                     GCancellable *cancellable);
 
   /* DexFuture* -> gboolean */
   DexFuture *(*schedule_transaction) (BzBackend                       *self,
@@ -73,6 +76,7 @@ struct _BzBackendInterface
                                       BzEntry                        **removals,
                                       guint                            n_removals,
                                       BzBackendTransactionProgressFunc progress_func,
+                                      GCancellable                    *cancellable,
                                       gpointer                         user_data,
                                       GDestroyNotify                   destroy_user_data);
 };
@@ -85,6 +89,7 @@ bz_backend_retrieve_remote_entries (BzBackend                 *self,
                                     DexScheduler              *home_scheduler,
                                     GPtrArray                 *blocked_names,
                                     BzBackendGatherEntriesFunc progress_func,
+                                    GCancellable              *cancellable,
                                     gpointer                   user_data,
                                     GDestroyNotify             destroy_user_data);
 
@@ -93,14 +98,17 @@ bz_backend_retrieve_remote_entries_with_blocklists (BzBackend                 *s
                                                     DexScheduler              *home_scheduler,
                                                     GListModel                *blocklists,
                                                     BzBackendGatherEntriesFunc progress_func,
+                                                    GCancellable              *cancellable,
                                                     gpointer                   user_data,
                                                     GDestroyNotify             destroy_user_data);
 
 DexFuture *
-bz_backend_retrieve_install_ids (BzBackend *self);
+bz_backend_retrieve_install_ids (BzBackend    *self,
+                                 GCancellable *cancellable);
 
 DexFuture *
-bz_backend_retrieve_update_ids (BzBackend *self);
+bz_backend_retrieve_update_ids (BzBackend    *self,
+                                GCancellable *cancellable);
 
 DexFuture *
 bz_backend_schedule_transaction (BzBackend                       *self,
@@ -111,6 +119,7 @@ bz_backend_schedule_transaction (BzBackend                       *self,
                                  BzEntry                        **removals,
                                  guint                            n_removals,
                                  BzBackendTransactionProgressFunc progress_func,
+                                 GCancellable                    *cancellable,
                                  gpointer                         user_data,
                                  GDestroyNotify                   destroy_user_data);
 
@@ -118,6 +127,7 @@ DexFuture *
 bz_backend_merge_and_schedule_transactions (BzBackend                       *self,
                                             GListModel                      *transactions,
                                             BzBackendTransactionProgressFunc progress_func,
+                                            GCancellable                    *cancellable,
                                             gpointer                         user_data,
                                             GDestroyNotify                   destroy_user_data);
 
