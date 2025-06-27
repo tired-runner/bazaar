@@ -31,4 +31,8 @@ bz_get_global_http_session (void);
 DexFuture *
 bz_send_with_global_http_session (SoupMessage *message);
 
+DexFuture *
+bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
+                                                   GOutputStream *output);
+
 G_END_DECLS

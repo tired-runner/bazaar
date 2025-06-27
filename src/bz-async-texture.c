@@ -298,7 +298,7 @@ load (BzAsyncTexture *self)
   data->file = g_object_ref (self->source);
 
   future = dex_scheduler_spawn (
-      dex_scheduler_get_default (),
+      dex_thread_pool_scheduler_get_default (),
       0, (DexFiberFunc) load_fiber,
       load_data_ref (data), load_data_unref);
   future = dex_future_finally (
@@ -313,21 +313,21 @@ load_fiber (LoadData *data)
 {
   /* TODO: use `gly_loader_new_for_stream` with libsoup once glycin-2 releases */
 
-  GFile *file                       = data->file;
-  g_autoptr (GError) local_error    = NULL;
-  g_autofree char *uri              = NULL;
-  g_autofree char *uri_scheme       = NULL;
-  gboolean         is_http          = FALSE;
-  g_autoptr (GFileIOStream) io      = NULL;
-  g_autoptr (GFile) dl_tmp_file     = NULL;
-  GOutputStream *dl_tmp_file_dest   = NULL;
-  g_autoptr (SoupMessage) message   = NULL;
-  g_autoptr (GInputStream) response = NULL;
-  gssize size_spliced               = 0;
-  g_autoptr (GlyLoader) loader      = NULL;
-  g_autoptr (GlyImage) image        = NULL;
-  g_autoptr (GlyFrame) frame        = NULL;
-  g_autoptr (GdkTexture) texture    = NULL;
+  GFile *file                     = data->file;
+  g_autoptr (GError) local_error  = NULL;
+  g_autofree char *uri            = NULL;
+  g_autofree char *uri_scheme     = NULL;
+  gboolean         is_http        = FALSE;
+  g_autoptr (GFileIOStream) io    = NULL;
+  g_autoptr (GFile) dl_tmp_file   = NULL;
+  GOutputStream *dl_tmp_file_dest = NULL;
+  g_autoptr (SoupMessage) message = NULL;
+  guint64  bytes_written          = 0;
+  gboolean result                 = FALSE;
+  g_autoptr (GlyLoader) loader    = NULL;
+  g_autoptr (GlyImage) image      = NULL;
+  g_autoptr (GlyFrame) frame      = NULL;
+  g_autoptr (GdkTexture) texture  = NULL;
 
   uri        = g_file_get_uri (file);
   uri_scheme = g_file_get_uri_scheme (file);
@@ -340,18 +340,15 @@ load_fiber (LoadData *data)
         goto done;
       dl_tmp_file_dest = g_io_stream_get_output_stream (G_IO_STREAM (io));
 
-      message  = soup_message_new (SOUP_METHOD_GET, uri);
-      response = dex_await_object (bz_send_with_global_http_session (message), &local_error);
-      if (response == NULL)
+      message       = soup_message_new (SOUP_METHOD_GET, uri);
+      bytes_written = dex_await_uint64 (
+          bz_send_with_global_http_session_then_splice_into (message, dl_tmp_file_dest),
+          &local_error);
+      if (local_error != NULL)
         goto done;
 
-      size_spliced = g_output_stream_splice (
-          dl_tmp_file_dest,
-          response,
-          G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE | G_OUTPUT_STREAM_SPLICE_CLOSE_TARGET,
-          NULL,
-          &local_error);
-      if (size_spliced < 0)
+      result = g_io_stream_close (G_IO_STREAM (io), NULL, &local_error);
+      if (!result)
         goto done;
 
       loader = gly_loader_new (dl_tmp_file);
@@ -371,7 +368,7 @@ load_fiber (LoadData *data)
 
 done:
   if (is_http)
-    dex_await (dex_file_delete (dl_tmp_file, G_PRIORITY_DEFAULT), NULL);
+    dex_future_disown (dex_file_delete (dl_tmp_file, G_PRIORITY_DEFAULT));
 
   if (texture != NULL)
     return dex_future_new_for_object (texture);
