@@ -22,12 +22,13 @@
 
 #include <glib/gi18n.h>
 
-#include "bz-data-graph.h"
+#include "bz-async-texture.h"
 #include "bz-full-view.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
 #include "bz-share-dialog.h"
 #include "bz-stats-dialog.h"
+#include "bz-util.h"
 
 struct _BzFullView
 {
@@ -35,6 +36,10 @@ struct _BzFullView
 
   BzTransactionManager *transactions;
   BzEntryGroup         *group;
+  BzEntryGroup         *debounced_group;
+
+  DexFuture *loading_image_viewer;
+  guint      debounce_timeout;
 
   /* Template widgets */
   AdwViewStack *stack;
@@ -48,6 +53,7 @@ enum
 
   PROP_TRANSACTION_MANAGER,
   PROP_ENTRY_GROUP,
+  PROP_DEBOUNCED_GROUP,
 
   LAST_PROP
 };
@@ -63,12 +69,45 @@ enum
 static guint signals[LAST_SIGNAL];
 
 static void
+debounce_timeout (BzFullView *self);
+
+BZ_DEFINE_DATA (
+    open_screenshots_external,
+    OpenScreenshotsExternal,
+    {
+      GPtrArray *textures;
+      guint      initial;
+    },
+    BZ_RELEASE_DATA (textures, g_ptr_array_unref));
+static DexFuture *
+open_screenshots_external_fiber (OpenScreenshotsExternalData *data);
+static DexFuture *
+open_screenshots_external_finally (DexFuture  *future,
+                                   BzFullView *self);
+
+BZ_DEFINE_DATA (
+    save_single_screenshot,
+    SaveSingleScreenshot,
+    {
+      GdkTexture *texture;
+      GFile      *output;
+    },
+    BZ_RELEASE_DATA (texture, g_object_unref);
+    BZ_RELEASE_DATA (output, g_object_unref));
+static DexFuture *
+save_single_screenshot_fiber (SaveSingleScreenshotData *data);
+
+static void
 bz_full_view_dispose (GObject *object)
 {
   BzFullView *self = BZ_FULL_VIEW (object);
 
   g_clear_object (&self->transactions);
   g_clear_object (&self->group);
+  g_clear_object (&self->debounced_group);
+
+  dex_clear (&self->loading_image_viewer);
+  g_clear_handle_id (&self->debounce_timeout, g_source_remove);
 
   G_OBJECT_CLASS (bz_full_view_parent_class)->dispose (object);
 }
@@ -88,6 +127,9 @@ bz_full_view_get_property (GObject    *object,
       break;
     case PROP_ENTRY_GROUP:
       g_value_set_object (value, bz_full_view_get_entry_group (self));
+      break;
+    case PROP_DEBOUNCED_GROUP:
+      g_value_set_object (value, self->debounced_group);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -110,6 +152,7 @@ bz_full_view_set_property (GObject      *object,
     case PROP_ENTRY_GROUP:
       bz_full_view_set_entry_group (self, g_value_get_object (value));
       break;
+    case PROP_DEBOUNCED_GROUP:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -242,6 +285,59 @@ support_cb (BzFullView *self,
 }
 
 static void
+screenshot_activate_cb (BzFullView  *self,
+                        guint        position,
+                        GtkListView *list_view)
+{
+  DexScheduler      *scheduler                 = NULL;
+  GtkSelectionModel *model                     = NULL;
+  guint              n_items                   = 0;
+  g_autoptr (OpenScreenshotsExternalData) data = NULL;
+  DexFuture *future                            = NULL;
+
+  if (self->loading_image_viewer != NULL)
+    return;
+
+  scheduler = dex_thread_pool_scheduler_get_default ();
+  model     = gtk_list_view_get_model (list_view);
+  n_items   = g_list_model_get_n_items (G_LIST_MODEL (model));
+
+  data           = open_screenshots_external_data_new ();
+  data->textures = g_ptr_array_new_with_free_func (g_object_unref);
+  data->initial  = position;
+
+  for (guint i = 0; i < n_items; i++)
+    {
+      g_autoptr (BzAsyncTexture) async_tex;
+
+      async_tex = g_list_model_get_item (G_LIST_MODEL (model), i);
+      if (bz_async_texture_get_loaded (async_tex))
+        {
+          GdkTexture *texture = NULL;
+
+          texture = bz_async_texture_get_texture (async_tex);
+          if (texture != NULL)
+            g_ptr_array_add (data->textures, g_object_ref (texture));
+        }
+    }
+  if (data->textures->len == 0)
+    return;
+
+  future = dex_scheduler_spawn (
+      scheduler, 0,
+      (DexFiberFunc) open_screenshots_external_fiber,
+      open_screenshots_external_data_ref (data),
+      open_screenshots_external_data_unref);
+  future = dex_future_finally (
+      future,
+      (DexFutureCallback) open_screenshots_external_finally,
+      self, NULL);
+
+  self->loading_image_viewer = future;
+  // gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), TRUE);
+}
+
+static void
 bz_full_view_class_init (BzFullViewClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -256,14 +352,21 @@ bz_full_view_class_init (BzFullViewClass *klass)
           "transaction-manager",
           NULL, NULL,
           BZ_TYPE_TRANSACTION_MANAGER,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_ENTRY_GROUP] =
       g_param_spec_object (
           "entry-group",
           NULL, NULL,
           BZ_TYPE_ENTRY_GROUP,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_DEBOUNCED_GROUP] =
+      g_param_spec_object (
+          "debounced-group",
+          NULL, NULL,
+          BZ_TYPE_ENTRY_GROUP,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
@@ -311,6 +414,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);
+  gtk_widget_class_bind_template_callback (widget_class, screenshot_activate_cb);
   gtk_widget_class_bind_template_callback (widget_class, pick_license_warning);
 }
 
@@ -357,10 +461,18 @@ bz_full_view_set_entry_group (BzFullView   *self,
                     BZ_IS_ENTRY_GROUP (group));
 
   g_clear_object (&self->group);
+  g_clear_handle_id (&self->debounce_timeout, g_source_remove);
+  g_clear_object (&self->debounced_group);
+
   if (group != NULL)
-    self->group = g_object_ref (group);
+    {
+      self->group            = g_object_ref (group);
+      self->debounce_timeout = g_timeout_add_once (
+          500, (GSourceOnceFunc) debounce_timeout, self);
+    }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ENTRY_GROUP]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_GROUP]);
 }
 
 BzEntryGroup *
@@ -368,4 +480,136 @@ bz_full_view_get_entry_group (BzFullView *self)
 {
   g_return_val_if_fail (BZ_IS_FULL_VIEW (self), NULL);
   return self->group;
+}
+
+static void
+debounce_timeout (BzFullView *self)
+{
+  self->debounce_timeout = 0;
+  if (self->group == NULL)
+    return;
+
+  g_clear_object (&self->debounced_group);
+  self->debounced_group = g_object_ref (self->group);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_GROUP]);
+}
+
+static DexFuture *
+open_screenshots_external_fiber (OpenScreenshotsExternalData *data)
+{
+  GPtrArray *textures               = data->textures;
+  guint      initial                = data->initial;
+  g_autoptr (GError) local_error    = NULL;
+  g_autoptr (GAppInfo) appinfo      = NULL;
+  g_autofree char       *tmp_dir    = NULL;
+  g_autofree DexFuture **jobs       = NULL;
+  GList                 *image_uris = NULL;
+  gboolean               result     = FALSE;
+
+  appinfo = g_app_info_get_default_for_type ("image/png", TRUE);
+  /* early check that an image viewer even exists */
+  if (appinfo == NULL)
+    return dex_future_new_false ();
+
+  tmp_dir = g_dir_make_tmp (NULL, &local_error);
+  if (tmp_dir == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  jobs = g_malloc0_n (data->textures->len, sizeof (*jobs));
+
+  for (guint i = 0; i < textures->len; i++)
+    {
+      GdkTexture *texture                            = NULL;
+      char        basename[32]                       = { 0 };
+      g_autoptr (GFile) download_file                = NULL;
+      g_autoptr (SaveSingleScreenshotData) save_data = NULL;
+
+      texture = g_ptr_array_index (textures, i);
+
+      g_snprintf (basename, sizeof (basename), "%d.png", i);
+      download_file = g_file_new_build_filename (tmp_dir, basename, NULL);
+
+      save_data          = save_single_screenshot_data_new ();
+      save_data->texture = g_object_ref (texture);
+      save_data->output  = g_object_ref (download_file);
+
+      jobs[i] = dex_scheduler_spawn (
+          dex_scheduler_get_thread_default (), 0,
+          (DexFiberFunc) save_single_screenshot_fiber,
+          save_single_screenshot_data_ref (save_data),
+          save_single_screenshot_data_unref);
+
+      if (i == initial)
+        image_uris = g_list_prepend (image_uris, g_file_get_uri (download_file));
+      else
+        image_uris = g_list_append (image_uris, g_file_get_uri (download_file));
+    }
+
+  for (guint i = 0; i < textures->len; i++)
+    {
+      if (!dex_await (jobs[i], &local_error))
+        {
+          g_list_free_full (image_uris, g_free);
+          return dex_future_new_for_error (g_steal_pointer (&local_error));
+        }
+    }
+
+  result = g_app_info_launch_uris (appinfo, image_uris, NULL, &local_error);
+  g_list_free_full (image_uris, g_free);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  return dex_future_new_true ();
+}
+
+static DexFuture *
+save_single_screenshot_fiber (SaveSingleScreenshotData *data)
+{
+  GdkTexture *texture            = data->texture;
+  GFile      *output_file        = data->output;
+  g_autoptr (GError) local_error = NULL;
+  g_autoptr (GBytes) png_bytes   = NULL;
+  g_autoptr (GFileIOStream) io   = NULL;
+  GOutputStream *output          = NULL;
+  gboolean       result          = FALSE;
+
+  png_bytes = gdk_texture_save_to_png_bytes (texture);
+
+  io = g_file_create_readwrite (
+      output_file,
+      G_FILE_CREATE_REPLACE_DESTINATION,
+      NULL,
+      &local_error);
+  if (io == NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+  output = g_io_stream_get_output_stream (G_IO_STREAM (io));
+
+  g_output_stream_write_bytes (output, png_bytes, NULL, &local_error);
+  if (local_error != NULL)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  result = g_io_stream_close (G_IO_STREAM (io), NULL, &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  return dex_future_new_true ();
+}
+
+static DexFuture *
+open_screenshots_external_finally (DexFuture  *future,
+                                   BzFullView *self)
+{
+  g_autoptr (GError) local_error = NULL;
+
+  // dex_future_get_value (future, &local_error);
+  // if (local_error != NULL)
+  //   {
+  //     gtk_widget_set_visible (GTK_WIDGET (self->open_screenshot_error), TRUE);
+  //     gtk_label_set_label (self->open_screenshot_error, local_error->message);
+  //   }
+
+  // gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
+
+  self->loading_image_viewer = NULL;
+  return NULL;
 }

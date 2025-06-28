@@ -28,12 +28,12 @@ struct _BzGlobalProgress
 {
   GtkWidget parent_instance;
 
-  gboolean active;
-  double   fraction;
-  double   actual_fraction;
-  double   transition_progress;
+  GtkWidget *child;
+  gboolean   active;
+  double     fraction;
+  double     actual_fraction;
+  double     transition_progress;
 
-  GtkWidget    *image;
   AdwAnimation *transition_animation;
   AdwAnimation *fraction_animation;
 
@@ -48,6 +48,7 @@ enum
 {
   PROP_0,
 
+  PROP_CHILD,
   PROP_ACTIVE,
   PROP_FRACTION,
   PROP_ACTUAL_FRACTION,
@@ -63,7 +64,7 @@ bz_global_progress_dispose (GObject *object)
 {
   BzGlobalProgress *self = BZ_GLOBAL_PROGRESS (object);
 
-  g_clear_pointer (&self->image, gtk_widget_unparent);
+  g_clear_pointer (&self->child, gtk_widget_unparent);
 
   g_clear_object (&self->transition_animation);
   g_clear_object (&self->fraction_animation);
@@ -86,6 +87,9 @@ bz_global_progress_get_property (GObject *object,
 
   switch (prop_id)
     {
+    case PROP_CHILD:
+      g_value_set_object (value, bz_global_progress_get_child (self));
+      break;
     case PROP_ACTIVE:
       g_value_set_boolean (value, bz_global_progress_get_active (self));
       break;
@@ -97,9 +101,6 @@ bz_global_progress_get_property (GObject *object,
       break;
     case PROP_TRANSITION_PROGRESS:
       g_value_set_double (value, bz_global_progress_get_transition_progress (self));
-      break;
-    case PROP_ICON_NAME:
-      g_value_set_string (value, bz_global_progress_get_icon_name (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -116,6 +117,9 @@ bz_global_progress_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_CHILD:
+      bz_global_progress_set_child (self, g_value_get_object (value));
+      break;
     case PROP_ACTIVE:
       bz_global_progress_set_active (self, g_value_get_boolean (value));
       break;
@@ -127,9 +131,6 @@ bz_global_progress_set_property (GObject      *object,
       break;
     case PROP_TRANSITION_PROGRESS:
       bz_global_progress_set_transition_progress (self, g_value_get_double (value));
-      break;
-    case PROP_ICON_NAME:
-      bz_global_progress_set_icon_name (self, g_value_get_string (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -147,10 +148,11 @@ bz_global_progress_measure (GtkWidget     *widget,
 {
   BzGlobalProgress *self = BZ_GLOBAL_PROGRESS (widget);
 
-  gtk_widget_measure (
-      self->image, orientation,
-      for_size, minimum, natural,
-      minimum_baseline, natural_baseline);
+  if (self->child != NULL)
+    gtk_widget_measure (
+        self->child, orientation,
+        for_size, minimum, natural,
+        minimum_baseline, natural_baseline);
 
   if (orientation == GTK_ORIENTATION_HORIZONTAL)
     {
@@ -171,7 +173,8 @@ bz_global_progress_size_allocate (GtkWidget *widget,
 {
   BzGlobalProgress *self = BZ_GLOBAL_PROGRESS (widget);
 
-  gtk_widget_allocate (self->image, width, height, baseline, NULL);
+  if (self->child != NULL)
+    gtk_widget_allocate (self->child, width, height, baseline, NULL);
 }
 
 static void
@@ -187,9 +190,12 @@ bz_global_progress_snapshot (GtkWidget   *widget,
   AdwStyleManager  *style_manager  = NULL;
   g_autoptr (GdkRGBA) accent_color = NULL;
 
-  gtk_snapshot_push_opacity (snapshot, CLAMP (1.0 - self->transition_progress, 0.0, 1.0));
-  gtk_widget_snapshot_child (widget, self->image, snapshot);
-  gtk_snapshot_pop (snapshot);
+  if (self->child != NULL)
+    {
+      gtk_snapshot_push_opacity (snapshot, CLAMP (1.0 - self->transition_progress, 0.0, 1.0));
+      gtk_widget_snapshot_child (widget, self->child, snapshot);
+      gtk_snapshot_pop (snapshot);
+    }
 
   width         = gtk_widget_get_width (widget);
   height        = gtk_widget_get_height (widget);
@@ -243,6 +249,13 @@ bz_global_progress_class_init (BzGlobalProgressClass *klass)
   object_class->get_property = bz_global_progress_get_property;
   object_class->set_property = bz_global_progress_set_property;
 
+  props[PROP_CHILD] =
+      g_param_spec_object (
+          "child",
+          NULL, NULL,
+          GTK_TYPE_WIDGET,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
   props[PROP_ACTIVE] =
       g_param_spec_boolean (
           "active",
@@ -291,10 +304,6 @@ bz_global_progress_init (BzGlobalProgress *self)
   AdwAnimationTarget *fraction_target   = NULL;
   AdwSpringParams    *fraction_spring   = NULL;
 
-  self->image = gtk_image_new ();
-  gtk_widget_set_halign (self->image, GTK_ALIGN_START);
-  gtk_widget_set_parent (self->image, GTK_WIDGET (self));
-
   transition_target          = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
   transition_spring          = adw_spring_params_new (0.75, 0.8, 200.0);
   self->transition_animation = adw_spring_animation_new (
@@ -324,6 +333,35 @@ GtkWidget *
 bz_global_progress_new (void)
 {
   return g_object_new (BZ_TYPE_GLOBAL_PROGRESS, NULL);
+}
+
+void
+bz_global_progress_set_child (BzGlobalProgress *self,
+                              GtkWidget        *child)
+{
+  g_return_if_fail (BZ_IS_GLOBAL_PROGRESS (self));
+  g_return_if_fail (child == NULL || GTK_IS_WIDGET (child));
+
+  if (self->child == child)
+    return;
+
+  if (child != NULL)
+    g_return_if_fail (gtk_widget_get_parent (child) == NULL);
+
+  g_clear_pointer (&self->child, gtk_widget_unparent);
+  self->child = child;
+
+  if (child != NULL)
+    gtk_widget_set_parent (child, GTK_WIDGET (self));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHILD]);
+}
+
+GtkWidget *
+bz_global_progress_get_child (BzGlobalProgress *self)
+{
+  g_return_val_if_fail (BZ_IS_GLOBAL_PROGRESS (self), NULL);
+  return self->child;
 }
 
 void
@@ -443,23 +481,4 @@ bz_global_progress_get_transition_progress (BzGlobalProgress *self)
 {
   g_return_val_if_fail (BZ_IS_GLOBAL_PROGRESS (self), FALSE);
   return self->transition_progress;
-}
-
-void
-bz_global_progress_set_icon_name (BzGlobalProgress *self,
-                                  const char       *icon_name)
-{
-  g_return_if_fail (BZ_IS_GLOBAL_PROGRESS (self));
-  g_return_if_fail (icon_name != NULL);
-
-  gtk_image_set_from_icon_name (GTK_IMAGE (self->image), icon_name);
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ICON_NAME]);
-}
-
-const char *
-bz_global_progress_get_icon_name (BzGlobalProgress *self)
-{
-  g_return_val_if_fail (BZ_IS_GLOBAL_PROGRESS (self), NULL);
-  return gtk_image_get_icon_name (GTK_IMAGE (self->image));
 }

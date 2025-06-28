@@ -125,7 +125,7 @@ bz_paintable_model_class_init (BzPaintableModelClass *klass)
           "model",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 }

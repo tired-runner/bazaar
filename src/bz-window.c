@@ -51,10 +51,12 @@ struct _BzWindow
   gboolean              online;
 
   BzEntryGroup *pending_group;
+  GBinding     *search_to_view_binding;
 
   /* Template widgets */
   BzCometOverlay      *comet_overlay;
   AdwOverlaySplitView *split_view;
+  AdwOverlaySplitView *search_split;
   AdwViewStack        *transactions_stack;
   AdwViewStack        *main_stack;
   BzFullView          *full_view;
@@ -62,6 +64,7 @@ struct _BzWindow
   GtkButton           *go_back;
   GtkButton           *refresh;
   GtkButton           *search;
+  BzSearchWidget      *search_widget;
   GtkButton           *update_button;
   GtkRevealer         *title_revealer;
   AdwToggleGroup      *title_toggle_group;
@@ -121,10 +124,6 @@ go_back_clicked (GtkButton *button,
 static void
 refresh_clicked (GtkButton *button,
                  BzWindow  *self);
-
-static void
-search_clicked (GtkButton *button,
-                BzWindow  *self);
 
 static void
 update_clicked (GtkButton *button,
@@ -201,6 +200,7 @@ bz_window_dispose (GObject *object)
   g_clear_object (&self->updates);
 
   g_clear_object (&self->pending_group);
+  g_clear_object (&self->search_to_view_binding);
 
   G_OBJECT_CLASS (bz_window_parent_class)->dispose (object);
 }
@@ -347,7 +347,27 @@ browser_group_selected_cb (BzWindow       *self,
   bz_full_view_set_entry_group (self->full_view, group);
   adw_view_stack_set_visible_child_name (self->main_stack, "view");
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (self->search), FALSE);
   gtk_revealer_set_reveal_child (self->title_revealer, FALSE);
+}
+
+static void
+search_split_open_changed_cb (BzWindow            *self,
+                              GParamSpec          *pspec,
+                              AdwOverlaySplitView *view)
+{
+  gboolean show_sidebar = FALSE;
+
+  g_clear_object (&self->search_to_view_binding);
+  show_sidebar = adw_overlay_split_view_get_show_sidebar (view);
+
+  if (show_sidebar)
+    self->search_to_view_binding = g_object_bind_property (
+        self->search_widget, "previewing",
+        self->full_view, "entry-group",
+        G_BINDING_SYNC_CREATE);
+
+  set_page (self);
 }
 
 static void
@@ -492,6 +512,7 @@ bz_window_class_init (BzWindowClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   g_type_ensure (BZ_TYPE_COMET_OVERLAY);
+  g_type_ensure (BZ_TYPE_SEARCH_WIDGET);
   g_type_ensure (BZ_TYPE_GLOBAL_PROGRESS);
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
   g_type_ensure (BZ_TYPE_BACKGROUND);
@@ -502,6 +523,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, comet_overlay);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, split_view);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, search_split);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, main_stack);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, full_view);
@@ -510,6 +532,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, go_back);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, search_widget);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
@@ -530,6 +553,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, breakpoint_unapply_cb);
   gtk_widget_class_bind_template_callback (widget_class, pause_transactions_cb);
   gtk_widget_class_bind_template_callback (widget_class, stop_transactions_cb);
+  gtk_widget_class_bind_template_callback (widget_class, search_split_open_changed_cb);
 }
 
 static void
@@ -542,7 +566,6 @@ bz_window_init (BzWindow *self)
   /* TODO: use class template callbacks */
   g_signal_connect (self->go_back, "clicked", G_CALLBACK (go_back_clicked), self);
   g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
-  g_signal_connect (self->search, "clicked", G_CALLBACK (search_clicked), self);
   g_signal_connect (self->update_button, "clicked", G_CALLBACK (update_clicked), self);
   g_signal_connect (self->transactions_clear, "clicked", G_CALLBACK (transactions_clear_clicked), self);
 
@@ -611,13 +634,6 @@ refresh_clicked (GtkButton *button,
                  BzWindow  *self)
 {
   gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
-}
-
-static void
-search_clicked (GtkButton *button,
-                BzWindow  *self)
-{
-  search (self, NULL);
 }
 
 static void
@@ -966,27 +982,8 @@ static void
 search (BzWindow   *self,
         const char *initial)
 {
-  GtkWidget *search_widget = NULL;
-  AdwDialog *dialog        = NULL;
-
-  /* prevent stacking issue */
-  if (adw_application_window_get_visible_dialog (
-          ADW_APPLICATION_WINDOW (self)) != NULL)
-    return;
-
-  search_widget = bz_search_widget_new (
-      G_LIST_MODEL (self->applications),
-      initial);
-  dialog = adw_dialog_new ();
-
-  g_signal_connect (search_widget, "notify::selected",
-                    G_CALLBACK (search_selected_changed), self);
-
-  adw_dialog_set_child (dialog, search_widget);
-  adw_dialog_set_content_width (dialog, 1500);
-  adw_dialog_set_content_height (dialog, 1800);
-
-  adw_dialog_present (dialog, GTK_WIDGET (self));
+  bz_search_widget_set_text (self->search_widget, initial);
+  adw_overlay_split_view_set_show_sidebar (self->search_split, TRUE);
 }
 
 static void
@@ -1035,12 +1032,16 @@ static void
 set_page (BzWindow *self)
 {
   const char *active_name   = NULL;
+  gboolean    show_search   = FALSE;
   const char *visible_child = NULL;
 
   active_name = adw_toggle_group_get_active_name (self->title_toggle_group);
+  show_search = adw_overlay_split_view_get_show_sidebar (self->search_split);
 
   if (self->busy)
     visible_child = "loading";
+  else if (show_search)
+    visible_child = "view";
   else if (g_strcmp0 (active_name, "installed") == 0)
     visible_child = "installed";
   else if (g_strcmp0 (active_name, "curated") == 0)
@@ -1048,8 +1049,11 @@ set_page (BzWindow *self)
 
   adw_view_stack_set_visible_child_name (self->main_stack, visible_child);
   gtk_widget_set_sensitive (GTK_WIDGET (self->title_toggle_group), !self->busy);
+  gtk_revealer_set_reveal_child (self->title_revealer, !show_search);
 
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
-  gtk_revealer_set_reveal_child (self->title_revealer, TRUE);
-  bz_full_view_set_entry_group (self->full_view, NULL);
+  gtk_widget_set_visible (GTK_WIDGET (self->search), TRUE);
+
+  if (!show_search)
+    bz_full_view_set_entry_group (self->full_view, NULL);
 }

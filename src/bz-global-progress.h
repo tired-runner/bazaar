@@ -30,6 +30,13 @@ G_DECLARE_FINAL_TYPE (BzGlobalProgress, bz_global_progress, BZ, GLOBAL_PROGRESS,
 GtkWidget *
 bz_global_progress_new (void);
 
+GtkWidget *
+bz_global_progress_get_child (BzGlobalProgress *self);
+
+void
+bz_global_progress_set_child (BzGlobalProgress *self,
+                              GtkWidget        *child);
+
 void
 bz_global_progress_set_active (BzGlobalProgress *self,
                                gboolean          active);
@@ -57,12 +64,5 @@ bz_global_progress_set_transition_progress (BzGlobalProgress *self,
 
 double
 bz_global_progress_get_transition_progress (BzGlobalProgress *self);
-
-void
-bz_global_progress_set_icon_name (BzGlobalProgress *self,
-                                  const char       *icon_name);
-
-const char *
-bz_global_progress_get_icon_name (BzGlobalProgress *self);
 
 G_END_DECLS

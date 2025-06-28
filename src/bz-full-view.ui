@@ -17,7 +17,7 @@
                 <property name="height-request">200</property>
                 <child>
                   <object class="AdwBreakpoint" id="breakpoint">
-                    <condition>max-width: 1200px</condition>
+                    <condition>max-width: 1000px</condition>
                     <setter object="start_box" property="width-request">-1</setter>
                     <setter object="end_box" property="width-request">-1</setter>
                     <setter object="main_scroll" property="vscrollbar-policy">automatic</setter>
@@ -43,7 +43,7 @@
                             <property name="margin-end">15</property>
                             <property name="margin-top">15</property>
                             <property name="margin-bottom">15</property>
-                            <property name="width-request">400</property>
+                            <property name="width-request">300</property>
                             <property name="orientation">vertical</property>
                             <property name="spacing">20</property>
                             <child>
@@ -80,7 +80,6 @@
                                               <class name="title-1"/>
                                             </style>
                                             <property name="xalign">0.0</property>
-                                            <property name="max-width-chars">30</property>
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <property name="natural-wrap-mode">word</property>
@@ -104,7 +103,6 @@
                                                   <class name="accent"/>
                                                 </style>
                                                 <property name="xalign">0.0</property>
-                                                <property name="max-width-chars">50</property>
                                                 <property name="wrap">TRUE</property>
                                                 <property name="wrap-mode">word-char</property>
                                                 <property name="natural-wrap-mode">word</property>
@@ -148,7 +146,6 @@
                                               <class name="title-2"/>
                                             </style>
                                             <property name="xalign">0.0</property>
-                                            <property name="max-width-chars">50</property>
                                             <property name="wrap">TRUE</property>
                                             <property name="wrap-mode">word-char</property>
                                             <binding name="label">
@@ -597,16 +594,33 @@
                         </child>
                         <child>
                           <object class="GtkBox" id="end_box">
-                            <property name="width-request">700</property>
+                            <property name="width-request">500</property>
                             <property name="vexpand">FALSE</property>
                             <property name="hexpand">TRUE</property>
                             <property name="orientation">vertical</property>
+                            <child>
+                              <object class="AdwSpinner">
+                                <property name="vexpand">TRUE</property>
+                                <binding name="visible">
+                                  <closure function="is_null" type="gboolean">
+                                    <lookup name="debounced-group">BzFullView</lookup>
+                                  </closure>
+                                </binding>
+                              </object>
+                            </child>
                             <child>
                               <object class="GtkScrolledWindow" id="screenshots">
                                 <property name="vexpand">TRUE</property>
                                 <property name="vscrollbar-policy">automatic</property>
                                 <property name="hscrollbar-policy">never</property>
                                 <property name="propagate-natural-height">TRUE</property>
+                                <binding name="visible">
+                                  <closure function="invert_boolean" type="gboolean">
+                                    <closure function="is_null" type="gboolean">
+                                      <lookup name="debounced-group">BzFullView</lookup>
+                                    </closure>
+                                  </closure>
+                                </binding>
                                 <property name="child">
                                   <object class="GtkListView">
                                     <style>
@@ -620,12 +634,13 @@
                                         <binding name="model">
                                           <lookup name="screenshot-paintables" type="BzEntry">
                                             <lookup name="ui-entry" type="BzEntryGroup">
-                                              <lookup name="entry-group">BzFullView</lookup>
+                                              <lookup name="debounced-group">BzFullView</lookup>
                                             </lookup>
                                           </lookup>
                                         </binding>
                                       </object>
                                     </property>
+                                    <signal name="activate" handler="screenshot_activate_cb" swapped="true" object="BzFullView"/>
                                     <property name="factory">
                                       <object class="GtkBuilderListItemFactory">
                                         <property name="bytes"><![CDATA[

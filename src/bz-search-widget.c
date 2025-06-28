@@ -25,8 +25,6 @@
 #include "bz-async-texture.h"
 #include "bz-screenshot.h"
 #include "bz-search-widget.h"
-#include "bz-share-dialog.h"
-#include "bz-util.h"
 
 struct _BzSearchWidget
 {
@@ -35,40 +33,24 @@ struct _BzSearchWidget
   GListModel   *model;
   BzEntryGroup *selected;
   gboolean      remove;
-  BzEntry      *previewing;
+  BzEntryGroup *previewing;
 
   guint search_update_timeout;
-  guint previewing_timeout;
 
   GPtrArray  *match_tokens;
   GRegex     *match_regex;
   GHashTable *match_scores;
 
-  DexFuture *loading_image_viewer;
-
   /* Template widgets */
-  AdwBottomSheet   *sheet;
-  AdwBreakpointBin *breakpoint_bin;
-  AdwBreakpoint    *breakpoint;
-  GtkText          *search_bar;
-  GtkLabel         *search_text;
-  AdwSpinner       *search_spinner;
-  GtkToggleButton  *regex_toggle;
-  GtkLabel         *regex_error;
-  GtkBox           *content_box;
-  GtkRevealer      *entry_list_revealer;
-  GtkListView      *list_view;
-  GtkBox           *entry_view;
-  GtkBox           *right_box;
-  GtkWidget        *title_label_bar;
-  GtkLabel         *title_label;
-  GtkLabel         *description_label;
-  GtkButton        *download_button;
-  GtkButton        *remove_button;
-  GtkButton        *share_button;
-  GtkListView      *screenshots;
-  AdwSpinner       *loading_screenshots_external;
-  GtkLabel         *open_screenshot_error;
+  GtkText        *search_bar;
+  GtkLabel       *search_text;
+  GtkImage       *search_busy;
+  GtkCheckButton *regex_check;
+  GtkLabel       *regex_error;
+  GtkCheckButton *foss_check;
+  GtkBox         *content_box;
+  GtkRevealer    *entry_list_revealer;
+  GtkListView    *list_view;
 };
 
 G_DEFINE_FINAL_TYPE (BzSearchWidget, bz_search_widget, ADW_TYPE_BIN)
@@ -80,52 +62,15 @@ enum
   PROP_MODEL,
   PROP_SELECTED,
   PROP_PREVIEWING,
+  PROP_TEXT,
 
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
-BZ_DEFINE_DATA (
-    open_screenshots_external,
-    OpenScreenshotsExternal,
-    {
-      GPtrArray *textures;
-      guint      initial;
-    },
-    BZ_RELEASE_DATA (textures, g_ptr_array_unref));
-static DexFuture *
-open_screenshots_external_fiber (OpenScreenshotsExternalData *data);
-static DexFuture *
-open_screenshots_external_finally (DexFuture      *future,
-                                   BzSearchWidget *self);
-
-BZ_DEFINE_DATA (
-    save_single_screenshot,
-    SaveSingleScreenshot,
-    {
-      GdkTexture *texture;
-      GFile      *output;
-    },
-    BZ_RELEASE_DATA (texture, g_object_unref);
-    BZ_RELEASE_DATA (output, g_object_unref));
-static DexFuture *
-save_single_screenshot_fiber (SaveSingleScreenshotData *data);
-
-static void
-sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
-                        BzSearchWidget *self);
-
-static void
-sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
-                          BzSearchWidget *self);
-
 static void
 search_changed (GtkEditable    *editable,
                 BzSearchWidget *self);
-
-static void
-regex_toggled (GtkToggleButton *toggle,
-               BzSearchWidget  *self);
 
 static void
 search_activate (GtkText        *text,
@@ -151,29 +96,9 @@ selected_item_changed (GtkSingleSelection *model,
                        BzSearchWidget     *self);
 
 static void
-previewing_property_timeout (BzSearchWidget *self);
-
-static void
 list_activate (GtkListView    *list_view,
                guint           position,
                BzSearchWidget *self);
-
-static void
-download_clicked (GtkButton      *button,
-                  BzSearchWidget *self);
-
-static void
-remove_clicked (GtkButton      *button,
-                BzSearchWidget *self);
-
-static void
-share_clicked (GtkButton      *button,
-               BzSearchWidget *self);
-
-static void
-screenshot_activate (GtkListView    *list_view,
-                     guint           position,
-                     BzSearchWidget *self);
 
 static void
 update_filter (BzSearchWidget *self);
@@ -192,11 +117,9 @@ bz_search_widget_dispose (GObject *object)
   g_clear_object (&self->selected);
   g_clear_object (&self->previewing);
   g_clear_handle_id (&self->search_update_timeout, g_source_remove);
-  g_clear_handle_id (&self->previewing_timeout, g_source_remove);
   g_clear_pointer (&self->match_tokens, g_ptr_array_unref);
   g_clear_pointer (&self->match_regex, g_regex_unref);
   g_clear_pointer (&self->match_scores, g_hash_table_unref);
-  dex_clear (&self->loading_image_viewer);
 
   G_OBJECT_CLASS (bz_search_widget_parent_class)->dispose (object);
 }
@@ -213,6 +136,9 @@ bz_search_widget_get_property (GObject    *object,
     {
     case PROP_MODEL:
       g_value_set_object (value, bz_search_widget_get_model (self));
+      break;
+    case PROP_TEXT:
+      g_value_set_string (value, bz_search_widget_get_text (self));
       break;
     case PROP_SELECTED:
       g_value_set_object (value, bz_search_widget_get_selected (self, NULL));
@@ -237,6 +163,9 @@ bz_search_widget_set_property (GObject      *object,
     {
     case PROP_MODEL:
       bz_search_widget_set_model (self, g_value_get_object (value));
+      break;
+    case PROP_TEXT:
+      bz_search_widget_set_text (self, g_value_get_string (value));
       break;
     case PROP_SELECTED:
     case PROP_PREVIEWING:
@@ -267,51 +196,10 @@ is_null (gpointer object,
 }
 
 static gboolean
-is_valid_timestamp (gpointer object,
-                    guint64  value)
+is_valid_string (gpointer    object,
+                 const char *value)
 {
-  return value > 0;
-}
-
-static gboolean
-is_timestamp_ahead (gpointer object,
-                    guint64  value)
-{
-  g_autoptr (GDateTime) now  = NULL;
-  g_autoptr (GDateTime) date = NULL;
-
-  now  = g_date_time_new_now_utc ();
-  date = g_date_time_new_from_unix_utc (value);
-
-  return g_date_time_compare (date, now) >= 0;
-}
-
-static char *
-format_timestamp (gpointer object,
-                  guint64  value)
-{
-  g_autoptr (GDateTime) date = NULL;
-
-  date = g_date_time_new_from_unix_utc (value);
-  return g_date_time_format_iso8601 (date);
-}
-
-static char *
-format_size (gpointer object,
-             guint64  value)
-{
-  return g_format_size (value);
-}
-
-static char *
-format_as_link (gpointer    object,
-                const char *value)
-{
-  if (value != NULL)
-    return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
-                            value, value, value);
-  else
-    return g_strdup ("N/A");
+  return value != NULL && *value != '\0';
 }
 
 static void
@@ -351,6 +239,20 @@ action_move (GtkWidget  *widget,
 }
 
 static void
+regex_toggled_cb (BzSearchWidget  *self,
+                  GtkToggleButton *toggle)
+{
+  update_filter (self);
+}
+
+static void
+foss_toggled_cb (BzSearchWidget  *self,
+                 GtkToggleButton *toggle)
+{
+  update_filter (self);
+}
+
+static void
 bz_search_widget_class_init (BzSearchWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -365,21 +267,27 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
           "model",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_TEXT] =
+      g_param_spec_string (
+          "text",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_SELECTED] =
       g_param_spec_object (
           "selected",
           NULL, NULL,
           BZ_TYPE_ENTRY_GROUP,
-          G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_PREVIEWING] =
       g_param_spec_object (
           "previewing",
           NULL, NULL,
-          BZ_TYPE_ENTRY,
-          G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY);
+          BZ_TYPE_ENTRY_GROUP,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
@@ -387,36 +295,21 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   g_type_ensure (BZ_TYPE_SCREENSHOT);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-search-widget.ui");
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, sheet);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, breakpoint);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, breakpoint_bin);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_bar);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_text);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_spinner);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_toggle);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, search_busy);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, foss_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, content_box);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_list_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_view);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, right_box);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label_bar);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, title_label);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, description_label);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, download_button);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, remove_button);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, share_button);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, screenshots);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, loading_screenshots_external);
-  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, open_screenshot_error);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_zero);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
-  gtk_widget_class_bind_template_callback (widget_class, is_valid_timestamp);
-  gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
-  gtk_widget_class_bind_template_callback (widget_class, is_timestamp_ahead);
-  gtk_widget_class_bind_template_callback (widget_class, format_size);
-  gtk_widget_class_bind_template_callback (widget_class, format_as_link);
+  gtk_widget_class_bind_template_callback (widget_class, is_valid_string);
+  gtk_widget_class_bind_template_callback (widget_class, regex_toggled_cb);
+  gtk_widget_class_bind_template_callback (widget_class, foss_toggled_cb);
 
   gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }
@@ -434,7 +327,6 @@ bz_search_widget_init (BzSearchWidget *self)
   self->match_scores = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   gtk_widget_init_template (GTK_WIDGET (self));
-  gtk_widget_add_css_class (GTK_WIDGET (self), "global-search");
 
   custom_filter = gtk_custom_filter_new ((GtkCustomFilterFunc) match, self, NULL);
   filter_model  = gtk_filter_list_model_new (NULL, GTK_FILTER (custom_filter));
@@ -446,18 +338,11 @@ bz_search_widget_init (BzSearchWidget *self)
   selection_model = GTK_SELECTION_MODEL (gtk_single_selection_new (G_LIST_MODEL (sort_model)));
   gtk_list_view_set_model (self->list_view, selection_model);
 
-  g_signal_connect (self->breakpoint, "apply", G_CALLBACK (sheet_breakpoint_apply), self);
-  g_signal_connect (self->breakpoint, "unapply", G_CALLBACK (sheet_breakpoint_unapply), self);
   g_signal_connect (self->search_bar, "changed", G_CALLBACK (search_changed), self);
   g_signal_connect (self->search_bar, "activate", G_CALLBACK (search_activate), self);
-  g_signal_connect (self->regex_toggle, "toggled", G_CALLBACK (regex_toggled), self);
   g_signal_connect (filter_model, "notify::pending", G_CALLBACK (pending_changed), self);
   g_signal_connect (selection_model, "notify::selected-item", G_CALLBACK (selected_item_changed), self);
   g_signal_connect (self->list_view, "activate", G_CALLBACK (list_activate), self);
-  g_signal_connect (self->screenshots, "activate", G_CALLBACK (screenshot_activate), self);
-  g_signal_connect (self->download_button, "clicked", G_CALLBACK (download_clicked), self);
-  g_signal_connect (self->remove_button, "clicked", G_CALLBACK (remove_clicked), self);
-  g_signal_connect (self->share_button, "clicked", G_CALLBACK (share_clicked), self);
 }
 
 GtkWidget *
@@ -522,46 +407,24 @@ bz_search_widget_get_selected (BzSearchWidget *self,
   return self->selected;
 }
 
-BzEntry *
+BzEntryGroup *
 bz_search_widget_get_previewing (BzSearchWidget *self)
 {
   g_return_val_if_fail (BZ_IS_SEARCH_WIDGET (self), NULL);
   return self->previewing;
 }
 
-static void
-sheet_breakpoint_apply (AdwBreakpoint  *breakpoint,
-                        BzSearchWidget *self)
+void
+bz_search_widget_set_text (BzSearchWidget *self,
+                           const char     *text)
 {
-  gtk_box_remove (self->right_box, self->title_label_bar);
-  gtk_box_prepend (self->entry_view, self->title_label_bar);
-
-  gtk_box_remove (self->content_box, GTK_WIDGET (self->entry_view));
-  adw_bottom_sheet_set_sheet (self->sheet, GTK_WIDGET (self->entry_view));
-
-  gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-1");
-  gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-2");
-
-  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "title-3");
-  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "heading");
+  gtk_editable_set_text (GTK_EDITABLE (self->search_bar), text);
 }
 
-static void
-sheet_breakpoint_unapply (AdwBreakpoint  *breakpoint,
-                          BzSearchWidget *self)
+const char *
+bz_search_widget_get_text (BzSearchWidget *self)
 {
-  adw_bottom_sheet_set_open (self->sheet, FALSE);
-  adw_bottom_sheet_set_sheet (self->sheet, NULL);
-  gtk_box_append (self->content_box, GTK_WIDGET (self->entry_view));
-
-  gtk_box_remove (self->entry_view, self->title_label_bar);
-  gtk_box_prepend (self->right_box, self->title_label_bar);
-
-  gtk_widget_remove_css_class (GTK_WIDGET (self->title_label), "title-2");
-  gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "title-1");
-
-  gtk_widget_remove_css_class (GTK_WIDGET (self->description_label), "heading");
-  gtk_widget_add_css_class (GTK_WIDGET (self->description_label), "title-3");
+  return gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
 }
 
 static void
@@ -572,13 +435,6 @@ search_changed (GtkEditable    *editable,
   gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
   self->search_update_timeout = g_timeout_add_once (
       150 /* 150 ms */, (GSourceOnceFunc) update_filter, self);
-}
-
-static void
-regex_toggled (GtkToggleButton *toggle,
-               BzSearchWidget  *self)
-{
-  update_filter (self);
 }
 
 static void
@@ -594,20 +450,7 @@ search_activate (GtkText        *text,
   selected_idx = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
 
   if (selected_idx != GTK_INVALID_LIST_POSITION)
-    {
-      if (adw_breakpoint_bin_get_current_breakpoint (self->breakpoint_bin))
-        {
-          g_clear_handle_id (&self->previewing_timeout, g_source_remove);
-          previewing_property_timeout (self);
-          adw_bottom_sheet_set_open (self->sheet, TRUE);
-          if (gtk_widget_get_visible (GTK_WIDGET (self->download_button)))
-            gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
-          else if (gtk_widget_get_visible (GTK_WIDGET (self->remove_button)))
-            gtk_widget_grab_focus (GTK_WIDGET (self->remove_button));
-        }
-      else
-        emit_idx (self, G_LIST_MODEL (model), selected_idx);
-    }
+    emit_idx (self, G_LIST_MODEL (model), selected_idx);
 }
 
 static gint
@@ -630,16 +473,17 @@ cmp_item (BzEntryGroup   *a,
     {
       /* slightly favor entries with a description */
       if (bz_entry_get_description (a_entry) != NULL)
-        a_score++;
+        a_score += 1;
       if (bz_entry_get_description (b_entry) != NULL)
-        b_score++;
+        b_score += 1;
 
-      /* slightly favor entries with an icon */
+      /* greatly favor entries with an icon */
       if (bz_entry_get_icon_paintable (a_entry) != NULL)
-        a_score++;
+        a_score += 2;
       if (bz_entry_get_icon_paintable (b_entry) != NULL)
-        b_score++;
+        b_score += 2;
     }
+  /* fallback */
   if (a_score == b_score)
     {
       const char *a_title = NULL;
@@ -771,7 +615,7 @@ pending_changed (GtkFilterListModel *model,
         /* Here to combat weird list view scrolling behavior */
         gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
 
-      gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), FALSE);
+      gtk_widget_set_visible (GTK_WIDGET (self->search_busy), FALSE);
       gtk_revealer_set_reveal_child (self->entry_list_revealer, n_items > 0);
     }
 }
@@ -781,40 +625,13 @@ selected_item_changed (GtkSingleSelection *model,
                        GParamSpec         *pspec,
                        BzSearchWidget     *self)
 {
-  gtk_widget_set_visible (GTK_WIDGET (self->open_screenshot_error), FALSE);
-  gtk_label_set_label (self->open_screenshot_error, NULL);
-
-  g_clear_handle_id (&self->previewing_timeout, g_source_remove);
-  g_clear_object (&self->previewing);
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PREVIEWING]);
-  self->previewing_timeout = g_timeout_add_once (
-      500, (GSourceOnceFunc) previewing_property_timeout, self);
-}
-
-static void
-previewing_property_timeout (BzSearchWidget *self)
-{
-  GtkSelectionModel *model    = NULL;
-  guint              selected = 0;
-
-  self->previewing_timeout = 0;
+  guint selected = 0;
 
   g_clear_object (&self->previewing);
-  model    = gtk_list_view_get_model (self->list_view);
-  selected = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
+  selected = gtk_single_selection_get_selected (model);
 
   if (selected != GTK_INVALID_LIST_POSITION)
-    {
-      g_autoptr (BzEntryGroup) group = NULL;
-      BzEntry *entry                 = NULL;
-
-      group = g_list_model_get_item (G_LIST_MODEL (model), selected);
-      entry = bz_entry_group_get_ui_entry (group);
-
-      if (entry != NULL)
-        self->previewing = g_object_ref (entry);
-    }
+    self->previewing = g_list_model_get_item (G_LIST_MODEL (model), selected);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PREVIEWING]);
 }
@@ -827,138 +644,7 @@ list_activate (GtkListView    *list_view,
   GtkSelectionModel *model = NULL;
 
   model = gtk_list_view_get_model (self->list_view);
-
-  if (adw_breakpoint_bin_get_current_breakpoint (self->breakpoint_bin))
-    {
-      gtk_single_selection_set_selected (GTK_SINGLE_SELECTION (model), position);
-      g_clear_handle_id (&self->previewing_timeout, g_source_remove);
-      previewing_property_timeout (self);
-      adw_bottom_sheet_set_open (self->sheet, TRUE);
-      if (gtk_widget_get_visible (GTK_WIDGET (self->download_button)))
-        gtk_widget_grab_focus (GTK_WIDGET (self->download_button));
-      else if (gtk_widget_get_visible (GTK_WIDGET (self->remove_button)))
-        gtk_widget_grab_focus (GTK_WIDGET (self->remove_button));
-    }
-  else
-    emit_idx (self, G_LIST_MODEL (model), position);
-}
-
-static void
-download_clicked (GtkButton      *button,
-                  BzSearchWidget *self)
-{
-  GtkSelectionModel *model    = NULL;
-  guint              position = 0;
-
-  g_clear_object (&self->selected);
-
-  model    = gtk_list_view_get_model (self->list_view);
-  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
-  /* if the download button is visible, something must be selected */
-  g_assert (position != GTK_INVALID_LIST_POSITION);
-
-  self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
-  self->remove   = FALSE;
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
-}
-
-static void
-remove_clicked (GtkButton      *button,
-                BzSearchWidget *self)
-{
-  GtkSelectionModel *model    = NULL;
-  guint              position = 0;
-
-  g_clear_object (&self->selected);
-
-  model    = gtk_list_view_get_model (self->list_view);
-  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
-  g_assert (position != GTK_INVALID_LIST_POSITION);
-
-  self->selected = g_list_model_get_item (G_LIST_MODEL (model), position);
-  self->remove   = TRUE;
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
-}
-
-static void
-share_clicked (GtkButton      *button,
-               BzSearchWidget *self)
-{
-  GtkSelectionModel *model       = NULL;
-  guint              position    = 0;
-  g_autoptr (BzEntryGroup) group = NULL;
-  BzEntry *entry                 = NULL;
-
-  model    = gtk_list_view_get_model (self->list_view);
-  position = gtk_single_selection_get_selected (GTK_SINGLE_SELECTION (model));
-  g_assert (position != GTK_INVALID_LIST_POSITION);
-  group = g_list_model_get_item (G_LIST_MODEL (model), position);
-  entry = bz_entry_group_get_ui_entry (group);
-
-  if (entry != NULL)
-    {
-      AdwDialog *share_dialog = NULL;
-
-      share_dialog = bz_share_dialog_new (entry);
-      gtk_widget_set_size_request (GTK_WIDGET (share_dialog), 400, -1);
-
-      adw_dialog_present (share_dialog, GTK_WIDGET (self));
-    }
-}
-
-static void
-screenshot_activate (GtkListView    *list_view,
-                     guint           position,
-                     BzSearchWidget *self)
-{
-  DexScheduler      *scheduler                 = NULL;
-  GtkSelectionModel *model                     = NULL;
-  guint              n_items                   = 0;
-  g_autoptr (OpenScreenshotsExternalData) data = NULL;
-  DexFuture *future                            = NULL;
-
-  if (self->loading_image_viewer != NULL)
-    return;
-
-  scheduler = dex_thread_pool_scheduler_get_default ();
-  model     = gtk_list_view_get_model (list_view);
-  n_items   = g_list_model_get_n_items (G_LIST_MODEL (model));
-
-  data           = open_screenshots_external_data_new ();
-  data->textures = g_ptr_array_new_with_free_func (g_object_unref);
-  data->initial  = position;
-
-  for (guint i = 0; i < n_items; i++)
-    {
-      g_autoptr (BzAsyncTexture) async_tex;
-
-      async_tex = g_list_model_get_item (G_LIST_MODEL (model), i);
-      if (bz_async_texture_get_loaded (async_tex))
-        {
-          GdkTexture *texture = NULL;
-
-          texture = bz_async_texture_get_texture (async_tex);
-          if (texture != NULL)
-            g_ptr_array_add (data->textures, g_object_ref (texture));
-        }
-    }
-  if (data->textures->len == 0)
-    return;
-
-  future = dex_scheduler_spawn (
-      scheduler, 0,
-      (DexFiberFunc) open_screenshots_external_fiber,
-      open_screenshots_external_data_ref (data),
-      open_screenshots_external_data_unref);
-  future = dex_future_finally (
-      future,
-      (DexFutureCallback) open_screenshots_external_finally,
-      self, NULL);
-
-  self->loading_image_viewer = future;
-  gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), TRUE);
+  emit_idx (self, G_LIST_MODEL (model), position);
 }
 
 static void
@@ -979,7 +665,7 @@ update_filter (BzSearchWidget *self)
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
   if (search_text != NULL && *search_text != '\0')
     {
-      if (gtk_toggle_button_get_active (self->regex_toggle))
+      if (gtk_check_button_get_active (self->regex_check))
         {
           g_autoptr (GError) local_error = NULL;
 
@@ -991,15 +677,11 @@ update_filter (BzSearchWidget *self)
             {
               gtk_label_set_label (self->regex_error, NULL);
               gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), NULL);
-              gtk_widget_add_css_class (GTK_WIDGET (self->regex_toggle), "success");
-              gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "error");
             }
           else
             {
               gtk_label_set_label (self->regex_error, local_error->message);
               gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), local_error->message);
-              gtk_widget_add_css_class (GTK_WIDGET (self->regex_toggle), "error");
-              gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "success");
             }
         }
       else
@@ -1026,8 +708,6 @@ update_filter (BzSearchWidget *self)
     {
       gtk_label_set_label (self->regex_error, NULL);
       gtk_widget_set_tooltip_text (GTK_WIDGET (self->regex_error), NULL);
-      gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "success");
-      gtk_widget_remove_css_class (GTK_WIDGET (self->regex_toggle), "error");
     }
 
   selection_model   = GTK_SINGLE_SELECTION (gtk_list_view_get_model (self->list_view));
@@ -1039,7 +719,7 @@ update_filter (BzSearchWidget *self)
 
   if (gtk_filter_list_model_get_pending (filter_list_model) > 0)
     {
-      gtk_widget_set_visible (GTK_WIDGET (self->search_spinner), TRUE);
+      gtk_widget_set_visible (GTK_WIDGET (self->search_busy), TRUE);
       gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
     }
   else
@@ -1068,124 +748,4 @@ emit_idx (BzSearchWidget *self,
   self->remove = installable == 0 && removable > 0;
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
-}
-
-static DexFuture *
-open_screenshots_external_fiber (OpenScreenshotsExternalData *data)
-{
-  GPtrArray *textures               = data->textures;
-  guint      initial                = data->initial;
-  g_autoptr (GError) local_error    = NULL;
-  g_autoptr (GAppInfo) appinfo      = NULL;
-  g_autofree char       *tmp_dir    = NULL;
-  g_autofree DexFuture **jobs       = NULL;
-  GList                 *image_uris = NULL;
-  gboolean               result     = FALSE;
-
-  appinfo = g_app_info_get_default_for_type ("image/png", TRUE);
-  /* early check that an image viewer even exists */
-  if (appinfo == NULL)
-    return dex_future_new_false ();
-
-  tmp_dir = g_dir_make_tmp (NULL, &local_error);
-  if (tmp_dir == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  jobs = g_malloc0_n (data->textures->len, sizeof (*jobs));
-
-  for (guint i = 0; i < textures->len; i++)
-    {
-      GdkTexture *texture                            = NULL;
-      char        basename[32]                       = { 0 };
-      g_autoptr (GFile) download_file                = NULL;
-      g_autoptr (SaveSingleScreenshotData) save_data = NULL;
-
-      texture = g_ptr_array_index (textures, i);
-
-      g_snprintf (basename, sizeof (basename), "%d.png", i);
-      download_file = g_file_new_build_filename (tmp_dir, basename, NULL);
-
-      save_data          = save_single_screenshot_data_new ();
-      save_data->texture = g_object_ref (texture);
-      save_data->output  = g_object_ref (download_file);
-
-      jobs[i] = dex_scheduler_spawn (
-          dex_scheduler_get_thread_default (), 0,
-          (DexFiberFunc) save_single_screenshot_fiber,
-          save_single_screenshot_data_ref (save_data),
-          save_single_screenshot_data_unref);
-
-      if (i == initial)
-        image_uris = g_list_prepend (image_uris, g_file_get_uri (download_file));
-      else
-        image_uris = g_list_append (image_uris, g_file_get_uri (download_file));
-    }
-
-  for (guint i = 0; i < textures->len; i++)
-    {
-      if (!dex_await (jobs[i], &local_error))
-        {
-          g_list_free_full (image_uris, g_free);
-          return dex_future_new_for_error (g_steal_pointer (&local_error));
-        }
-    }
-
-  result = g_app_info_launch_uris (appinfo, image_uris, NULL, &local_error);
-  g_list_free_full (image_uris, g_free);
-  if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  return dex_future_new_true ();
-}
-
-static DexFuture *
-save_single_screenshot_fiber (SaveSingleScreenshotData *data)
-{
-  GdkTexture *texture            = data->texture;
-  GFile      *output_file        = data->output;
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GBytes) png_bytes   = NULL;
-  g_autoptr (GFileIOStream) io   = NULL;
-  GOutputStream *output          = NULL;
-  gboolean       result          = FALSE;
-
-  png_bytes = gdk_texture_save_to_png_bytes (texture);
-
-  io = g_file_create_readwrite (
-      output_file,
-      G_FILE_CREATE_REPLACE_DESTINATION,
-      NULL,
-      &local_error);
-  if (io == NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-  output = g_io_stream_get_output_stream (G_IO_STREAM (io));
-
-  g_output_stream_write_bytes (output, png_bytes, NULL, &local_error);
-  if (local_error != NULL)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  result = g_io_stream_close (G_IO_STREAM (io), NULL, &local_error);
-  if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  return dex_future_new_true ();
-}
-
-static DexFuture *
-open_screenshots_external_finally (DexFuture      *future,
-                                   BzSearchWidget *self)
-{
-  g_autoptr (GError) local_error = NULL;
-
-  dex_future_get_value (future, &local_error);
-  if (local_error != NULL)
-    {
-      gtk_widget_set_visible (GTK_WIDGET (self->open_screenshot_error), TRUE);
-      gtk_label_set_label (self->open_screenshot_error, local_error->message);
-    }
-
-  gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
-
-  self->loading_image_viewer = NULL;
-  return NULL;
 }

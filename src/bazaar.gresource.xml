@@ -54,6 +54,7 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/media-playback-start-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/media-playback-stop-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/cross-large-circle-filled-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/timer-sand-symbolic.svg</file>
 
   </gresource>
 </gresources>
