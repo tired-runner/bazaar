@@ -424,23 +424,38 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
         }
 
       icon = as_component_get_icon_stock (component);
+      if (icon == NULL)
+        {
+          GPtrArray *icons = NULL;
+
+          icons = as_component_get_icons (component);
+          if (icons != NULL && icons->len > 0)
+            icon = g_ptr_array_index (icons, 0);
+        }
       if (icon != NULL)
         {
           for (int i = 128; i > 0; i -= 64)
             {
               g_autofree char *resolution = NULL;
+              const char      *filename   = NULL;
               g_autofree char *basename   = NULL;
               g_autoptr (GFile) icon_file = NULL;
 
               resolution = g_strdup_printf ("%dx%d", i, i);
-              basename   = g_strdup_printf ("%s.png", as_icon_get_name (icon));
-              icon_file  = g_file_new_build_filename (
+              filename   = as_icon_get_filename (icon);
+              if (filename == NULL)
+                {
+                  basename = g_strdup_printf ("%s.png", as_icon_get_name (icon));
+                  filename = basename;
+                }
+              icon_file = g_file_new_build_filename (
                   appstream_dir,
                   "icons",
                   "flatpak",
                   resolution,
-                  basename,
+                  filename,
                   NULL);
+
               if (g_file_query_exists (icon_file, NULL))
                 {
                   g_autoptr (GBytes) icon_bytes          = NULL;

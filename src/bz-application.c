@@ -1390,7 +1390,8 @@ fetch_installs_then (DexFuture     *future,
       entry     = g_list_model_get_item (G_LIST_MODEL (self->all_entries), i);
       unique_id = bz_entry_get_unique_id (entry);
 
-      if (g_hash_table_contains (
+      if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION) &&
+          g_hash_table_contains (
               self->installed_unique_ids_set,
               unique_id))
         {

@@ -195,12 +195,43 @@
         <child>
           <object class="GtkPicture">
             <property name="height-request">64</property>
+            <property name="width-request">64</property>
             <binding name="paintable">
               <lookup name="icon-paintable" type="BzEntry">
                 <lookup name="ui-entry" type="BzEntryGroup">
                   <lookup name="item">GtkListItem</lookup>
                 </lookup>
               </lookup>
+            </binding>
+            <binding name="visible">
+              <closure function="invert_boolean" type="gboolean">
+                <closure function="is_null" type="gboolean">
+                  <lookup name="icon-paintable" type="BzEntry">
+                    <lookup name="ui-entry" type="BzEntryGroup">
+                      <lookup name="item">GtkListItem</lookup>
+                    </lookup>
+                  </lookup>
+                </closure>
+              </closure>
+            </binding>
+          </object>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="valign">center</property>
+            <property name="halign">center</property>
+            <property name="width-request">64</property>
+            <property name="height-request">64</property>
+            <property name="pixel-size">64</property>
+            <property name="icon-name">image-missing-symbolic</property>
+            <binding name="visible">
+              <closure function="is_null" type="gboolean">
+                <lookup name="icon-paintable" type="BzEntry">
+                  <lookup name="ui-entry" type="BzEntryGroup">
+                    <lookup name="item">GtkListItem</lookup>
+                  </lookup>
+                </lookup>
+              </closure>
             </binding>
           </object>
         </child>

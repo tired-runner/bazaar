@@ -846,6 +846,7 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     {
       FlatpakRemoteRef *rref                    = NULL;
       const char       *name                    = NULL;
+      FlatpakRefKind    kind                    = 0;
       AsComponent      *component               = NULL;
       g_autoptr (RefRemoteAppsJobData) job_data = NULL;
 
@@ -853,7 +854,19 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       name = flatpak_ref_get_name (FLATPAK_REF (rref));
       if (blocked_names_hash != NULL && g_hash_table_contains (blocked_names_hash, name))
         continue;
-      component = g_hash_table_lookup (id_hash, name);
+      kind = flatpak_ref_get_kind (FLATPAK_REF (rref));
+
+      if (kind == FLATPAK_REF_KIND_APP)
+        {
+          component = g_hash_table_lookup (id_hash, name);
+          if (component == NULL)
+            {
+              g_autofree char *desktop_id = NULL;
+
+              desktop_id = g_strdup_printf ("%s.desktop", name);
+              component  = g_hash_table_lookup (id_hash, desktop_id);
+            }
+        }
 
       job_data            = ref_remote_apps_job_data_new ();
       job_data->parent    = ref_remote_apps_for_remote_data_ref (data);
