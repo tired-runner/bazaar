@@ -117,6 +117,7 @@
                                         <child>
                                           <object class="GtkButton" id="transactions_stop">
                                             <property name="has-tooltip">TRUE</property>
+                                            <property name="tooltip-text" translatable="yes">Halt the execution of transactions</property>
                                             <property name="icon-name">media-playback-stop-symbolic</property>
                                             <binding name="sensitive">
                                               <lookup name="active" type="BzTransactionManager">
@@ -129,6 +130,7 @@
                                         <child>
                                           <object class="GtkButton" id="transactions_clear">
                                             <property name="has-tooltip">TRUE</property>
+                                            <property name="tooltip-text" translatable="yes">Clear all finished transactions</property>
                                             <property name="icon-name">edit-clear-all-symbolic</property>
                                           </object>
                                         </child>

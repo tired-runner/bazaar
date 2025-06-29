@@ -102,6 +102,13 @@ invert_boolean (gpointer object,
   return !value;
 }
 
+static gboolean
+is_null (gpointer object,
+         GObject *value)
+{
+  return value == NULL;
+}
+
 static void
 bz_transaction_view_class_init (BzTransactionViewClass *klass)
 {
@@ -130,6 +137,7 @@ bz_transaction_view_class_init (BzTransactionViewClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, separator_2);
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, removals);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, is_null);
 }
 
 static void
