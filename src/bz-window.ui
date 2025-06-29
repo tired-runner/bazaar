@@ -156,6 +156,7 @@
                                 <binding name="model">
                                   <lookup name="applications">BzWindow</lookup>
                                 </binding>
+                                <signal name="select" handler="search_widget_select_cb" swapped="true" object="BzWindow"/>
                               </object>
                             </property>
                           </object>

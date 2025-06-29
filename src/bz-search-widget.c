@@ -60,13 +60,20 @@ enum
   PROP_0,
 
   PROP_MODEL,
-  PROP_SELECTED,
   PROP_PREVIEWING,
   PROP_TEXT,
 
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+enum
+{
+  SIGNAL_SELECT,
+
+  LAST_SIGNAL,
+};
+static guint signals[LAST_SIGNAL];
 
 static void
 search_changed (GtkEditable    *editable,
@@ -140,9 +147,6 @@ bz_search_widget_get_property (GObject    *object,
     case PROP_TEXT:
       g_value_set_string (value, bz_search_widget_get_text (self));
       break;
-    case PROP_SELECTED:
-      g_value_set_object (value, bz_search_widget_get_selected (self, NULL));
-      break;
     case PROP_PREVIEWING:
       g_value_set_object (value, bz_search_widget_get_previewing (self));
       break;
@@ -167,11 +171,17 @@ bz_search_widget_set_property (GObject      *object,
     case PROP_TEXT:
       bz_search_widget_set_text (self, g_value_get_string (value));
       break;
-    case PROP_SELECTED:
     case PROP_PREVIEWING:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
+}
+
+static gboolean
+bz_search_widget_grab_focus (GtkWidget *widget)
+{
+  BzSearchWidget *self = BZ_SEARCH_WIDGET (widget);
+  return gtk_widget_grab_focus (GTK_WIDGET (self->search_bar));
 }
 
 static gboolean
@@ -275,13 +285,6 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
           NULL, NULL, NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
-  props[PROP_SELECTED] =
-      g_param_spec_object (
-          "selected",
-          NULL, NULL,
-          BZ_TYPE_ENTRY_GROUP,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
-
   props[PROP_PREVIEWING] =
       g_param_spec_object (
           "previewing",
@@ -290,6 +293,22 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
+
+  signals[SIGNAL_SELECT] =
+      g_signal_new (
+          "select",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__OBJECT,
+          G_TYPE_NONE, 0);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_SELECT],
+      G_TYPE_FROM_CLASS (klass),
+      g_cclosure_marshal_VOID__OBJECTv);
+
+  widget_class->grab_focus = bz_search_widget_grab_focus;
 
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
   g_type_ensure (BZ_TYPE_SCREENSHOT);
@@ -734,18 +753,8 @@ emit_idx (BzSearchWidget *self,
           GListModel     *model,
           guint           selected_idx)
 {
-  int installable = 0;
-  int removable   = 0;
+  g_autoptr (BzEntryGroup) group = NULL;
 
-  g_clear_object (&self->selected);
-  self->selected = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
-
-  g_object_get (
-      self->selected,
-      "installable", &installable,
-      "removable", &removable,
-      NULL);
-  self->remove = installable == 0 && removable > 0;
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SELECTED]);
+  group = g_list_model_get_item (G_LIST_MODEL (model), selected_idx);
+  g_signal_emit (self, signals[SIGNAL_SELECT], 0, group);
 }

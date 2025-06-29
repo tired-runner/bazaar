@@ -134,11 +134,6 @@ transactions_clear_clicked (GtkButton *button,
                             BzWindow  *self);
 
 static void
-search_selected_changed (BzSearchWidget *search,
-                         GParamSpec     *pspec,
-                         BzWindow       *self);
-
-static void
 install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
                                BzWindow       *self);
@@ -371,6 +366,27 @@ search_split_open_changed_cb (BzWindow            *self,
 }
 
 static void
+search_widget_select_cb (BzWindow       *self,
+                         BzEntryGroup   *group,
+                         BzSearchWidget *search)
+{
+  int      installable = 0;
+  int      removable   = 0;
+  gboolean remove      = FALSE;
+
+  g_object_get (
+      group,
+      "installable", &installable,
+      "removable", &removable,
+      NULL);
+
+  remove = installable == 0 && removable > 0;
+  try_transact (self, group, remove);
+
+  adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
+}
+
+static void
 full_view_install_cb (BzWindow   *self,
                       BzFullView *view)
 {
@@ -544,6 +560,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, bottom_header_bar);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
+  gtk_widget_class_bind_template_callback (widget_class, search_widget_select_cb);
   gtk_widget_class_bind_template_callback (widget_class, full_view_install_cb);
   gtk_widget_class_bind_template_callback (widget_class, full_view_remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, installed_page_install_cb);
@@ -649,24 +666,6 @@ transactions_clear_clicked (GtkButton *button,
                             BzWindow  *self)
 {
   bz_transaction_manager_clear_finished (self->transaction_manager);
-}
-
-static void
-search_selected_changed (BzSearchWidget *search,
-                         GParamSpec     *pspec,
-                         BzWindow       *self)
-{
-  gboolean      remove = FALSE;
-  BzEntryGroup *group  = NULL;
-  GtkWidget    *dialog = NULL;
-
-  group = bz_search_widget_get_selected (search, &remove);
-  if (group != NULL)
-    try_transact (self, group, remove);
-
-  dialog = gtk_widget_get_ancestor (GTK_WIDGET (search), ADW_TYPE_DIALOG);
-  if (dialog != NULL)
-    adw_dialog_close (ADW_DIALOG (dialog));
 }
 
 static void
@@ -864,6 +863,8 @@ try_transact (BzWindow     *self,
           NULL);
       adw_alert_dialog_set_response_appearance (
           ADW_ALERT_DIALOG (alert), "remove", ADW_RESPONSE_DESTRUCTIVE);
+      adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "remove");
+      adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
     }
   else
     {
@@ -882,10 +883,9 @@ try_transact (BzWindow     *self,
           NULL);
       adw_alert_dialog_set_response_appearance (
           ADW_ALERT_DIALOG (alert), "install", ADW_RESPONSE_SUGGESTED);
+      adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "install");
+      adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
     }
-
-  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (alert), "cancel");
-  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
 
   entries   = bz_entry_group_get_model (group);
   n_entries = g_list_model_get_n_items (entries);
@@ -930,7 +930,6 @@ try_transact (BzWindow     *self,
           gtk_widget_set_tooltip_text (check, label);
 
           check_label = gtk_label_new (label);
-          gtk_widget_add_css_class (check_label, "monospace");
           gtk_label_set_wrap (GTK_LABEL (check_label), TRUE);
           gtk_label_set_wrap_mode (GTK_LABEL (check_label), PANGO_WRAP_WORD_CHAR);
           gtk_check_button_set_child (GTK_CHECK_BUTTON (check), check_label);
@@ -975,7 +974,6 @@ update (BzWindow *self,
       updates, n_updates,
       NULL, 0);
   bz_transaction_manager_add (self->transaction_manager, transaction);
-  adw_overlay_split_view_set_show_sidebar (self->split_view, TRUE);
 }
 
 static void
@@ -1054,6 +1052,8 @@ set_page (BzWindow *self)
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->search), TRUE);
 
-  if (!show_search)
+  if (show_search)
+    gtk_widget_grab_focus (GTK_WIDGET (self->search_widget));
+  else
     bz_full_view_set_entry_group (self->full_view, NULL);
 }
