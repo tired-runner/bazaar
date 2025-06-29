@@ -4,7 +4,9 @@
 <img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.bazaar.svg" width="256" height="256" />
 </div>
 
-![Image](https://github.com/user-attachments/assets/57e235a2-d01d-47fc-8d56-ac9d4ecc8b51)
+![Image](https://github.com/user-attachments/assets/8c592f95-d921-49a1-9ffb-0058ca91cee2)
+![Image](https://github.com/user-attachments/assets/1deb5900-7642-44ae-b60a-34eed92c489f)
+![Image](https://github.com/user-attachments/assets/01010ccc-d3f1-4202-b2a7-8888377e09f3)
 
 A new app store idea for GNOME. This is very much work-in-progress,
 and nothing about the current state of the project is final; I intend
