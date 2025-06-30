@@ -792,13 +792,20 @@ char *
 bz_flatpak_ref_format_unique (FlatpakRef *ref,
                               gboolean    user)
 {
-  g_autofree char *fmt = NULL;
+  g_autofree char *fmt    = NULL;
+  const char      *origin = NULL;
 
   fmt = flatpak_ref_format_ref (FLATPAK_REF (ref));
+
+  if (FLATPAK_IS_REMOTE_REF (ref))
+    origin = flatpak_remote_ref_get_remote_name (FLATPAK_REMOTE_REF (ref));
+  else if (FLATPAK_IS_INSTALLED_REF (ref))
+    origin = flatpak_installed_ref_get_origin (FLATPAK_INSTALLED_REF (ref));
+
   return g_strdup_printf (
-      "FLATPAK-%s:%s",
+      "FLATPAK-%s::%s::%s",
       user ? "USER" : "SYSTEM",
-      fmt);
+      origin, fmt);
 }
 
 FlatpakRef *

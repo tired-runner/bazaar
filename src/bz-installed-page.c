@@ -21,7 +21,6 @@
 #include "config.h"
 
 #include "bz-addons-dialog.h"
-#include "bz-entry-group.h"
 #include "bz-installed-page.h"
 #include "bz-section-view.h"
 
@@ -141,11 +140,18 @@ is_null (gpointer object,
 }
 
 static void
-install_cb (BzInstalledPage *self,
-            BzEntry         *entry,
-            BzAddonsDialog  *dialog)
+addon_transact_cb (BzInstalledPage *self,
+                   BzEntry         *entry,
+                   BzAddonsDialog  *dialog)
 {
-  g_signal_emit (self, signals[SIGNAL_INSTALL], 0, entry);
+  gboolean installed = FALSE;
+
+  g_object_get (entry, "installed", &installed, NULL);
+
+  if (installed)
+    g_signal_emit (self, signals[SIGNAL_REMOVE], 0, entry);
+  else
+    g_signal_emit (self, signals[SIGNAL_INSTALL], 0, entry);
 }
 
 static void
@@ -182,8 +188,9 @@ install_addons_cb (GtkListItem *list_item,
   g_assert (self != NULL);
 
   addons_dialog = bz_addons_dialog_new (item);
-  gtk_widget_set_size_request (GTK_WIDGET (addons_dialog), 400, -1);
-  g_signal_connect_swapped (addons_dialog, "install", G_CALLBACK (install_cb), self);
+  adw_dialog_set_content_width (addons_dialog, 750);
+  gtk_widget_set_size_request (GTK_WIDGET (addons_dialog), 350, -1);
+  g_signal_connect_swapped (addons_dialog, "transact", G_CALLBACK (addon_transact_cb), self);
 
   adw_dialog_present (addons_dialog, GTK_WIDGET (self));
 }
@@ -264,7 +271,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_addons_cb);
   gtk_widget_class_bind_template_callback (widget_class, edit_permissions_cb);
-  gtk_widget_class_bind_template_callback (widget_class, install_cb);
+  gtk_widget_class_bind_template_callback (widget_class, addon_transact_cb);
 }
 
 static void

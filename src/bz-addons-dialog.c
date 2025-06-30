@@ -46,7 +46,7 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 
 enum
 {
-  SIGNAL_INSTALL,
+  SIGNAL_TRANSACT,
 
   LAST_SIGNAL,
 };
@@ -99,9 +99,16 @@ bz_addons_dialog_set_property (GObject      *object,
     }
 }
 
+static gboolean
+invert_boolean (gpointer object,
+                gboolean value)
+{
+  return !value;
+}
+
 static void
-install_cb (GtkListItem *list_item,
-            GtkButton   *button)
+transact_cb (GtkListItem *list_item,
+             GtkButton   *button)
 {
   BzEntry   *entry = NULL;
   GtkWidget *self  = NULL;
@@ -111,13 +118,7 @@ install_cb (GtkListItem *list_item,
   self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_ADDONS_DIALOG);
   g_assert (self != NULL);
 
-  g_signal_emit (self, signals[SIGNAL_INSTALL], 0, entry);
-}
-
-static void
-remove_cb (GtkListItem *list_item,
-           GtkButton   *button)
-{
+  g_signal_emit (self, signals[SIGNAL_TRANSACT], 0, entry);
 }
 
 static void
@@ -139,9 +140,9 @@ bz_addons_dialog_class_init (BzAddonsDialogClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  signals[SIGNAL_INSTALL] =
+  signals[SIGNAL_TRANSACT] =
       g_signal_new (
-          "install",
+          "transact",
           G_OBJECT_CLASS_TYPE (klass),
           G_SIGNAL_RUN_FIRST,
           0,
@@ -150,13 +151,13 @@ bz_addons_dialog_class_init (BzAddonsDialogClass *klass)
           G_TYPE_NONE, 1,
           BZ_TYPE_ENTRY);
   g_signal_set_va_marshaller (
-      signals[SIGNAL_INSTALL],
+      signals[SIGNAL_TRANSACT],
       G_TYPE_FROM_CLASS (klass),
       g_cclosure_marshal_VOID__OBJECTv);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-addons-dialog.ui");
-  gtk_widget_class_bind_template_callback (widget_class, install_cb);
-  gtk_widget_class_bind_template_callback (widget_class, remove_cb);
+  gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
+  gtk_widget_class_bind_template_callback (widget_class, transact_cb);
 }
 
 static void

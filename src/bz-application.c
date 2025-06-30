@@ -63,7 +63,7 @@ struct _BzApplication
   GListStore        *installed;
   GListStore        *updates;
   GHashTable        *generic_id_to_entry_group_hash;
-  GHashTable        *unique_appid_to_entry_hash;
+  GHashTable        *unique_id_to_entry_hash;
   GHashTable        *flatpak_name_to_app_hash;
   GHashTable        *installed_unique_ids_set;
 };
@@ -138,6 +138,11 @@ cli_transact_then (DexFuture     *future,
 static GtkWindow *
 new_window (BzApplication *self);
 
+static inline char *
+format_flatpak_name (const char *flatpak_id,
+                     const char *remote_name,
+                     gboolean    user);
+
 static void
 bz_application_dispose (GObject *object)
 {
@@ -154,7 +159,7 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->gs_search);
   g_clear_object (&self->flatpak);
   g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
-  g_clear_pointer (&self->unique_appid_to_entry_hash, g_hash_table_unref);
+  g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->flatpak_name_to_app_hash, g_hash_table_unref);
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_clear_object (&self->all_entries);
@@ -625,7 +630,7 @@ bz_application_command_line (GApplication            *app,
               fields = g_strv_builder_end (builder);
             }
 
-          entry = g_hash_table_lookup (self->unique_appid_to_entry_hash, match);
+          entry = g_hash_table_lookup (self->unique_id_to_entry_hash, match);
           if (entry != NULL)
             {
               g_application_command_line_print (cmdline, "%s\n", bz_entry_get_unique_id (entry));
@@ -738,7 +743,7 @@ bz_application_command_line (GApplication            *app,
           {                                                                                       \
             BzEntry *entry = NULL;                                                                \
                                                                                                   \
-            entry = g_hash_table_lookup (self->unique_appid_to_entry_hash, *id);                  \
+            entry = g_hash_table_lookup (self->unique_id_to_entry_hash, *id);                     \
             if (entry != NULL)                                                                    \
               g_ptr_array_add (which, g_object_ref (entry));                                      \
             else                                                                                  \
@@ -928,7 +933,7 @@ bz_application_flatseal_action (GSimpleAction *action,
       unique_id = bz_entry_get_unique_id (entry);
 
       if (g_hash_table_contains (
-              self->unique_appid_to_entry_hash,
+              self->unique_id_to_entry_hash,
               unique_id) &&
           BZ_IS_FLATPAK_ENTRY (entry))
         {
@@ -1119,7 +1124,7 @@ bz_application_init (BzApplication *self)
 
   self->generic_id_to_entry_group_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
-  self->unique_appid_to_entry_hash = g_hash_table_new_full (
+  self->unique_id_to_entry_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
   self->flatpak_name_to_app_hash = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, g_object_unref);
@@ -1168,14 +1173,25 @@ static void
 gather_entries_progress (BzEntry       *entry,
                          BzApplication *self)
 {
+  const char *unique_id = NULL;
+
+  unique_id = bz_entry_get_unique_id (entry);
+  if (g_hash_table_contains (self->unique_id_to_entry_hash, unique_id))
+    return;
+
   g_list_store_append (self->all_entries, entry);
+  g_hash_table_replace (
+      self->unique_id_to_entry_hash,
+      g_strdup (unique_id),
+      g_object_ref (entry));
 
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
     {
       const char   *id           = NULL;
       BzEntryGroup *group        = NULL;
-      const char   *unique_id    = NULL;
       const char   *flatpak_name = NULL;
+      const char   *remote_name  = NULL;
+      gboolean      user         = FALSE;
 
       id    = bz_entry_get_id (entry);
       group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
@@ -1192,18 +1208,14 @@ gather_entries_progress (BzEntry       *entry,
         }
       bz_entry_group_add (group, entry, TRUE, FALSE, FALSE);
 
-      unique_id = bz_entry_get_unique_id (entry);
-      g_hash_table_replace (
-          self->unique_appid_to_entry_hash,
-          g_strdup (unique_id),
-          g_object_ref (entry));
+      flatpak_name = bz_flatpak_entry_get_flatpak_id (BZ_FLATPAK_ENTRY (entry));
+      remote_name  = bz_entry_get_remote_repo_name (entry);
+      user         = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry));
 
-      flatpak_name = bz_flatpak_entry_get_flatpak_id (
-          BZ_FLATPAK_ENTRY (entry));
       g_hash_table_replace (
           self->flatpak_name_to_app_hash,
-          g_strdup (flatpak_name),
-          g_object_ref (group));
+          format_flatpak_name (flatpak_name, remote_name, user),
+          g_object_ref (entry));
     }
 
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_RUNTIME))
@@ -1238,41 +1250,51 @@ last_success_changed (BzTransactionManager *manager,
       for (guint i = 0; i < n_installs; i++)
         {
           g_autoptr (BzEntry) entry = NULL;
-          const char   *unique_id   = NULL;
-          const char   *id          = NULL;
-          BzEntryGroup *group       = NULL;
+          const char *unique_id     = NULL;
 
           entry = g_list_model_get_item (installs, i);
-          g_list_store_insert (self->installed, 0, entry);
-
+          g_object_set (entry, "installed", TRUE, NULL);
           unique_id = bz_entry_get_unique_id (entry);
           g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
 
-          id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
-          if (group != NULL)
-            bz_entry_group_install (group, entry);
+          if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
+            {
+              const char   *id    = NULL;
+              BzEntryGroup *group = NULL;
+
+              g_list_store_append (self->installed, entry);
+
+              id    = bz_entry_get_id (entry);
+              group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+              if (group != NULL)
+                bz_entry_group_install (group, entry);
+            }
         }
 
       for (guint i = 0; i < n_removals; i++)
         {
           g_autoptr (BzEntry) entry = NULL;
-          guint         idx         = 0;
-          const char   *unique_id   = NULL;
-          const char   *id          = NULL;
-          BzEntryGroup *group       = NULL;
+          const char *unique_id     = NULL;
 
           entry = g_list_model_get_item (removals, i);
-          if (g_list_store_find (self->installed, entry, &idx))
-            g_list_store_remove (self->installed, idx);
-
+          g_object_set (entry, "installed", FALSE, NULL);
           unique_id = bz_entry_get_unique_id (entry);
           g_hash_table_remove (self->installed_unique_ids_set, unique_id);
 
-          id    = bz_entry_get_id (entry);
-          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
-          if (group != NULL)
-            bz_entry_group_remove (group, entry);
+          if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
+            {
+              guint         idx   = 0;
+              const char   *id    = NULL;
+              BzEntryGroup *group = NULL;
+
+              if (g_list_store_find (self->installed, entry, &idx))
+                g_list_store_remove (self->installed, idx);
+
+              id    = bz_entry_get_id (entry);
+              group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+              if (group != NULL)
+                bz_entry_group_remove (group, entry);
+            }
         }
     }
 }
@@ -1324,47 +1346,24 @@ fetch_refs_then (DexFuture     *future,
   n_addons = g_list_model_get_n_items (G_LIST_MODEL (self->addons));
   for (guint i = 0; i < n_addons; i++)
     {
-      g_autoptr (BzEntry) addon       = NULL;
-      gboolean      addon_is_user     = FALSE;
-      const char   *addon_remote_repo = NULL;
-      const char   *ref               = NULL;
-      BzEntryGroup *group             = NULL;
+      g_autoptr (BzEntry) addon          = NULL;
+      const char      *addon_ref         = NULL;
+      const char      *addon_remote_repo = NULL;
+      gboolean         addon_is_user     = FALSE;
+      g_autofree char *formatted_name    = NULL;
+      BzEntry         *candidate         = NULL;
 
       addon             = g_list_model_get_item (G_LIST_MODEL (self->addons), i);
-      addon_is_user     = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (addon));
+      addon_ref         = bz_flatpak_entry_get_addon_extension_of_ref (BZ_FLATPAK_ENTRY (addon));
       addon_remote_repo = bz_entry_get_remote_repo_name (addon);
+      addon_is_user     = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (addon));
+      g_assert (addon_ref != NULL);
 
-      ref = bz_flatpak_entry_get_addon_extension_of_ref (BZ_FLATPAK_ENTRY (addon));
-      g_assert (ref != NULL);
+      formatted_name = format_flatpak_name (addon_ref, addon_remote_repo, addon_is_user);
+      candidate      = g_hash_table_lookup (self->flatpak_name_to_app_hash, formatted_name);
 
-      group = g_hash_table_lookup (self->flatpak_name_to_app_hash, ref);
-      if (group != NULL)
-        {
-          GListModel *model     = NULL;
-          guint       n_entries = 0;
-
-          model     = bz_entry_group_get_model (group);
-          n_entries = g_list_model_get_n_items (model);
-
-          for (guint j = 0; j < n_entries; j++)
-            {
-              g_autoptr (BzEntry) candidate     = NULL;
-              gboolean    candidate_is_user     = FALSE;
-              const char *candidate_remote_repo = NULL;
-
-              candidate             = g_list_model_get_item (model, j);
-              candidate_is_user     = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (candidate));
-              candidate_remote_repo = bz_entry_get_remote_repo_name (candidate);
-
-              if (((candidate_is_user && addon_is_user) ||
-                   (!candidate_is_user && !addon_is_user)) &&
-                  g_strcmp0 (candidate_remote_repo, addon_remote_repo))
-                {
-                  bz_entry_add_addon (candidate, addon);
-                  break;
-                }
-            }
-        }
+      if (candidate != NULL)
+        bz_entry_add_addon (candidate, addon);
     }
 
   return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak), NULL);
@@ -1390,21 +1389,23 @@ fetch_installs_then (DexFuture     *future,
       entry     = g_list_model_get_item (G_LIST_MODEL (self->all_entries), i);
       unique_id = bz_entry_get_unique_id (entry);
 
-      if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION) &&
-          g_hash_table_contains (
-              self->installed_unique_ids_set,
-              unique_id))
+      if (g_hash_table_contains (self->installed_unique_ids_set, unique_id))
         {
-          BzEntryGroup *group      = NULL;
-          const char   *generic_id = NULL;
+          g_object_set (entry, "installed", TRUE, NULL);
 
-          g_list_store_append (self->installed, entry);
+          if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
+            {
+              BzEntryGroup *group      = NULL;
+              const char   *generic_id = NULL;
 
-          generic_id = bz_entry_get_id (entry);
-          group      = g_hash_table_lookup (
-              self->generic_id_to_entry_group_hash, generic_id);
-          if (group != NULL)
-            bz_entry_group_install (group, entry);
+              g_list_store_append (self->installed, entry);
+
+              generic_id = bz_entry_get_id (entry);
+              group      = g_hash_table_lookup (
+                  self->generic_id_to_entry_group_hash, generic_id);
+              if (group != NULL)
+                bz_entry_group_install (group, entry);
+            }
         }
     }
 
@@ -1431,9 +1432,8 @@ fetch_updates_then (DexFuture     *future,
 
           unique_id = g_ptr_array_index (names, i);
           entry     = g_hash_table_lookup (
-              self->unique_appid_to_entry_hash, unique_id);
+              self->unique_id_to_entry_hash, unique_id);
 
-          /* FIXME address all refs */
           if (entry != NULL)
             g_list_store_append (self->updates, entry);
         }
@@ -1458,7 +1458,6 @@ refresh_finally (DexFuture     *future,
 {
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
-  DexFuture    *task             = NULL;
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
@@ -1501,7 +1500,7 @@ refresh (BzApplication *self)
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
-  g_hash_table_remove_all (self->unique_appid_to_entry_hash);
+  g_hash_table_remove_all (self->unique_id_to_entry_hash);
   g_hash_table_remove_all (self->flatpak_name_to_app_hash);
   g_list_store_remove_all (self->all_entries);
   g_list_store_remove_all (self->applications);
@@ -1695,4 +1694,14 @@ new_window (BzApplication *self)
 
   gtk_window_present (window);
   return window;
+}
+
+static inline char *
+format_flatpak_name (const char *flatpak_id,
+                     const char *remote_name,
+                     gboolean    user)
+{
+  return g_strdup_printf (
+      "%s::%s::%s", flatpak_id,
+      remote_name, user ? "USER" : "SYSTEM");
 }

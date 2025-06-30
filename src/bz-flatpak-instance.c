@@ -856,16 +856,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
         continue;
       kind = flatpak_ref_get_kind (FLATPAK_REF (rref));
 
-      if (kind == FLATPAK_REF_KIND_APP)
+      component = g_hash_table_lookup (id_hash, name);
+      if (component == NULL)
         {
-          component = g_hash_table_lookup (id_hash, name);
-          if (component == NULL)
-            {
-              g_autofree char *desktop_id = NULL;
+          g_autofree char *desktop_id = NULL;
 
-              desktop_id = g_strdup_printf ("%s.desktop", name);
-              component  = g_hash_table_lookup (id_hash, desktop_id);
-            }
+          desktop_id = g_strdup_printf ("%s.desktop", name);
+          component  = g_hash_table_lookup (id_hash, desktop_id);
         }
 
       job_data            = ref_remote_apps_job_data_new ();

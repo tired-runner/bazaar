@@ -37,6 +37,7 @@ G_DEFINE_FLAGS_TYPE (
 
 typedef struct
 {
+  gboolean    installed;
   guint       kinds;
   BzEntry    *runtime;
   GListStore *addons;
@@ -81,6 +82,7 @@ enum
 {
   PROP_0,
 
+  PROP_INSTALLED,
   PROP_KINDS,
   PROP_RUNTIME,
   PROP_ADDONS,
@@ -194,6 +196,9 @@ bz_entry_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_INSTALLED:
+      g_value_set_boolean (value, priv->installed);
+      break;
     case PROP_RUNTIME:
       g_value_set_object (value, priv->runtime);
       break;
@@ -308,6 +313,9 @@ bz_entry_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_INSTALLED:
+      priv->installed = g_value_get_boolean (value);
+      break;
     case PROP_RUNTIME:
       g_clear_object (&priv->runtime);
       priv->runtime = g_value_dup_object (value);
@@ -445,6 +453,12 @@ bz_entry_class_init (BzEntryClass *klass)
   object_class->set_property = bz_entry_set_property;
   object_class->get_property = bz_entry_get_property;
   object_class->dispose      = bz_entry_dispose;
+
+  props[PROP_INSTALLED] =
+      g_param_spec_boolean (
+          "installed",
+          NULL, NULL, FALSE,
+          G_PARAM_READWRITE);
 
   props[PROP_RUNTIME] =
       g_param_spec_object (
@@ -676,15 +690,33 @@ void
 bz_entry_add_addon (BzEntry *self,
                     BzEntry *addon)
 {
-  BzEntryPrivate *priv = NULL;
+  BzEntryPrivate *priv     = NULL;
+  guint           n_addons = 0;
+  const char     *addon_id = NULL;
 
   g_return_if_fail (BZ_IS_ENTRY (self));
   g_return_if_fail (BZ_IS_ENTRY (addon));
 
   priv = bz_entry_get_instance_private (self);
-
-  if (priv->addons == NULL)
+  if (priv->addons != NULL)
+    n_addons = g_list_model_get_n_items (G_LIST_MODEL (priv->addons));
+  else
     priv->addons = g_list_store_new (BZ_TYPE_ENTRY);
+
+  addon_id = bz_entry_get_id (addon);
+  for (guint i = 0; i < n_addons; i++)
+    {
+      g_autoptr (BzEntry) existing = NULL;
+      const char *existing_id      = NULL;
+
+      existing    = g_list_model_get_item (G_LIST_MODEL (priv->addons), i);
+      existing_id = bz_entry_get_id (existing);
+
+      if (existing == addon ||
+          g_strcmp0 (existing_id, addon_id) == 0)
+        return;
+    }
+
   g_list_store_append (priv->addons, addon);
 }
 

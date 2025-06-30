@@ -18,25 +18,31 @@
           </object>
         </child>
         <property name="content">
-          <object class="GtkListView">
-            <style>
-              <class name="navigation-sidebar"/>
-            </style>
-            <property name="hexpand">TRUE</property>
-            <property name="margin-start">5</property>
-            <property name="margin-end">5</property>
-            <property name="model">
-              <object class="GtkNoSelection">
-                <binding name="model">
-                  <lookup name="addons" type="BzEntry">
-                    <lookup name="entry">BzAddonsDialog</lookup>
-                  </lookup>
-                </binding>
-              </object>
-            </property>
-            <property name="factory">
-              <object class="GtkBuilderListItemFactory">
-                <property name="bytes"><![CDATA[ 
+          <object class="GtkScrolledWindow">
+            <property name="propagate-natural-height">TRUE</property>
+            <property name="overflow">hidden</property>
+            <property name="vexpand">TRUE</property>
+            <property name="hscrollbar-policy">never</property>
+            <property name="child">
+              <object class="GtkListView">
+                <style>
+                  <class name="navigation-sidebar"/>
+                </style>
+                <property name="hexpand">TRUE</property>
+                <property name="margin-start">5</property>
+                <property name="margin-end">5</property>
+                <property name="model">
+                  <object class="GtkNoSelection">
+                    <binding name="model">
+                      <lookup name="addons" type="BzEntry">
+                        <lookup name="entry">BzAddonsDialog</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </property>
+                <property name="factory">
+                  <object class="GtkBuilderListItemFactory">
+                    <property name="bytes"><![CDATA[ 
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="GtkListItem">
@@ -46,19 +52,40 @@
         <property name="margin-top">5</property>
         <property name="margin-bottom">5</property>
         <property name="orientation">horizontal</property>
+        <property name="spacing">15</property>
         <child>
-          <object class="GtkLabel">
-            <style>
-              <class name="heading"/>
-            </style>
+          <object class="GtkBox">
             <property name="hexpand">TRUE</property>
-            <property name="xalign">0</property>
-            <property name="ellipsize">middle</property>
-            <binding name="label">
-              <lookup name="title" type="BzEntry">
-                <lookup name="item">GtkListItem</lookup>
-              </lookup>
-            </binding>
+            <property name="orientation">vertical</property>
+            <property name="spacing">5</property>
+            <child>
+              <object class="GtkLabel">
+                <style>
+                  <class name="heading"/>
+                </style>
+                <property name="xalign">0</property>
+                <property name="ellipsize">middle</property>
+                <binding name="label">
+                  <lookup name="title" type="BzEntry">
+                    <lookup name="item">GtkListItem</lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <style>
+                  <class name="dimmed"/>
+                </style>
+                <property name="xalign">0</property>
+                <property name="wrap">TRUE</property>
+                <binding name="label">
+                  <lookup name="description" type="BzEntry">
+                    <lookup name="item">GtkListItem</lookup>
+                  </lookup>
+                </binding>
+              </object>
+            </child>
           </object>
         </child>
         <child>
@@ -68,7 +95,29 @@
             </style>
             <property name="valign">center</property>
             <property name="icon-name">folder-download-symbolic</property>
-            <signal name="clicked" handler="install_cb" swapped="true" object="GtkListItem"/>
+            <binding name="visible">
+              <closure function="invert_boolean" type="gboolean">
+                <lookup name="installed" type="BzEntry">
+                  <lookup name="item">GtkListItem</lookup>
+                </lookup>
+              </closure>
+            </binding>
+            <signal name="clicked" handler="transact_cb" swapped="true" object="GtkListItem"/>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton">
+            <style>
+              <class name="destructive-action"/>
+            </style>
+            <property name="valign">center</property>
+            <property name="icon-name">user-trash-symbolic</property>
+            <binding name="visible">
+              <lookup name="installed" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
+            <signal name="clicked" handler="transact_cb" swapped="true" object="GtkListItem"/>
           </object>
         </child>
       </object>
@@ -76,6 +125,8 @@
   </template>
 </interface>
 ]]>
+                    </property>
+                  </object>
                 </property>
               </object>
             </property>
