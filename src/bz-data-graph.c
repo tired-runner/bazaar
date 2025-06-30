@@ -407,7 +407,7 @@ bz_data_graph_init (BzDataGraph *self)
   lower_bound_transition_spring = adw_spring_params_new (1.0, 1.0, 300.0);
   lower_bound_transition        = adw_spring_animation_new (
       GTK_WIDGET (self), 0.0, 0.0, lower_bound_transition_spring, lower_bound_transition_target);
-  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (lower_bound_transition), 0.00001);
+  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (lower_bound_transition), 0.000001);
   self->lower_bound_anim = g_steal_pointer (&lower_bound_transition);
 
   upper_bound_transition_target = adw_callback_animation_target_new (
@@ -415,7 +415,7 @@ bz_data_graph_init (BzDataGraph *self)
   upper_bound_transition_spring = adw_spring_params_new (1.0, 1.0, 300.0);
   upper_bound_transition        = adw_spring_animation_new (
       GTK_WIDGET (self), 0.0, 0.0, upper_bound_transition_spring, upper_bound_transition_target);
-  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (upper_bound_transition), 0.00001);
+  adw_spring_animation_set_epsilon (ADW_SPRING_ANIMATION (upper_bound_transition), 0.000001);
   self->upper_bound_anim = g_steal_pointer (&upper_bound_transition);
 }
 
