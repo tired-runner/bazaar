@@ -40,6 +40,7 @@ bz_show_error_for_widget (GtkWidget  *widget,
   g_return_if_fail (text != NULL);
 
   alert = adw_alert_dialog_new (NULL, NULL);
+  adw_alert_dialog_set_prefer_wide_layout (ADW_ALERT_DIALOG (alert), TRUE);
   adw_alert_dialog_format_heading (
       ADW_ALERT_DIALOG (alert), _ ("An Error Occurred"));
   adw_alert_dialog_format_body (
