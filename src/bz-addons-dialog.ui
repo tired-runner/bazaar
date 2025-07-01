@@ -34,9 +34,7 @@
                 <property name="model">
                   <object class="GtkNoSelection">
                     <binding name="model">
-                      <lookup name="addons" type="BzEntry">
-                        <lookup name="entry">BzAddonsDialog</lookup>
-                      </lookup>
+                      <lookup name="model">BzAddonsDialog</lookup>
                     </binding>
                   </object>
                 </property>

@@ -345,8 +345,8 @@ cmp_item (BzEntry         *a,
   gboolean    b_is_application = FALSE;
   gboolean    a_is_addon       = FALSE;
   gboolean    b_is_addon       = FALSE;
-  const char *title_a;
-  const char *title_b;
+  const char *title_a          = NULL;
+  const char *title_b          = NULL;
 
   a_is_application = bz_entry_is_of_kinds (a, BZ_ENTRY_KIND_APPLICATION);
   b_is_application = bz_entry_is_of_kinds (b, BZ_ENTRY_KIND_APPLICATION);

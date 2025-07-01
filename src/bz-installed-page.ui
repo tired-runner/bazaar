@@ -24,17 +24,16 @@
             <property name="name">content</property>
             <property name="title" translatable="yes">BzInstalledPage</property>
             <property name="child">
-              <object class="AdwClamp">
-                <property name="maximum-size">1200</property>
+              <object class="GtkScrolledWindow">
+                <property name="hscrollbar-policy">never</property>
                 <property name="child">
-                  <object class="GtkScrolledWindow">
-                    <property name="hscrollbar-policy">never</property>
+                  <object class="AdwClampScrollable">
+                    <property name="maximum-size">650</property>
                     <property name="child">
                       <object class="GtkListView" id="list_view">
                         <style>
                           <class name="navigation-sidebar"/>
                         </style>
-                        <property name="width-request">300</property>
                         <property name="model">
                           <object class="GtkNoSelection" id="no_selection"/>
                         </property>
@@ -52,16 +51,16 @@
           <class name="card"/>
         </style>
         <property name="orientation">horizontal</property>
-        <property name="margin-top">5</property>
-        <property name="margin-bottom">5</property>
-        <property name="spacing">10</property>
+        <property name="margin-top">2</property>
+        <property name="margin-bottom">2</property>
+        <property name="spacing">15</property>
         <child>
           <object class="GtkPicture">
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
             <property name="height-request">32</property>
             <property name="width-request">32</property>
-            <property name="margin-start">15</property>
-            <property name="margin-top">15</property>
-            <property name="margin-bottom">15</property>
             <binding name="paintable">
               <lookup name="icon-paintable" type="BzEntry">
                 <lookup name="item">GtkListItem</lookup>
@@ -82,11 +81,11 @@
           <object class="GtkImage">
             <property name="valign">center</property>
             <property name="halign">center</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
             <property name="width-request">32</property>
             <property name="height-request">32</property>
-            <property name="margin-start">15</property>
-            <property name="margin-top">15</property>
-            <property name="margin-bottom">15</property>
             <property name="pixel-size">32</property>
             <property name="icon-name">image-missing-symbolic</property>
             <binding name="visible">
@@ -104,7 +103,7 @@
               <class name="heading"/>
             </style>
             <property name="hexpand">TRUE</property>
-            <property name="xalign">0</property>
+            <property name="xalign">0.0</property>
             <property name="ellipsize">end</property>
             <property name="single-line-mode">true</property>
             <binding name="label">
@@ -115,99 +114,131 @@
           </object>
         </child>
         <child>
-          <object class="GtkButton">
+          <object class="GtkLabel">
             <style>
-              <class name="destructive-action"/>
+              <class name="dimmed"/>
             </style>
-            <property name="valign">center</property>
-            <property name="icon-name">user-trash-symbolic</property>
-            <signal name="clicked" handler="remove_cb" swapped="true" object="GtkListItem"/>
+            <property name="xalign">1.0</property>
+            <property name="ellipsize">end</property>
+            <property name="single-line-mode">true</property>
+            <binding name="label">
+              <lookup name="id" type="BzEntry">
+                <lookup name="item">GtkListItem</lookup>
+              </lookup>
+            </binding>
           </object>
         </child>
         <child>
-          <object class="GtkMenuButton">
-            <property name="valign">center</property>
-            <property name="margin-end">15</property>
-            <property name="icon-name">view-more-symbolic</property>
-            <property name="has-tooltip">TRUE</property>
-            <property name="tooltip-text" translatable="yes">More actions</property>
-            <property name="direction">right</property>
-            <property name="popover">
-              <object class="GtkPopover">
-                <property name="child">
-                  <object class="GtkBox">
-                    <property name="margin-start">2</property>
-                    <property name="margin-end">2</property>
-                    <property name="margin-top">2</property>
-                    <property name="margin-bottom">2</property>
-                    <property name="orientation">vertical</property>
-                    <property name="homogeneous">TRUE</property>
-                    <property name="spacing">10</property>
-                    <child>
-                      <object class="GtkButton">
-                        <style>
-                          <class name="flat"/>
-                        </style>
-                        <property name="has-tooltip">TRUE</property>
-                        <property name="tooltip-text" translatable="yes">Manage Addons</property>
-                        <binding name="visible">
-                          <closure function="invert_boolean" type="gboolean">
-                            <closure function="is_null" type="gboolean">
-                              <lookup name="addons" type="BzEntry">
-                                <lookup name="item">GtkListItem</lookup>
-                              </lookup>
-                            </closure>
-                          </closure>
-                        </binding>
-                        <property name="child">
-                          <object class="GtkBox">
-                            <property name="orientation">horizontal</property>
-                            <property name="spacing">6</property>
-                            <child>
-                              <object class="GtkImage">
-                                <property name="icon-name">puzzle-piece-symbolic</property>
+          <object class="GtkBox">
+            <style>
+              <class name="linked"/>
+            </style>
+            <property name="hexpand">FALSE</property>
+            <property name="orientation">horizontal</property>        
+            <property name="width-request">150</property>
+            <child>
+              <object class="GtkButton">
+                <style>
+                  <class name="destructive-action"/>
+                  <class name="card-row-btn"/>
+                </style>
+                <property name="valign">fill</property>
+                <property name="halign">fill</property>
+                <property name="hexpand">TRUE</property>
+                <property name="icon-name">user-trash-symbolic</property>
+                <signal name="clicked" handler="remove_cb" swapped="true" object="GtkListItem"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuButton">
+                <style>
+                  <class name="card-row-btn"/>
+                </style>
+                <property name="valign">fill</property>
+                <property name="halign">fill</property>
+                <property name="hexpand">TRUE</property>
+                <property name="icon-name">view-more-symbolic</property>
+                <property name="has-tooltip">TRUE</property>
+                <property name="tooltip-text" translatable="yes">More actions</property>
+                <property name="direction">right</property>
+                <property name="popover">
+                  <object class="GtkPopover">
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="margin-start">2</property>
+                        <property name="margin-end">2</property>
+                        <property name="margin-top">2</property>
+                        <property name="margin-bottom">2</property>
+                        <property name="orientation">vertical</property>
+                        <property name="homogeneous">TRUE</property>
+                        <property name="spacing">10</property>
+                        <child>
+                          <object class="GtkButton">
+                            <style>
+                              <class name="flat"/>
+                            </style>
+                            <property name="has-tooltip">TRUE</property>
+                            <property name="tooltip-text" translatable="yes">Manage Addons</property>
+                            <binding name="visible">
+                              <closure function="invert_boolean" type="gboolean">
+                                <closure function="is_null" type="gboolean">
+                                  <lookup name="addons" type="BzEntry">
+                                    <lookup name="item">GtkListItem</lookup>
+                                  </lookup>
+                                </closure>
+                              </closure>
+                            </binding>
+                            <property name="child">
+                              <object class="GtkBox">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">6</property>
+                                <child>
+                                  <object class="GtkImage">
+                                    <property name="icon-name">puzzle-piece-symbolic</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="label" translatable="yes">Manage Addons</property>
+                                  </object>
+                                </child>
                               </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Manage Addons</property>
-                              </object>
-                            </child>
+                            </property>
+                            <signal name="clicked" handler="install_addons_cb" swapped="true" object="GtkListItem"/>
                           </object>
-                        </property>
-                        <signal name="clicked" handler="install_addons_cb" swapped="true" object="GtkListItem"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkButton">
-                        <style>
-                          <class name="flat"/>
-                        </style>
-                        <property name="has-tooltip">TRUE</property>
-                        <property name="tooltip-text" translatable="yes">Edit Permissions</property>
-                        <property name="child">
-                          <object class="GtkBox">
-                            <property name="orientation">horizontal</property>
-                            <property name="spacing">6</property>
-                            <child>
-                              <object class="GtkImage">
-                                <property name="icon-name">sliders-horizontal-symbolic</property>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <style>
+                              <class name="flat"/>
+                            </style>
+                            <property name="has-tooltip">TRUE</property>
+                            <property name="tooltip-text" translatable="yes">Edit Permissions</property>
+                            <property name="child">
+                              <object class="GtkBox">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">6</property>
+                                <child>
+                                  <object class="GtkImage">
+                                    <property name="icon-name">sliders-horizontal-symbolic</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="label" translatable="yes">Edit Permissions</property>
+                                  </object>
+                                </child>
                               </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Edit Permissions</property>
-                              </object>
-                            </child>
+                            </property>
+                            <signal name="clicked" handler="edit_permissions_cb" swapped="true" object="GtkListItem"/>
                           </object>
-                        </property>
-                        <signal name="clicked" handler="edit_permissions_cb" swapped="true" object="GtkListItem"/>
+                        </child>
                       </object>
-                    </child>
+                    </property>
                   </object>
                 </property>
               </object>
-            </property>
+            </child>
           </object>
         </child>
       </object>

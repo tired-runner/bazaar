@@ -27,7 +27,8 @@ struct _BzAddonsDialog
 {
   AdwDialog parent_instance;
 
-  BzEntry *entry;
+  BzEntry          *entry;
+  GtkSortListModel *sorted;
 
   /* Template widgets */
 };
@@ -39,6 +40,7 @@ enum
   PROP_0,
 
   PROP_ENTRY,
+  PROP_MODEL,
 
   LAST_PROP
 };
@@ -52,12 +54,18 @@ enum
 };
 static guint signals[LAST_SIGNAL];
 
+static gint
+cmp_item (BzEntry        *a,
+          BzEntry        *b,
+          BzAddonsDialog *self);
+
 static void
 bz_addons_dialog_dispose (GObject *object)
 {
   BzAddonsDialog *self = BZ_ADDONS_DIALOG (object);
 
   g_clear_object (&self->entry);
+  g_clear_object (&self->sorted);
 
   G_OBJECT_CLASS (bz_addons_dialog_parent_class)->dispose (object);
 }
@@ -75,6 +83,9 @@ bz_addons_dialog_get_property (GObject    *object,
     case PROP_ENTRY:
       g_value_set_object (value, self->entry);
       break;
+    case PROP_MODEL:
+      g_value_set_object (value, self->sorted);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -91,9 +102,18 @@ bz_addons_dialog_set_property (GObject      *object,
   switch (prop_id)
     {
     case PROP_ENTRY:
-      g_clear_object (&self->entry);
-      self->entry = g_value_dup_object (value);
+      {
+        g_autoptr (GListModel) addons = NULL;
+
+        g_clear_object (&self->entry);
+        self->entry = g_value_dup_object (value);
+
+        if (self->entry != NULL)
+          g_object_get (self->entry, "addons", &addons, NULL);
+        gtk_sort_list_model_set_model (self->sorted, addons);
+      }
       break;
+    case PROP_MODEL:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -138,6 +158,13 @@ bz_addons_dialog_class_init (BzAddonsDialogClass *klass)
           BZ_TYPE_ENTRY,
           G_PARAM_READWRITE);
 
+  props[PROP_MODEL] =
+      g_param_spec_object (
+          "model",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READABLE);
+
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   signals[SIGNAL_TRANSACT] =
@@ -163,6 +190,11 @@ bz_addons_dialog_class_init (BzAddonsDialogClass *klass)
 static void
 bz_addons_dialog_init (BzAddonsDialog *self)
 {
+  GtkCustomSorter *custom_sorter = NULL;
+
+  custom_sorter = gtk_custom_sorter_new ((GCompareDataFunc) cmp_item, self, NULL);
+  self->sorted  = gtk_sort_list_model_new (NULL, GTK_SORTER (custom_sorter));
+
   gtk_widget_init_template (GTK_WIDGET (self));
 }
 
@@ -177,4 +209,18 @@ bz_addons_dialog_new (BzEntry *entry)
       NULL);
 
   return ADW_DIALOG (addons_dialog);
+}
+
+static gint
+cmp_item (BzEntry        *a,
+          BzEntry        *b,
+          BzAddonsDialog *self)
+{
+  const char *title_a;
+  const char *title_b;
+
+  title_a = bz_entry_get_title (a);
+  title_b = bz_entry_get_title (b);
+
+  return g_strcmp0 (title_a, title_b);
 }

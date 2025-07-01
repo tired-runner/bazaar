@@ -16,34 +16,14 @@
     opacity: 0.55;
 }
 
-.neutral-icon {
-    padding: 4px;
-    color: var(--accent-fg-color);
-    background-color: var(--accent-bg-color);
-    border-radius: 5px;
+
+.card-row-btn {
+    border-radius: 0;
 }
 
-.good-icon {
-    padding: 4px;
-    color: var(--success-fg-color);
-    background-color: var(--success-bg-color);
-    border-radius: 5px;
-}
-
-.bad-icon {
-    padding: 4px;
-    color: var(--warning-fg-color);
-    background-color: var(--warning-bg-color);
-    border-radius: 5px;
-}
 
 .screenshot {
     border-radius: 20px;
-}
-
-.long-description {
-    border-top: 2px solid var(--border-color);
-    border-bottom: 2px solid var(--border-color);
 }
 
 .screenshot-scroll {

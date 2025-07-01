@@ -50,8 +50,7 @@ struct _BzWindow
   gboolean              busy;
   gboolean              online;
 
-  BzEntryGroup *pending_group;
-  GBinding     *search_to_view_binding;
+  GBinding *search_to_view_binding;
 
   /* Template widgets */
   BzCometOverlay      *comet_overlay;
@@ -150,7 +149,8 @@ transact (BzWindow *self,
 
 static void
 try_transact (BzWindow     *self,
-              BzEntryGroup *entry,
+              BzEntry      *entry,
+              BzEntryGroup *group,
               gboolean      remove);
 
 static void
@@ -194,7 +194,6 @@ bz_window_dispose (GObject *object)
   g_clear_object (&self->installed);
   g_clear_object (&self->updates);
 
-  g_clear_object (&self->pending_group);
   g_clear_object (&self->search_to_view_binding);
 
   G_OBJECT_CLASS (bz_window_parent_class)->dispose (object);
@@ -381,7 +380,7 @@ search_widget_select_cb (BzWindow       *self,
       NULL);
 
   remove = installable == 0 && removable > 0;
-  try_transact (self, group, remove);
+  try_transact (self, NULL, group, remove);
 
   adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
 }
@@ -390,14 +389,14 @@ static void
 full_view_install_cb (BzWindow   *self,
                       BzFullView *view)
 {
-  try_transact (self, bz_full_view_get_entry_group (view), FALSE);
+  try_transact (self, NULL, bz_full_view_get_entry_group (view), FALSE);
 }
 
 static void
 full_view_remove_cb (BzWindow   *self,
                      BzFullView *view)
 {
-  try_transact (self, bz_full_view_get_entry_group (view), TRUE);
+  try_transact (self, NULL, bz_full_view_get_entry_group (view), TRUE);
 }
 
 static void
@@ -413,7 +412,7 @@ installed_page_remove_cb (BzWindow   *self,
                           BzEntry    *entry,
                           BzFullView *view)
 {
-  transact (self, entry, TRUE);
+  try_transact (self, entry, NULL, TRUE);
 }
 
 static void
@@ -673,48 +672,54 @@ install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
                                BzWindow       *self)
 {
-  gboolean should_install = FALSE;
-  gboolean should_remove  = FALSE;
+  gboolean should_install           = FALSE;
+  gboolean should_remove            = FALSE;
+  g_autoptr (BzEntry) cb_entry      = NULL;
+  g_autoptr (BzEntryGroup) cb_group = NULL;
 
   should_install = g_strcmp0 (response, "install") == 0;
   should_remove  = g_strcmp0 (response, "remove") == 0;
 
-  if (self->pending_group != NULL &&
-      (should_install || should_remove))
+  cb_entry = g_object_steal_data (G_OBJECT (alert), "entry");
+  cb_group = g_object_steal_data (G_OBJECT (alert), "group");
+
+  if (should_install || should_remove)
     {
-      BzEntryGroup *group  = self->pending_group;
-      GPtrArray    *checks = NULL;
-
-      checks = g_object_get_data (G_OBJECT (alert), "checks");
-      if (checks != NULL)
+      if (cb_group != NULL)
         {
-          GListModel *entries       = NULL;
-          guint       n_entries     = 0;
-          g_autoptr (BzEntry) entry = NULL;
+          GPtrArray *checks = NULL;
 
-          entries   = bz_entry_group_get_model (group);
-          n_entries = g_list_model_get_n_items (entries);
-
-          for (guint i = 0; i < n_entries; i++)
+          checks = g_object_get_data (G_OBJECT (alert), "checks");
+          if (checks != NULL)
             {
-              GtkCheckButton *check = NULL;
+              GListModel *entries       = NULL;
+              guint       n_entries     = 0;
+              g_autoptr (BzEntry) entry = NULL;
 
-              check = g_ptr_array_index (checks, i);
-              if (check != NULL && gtk_check_button_get_active (check))
+              entries   = bz_entry_group_get_model (cb_group);
+              n_entries = g_list_model_get_n_items (entries);
+
+              for (guint i = 0; i < n_entries; i++)
                 {
-                  entry = g_list_model_get_item (entries, i);
-                  break;
+                  GtkCheckButton *check = NULL;
+
+                  check = g_ptr_array_index (checks, i);
+                  if (check != NULL && gtk_check_button_get_active (check))
+                    {
+                      entry = g_list_model_get_item (entries, i);
+                      break;
+                    }
                 }
+
+              if (entry != NULL)
+                transact (self, entry, should_remove);
             }
-
-          if (entry != NULL)
-            transact (self, entry, should_remove);
+          else
+            transact (self, bz_entry_group_get_ui_entry (cb_group), should_remove);
         }
-      else
-        transact (self, bz_entry_group_get_ui_entry (group), should_remove);
+      else if (cb_entry != NULL)
+        transact (self, cb_entry, should_remove);
     }
-
-  g_clear_object (&self->pending_group);
 }
 
 static void
@@ -818,15 +823,12 @@ transact (BzWindow *self,
 
 static void
 try_transact (BzWindow     *self,
+              BzEntry      *entry,
               BzEntryGroup *group,
               gboolean      remove)
 {
-  BzEntry    *ui_entry  = NULL;
-  AdwDialog  *alert     = NULL;
-  GListModel *entries   = NULL;
-  guint       n_entries = 0;
-
-  g_clear_object (&self->pending_group);
+  BzEntry   *ui_entry = NULL;
+  AdwDialog *alert    = NULL;
 
   if (self->busy)
     {
@@ -836,15 +838,28 @@ try_transact (BzWindow     *self,
       return;
     }
 
-  ui_entry = bz_entry_group_get_ui_entry (group);
+  if (entry != NULL)
+    ui_entry = entry;
+  else if (group != NULL)
+    ui_entry = bz_entry_group_get_ui_entry (group);
   if (ui_entry == NULL)
     return;
 
-  self->pending_group = g_object_ref (group);
-
   alert = adw_alert_dialog_new (NULL, NULL);
   adw_alert_dialog_format_heading (
-      ADW_ALERT_DIALOG (alert), "Confirm Transaction");
+      ADW_ALERT_DIALOG (alert), _ ("Confirm Action"));
+
+  if (entry != NULL)
+    g_object_set_data_full (
+        G_OBJECT (alert),
+        "entry", g_object_ref (entry),
+        g_object_unref);
+
+  if (group != NULL)
+    g_object_set_data_full (
+        G_OBJECT (alert),
+        "group", g_object_ref (group),
+        g_object_unref);
 
   if (remove)
     {
@@ -887,75 +902,81 @@ try_transact (BzWindow     *self,
       adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (alert), "cancel");
     }
 
-  entries   = bz_entry_group_get_model (group);
-  n_entries = g_list_model_get_n_items (entries);
-
-  if (n_entries > 0)
+  if (group != NULL)
     {
-      GPtrArray      *checks            = NULL;
-      GtkCheckButton *first_valid_check = NULL;
-      int             n_valid_checks    = FALSE;
-      GtkWidget      *box               = NULL;
+      GListModel *entries   = NULL;
+      guint       n_entries = 0;
 
-      checks = g_ptr_array_new ();
-      box    = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
+      entries   = bz_entry_group_get_model (group);
+      n_entries = g_list_model_get_n_items (entries);
 
-      for (guint i = 0; i < n_entries; i++)
+      if (n_entries > 0)
         {
-          g_autoptr (BzEntry) variant   = NULL;
-          gboolean         is_installed = FALSE;
-          g_autofree char *label        = NULL;
-          GtkWidget       *check        = NULL;
-          GtkWidget       *check_label  = NULL;
+          GPtrArray      *checks            = NULL;
+          GtkCheckButton *first_valid_check = NULL;
+          int             n_valid_checks    = FALSE;
+          GtkWidget      *box               = NULL;
 
-          variant      = g_list_model_get_item (entries, i);
-          is_installed = bz_entry_group_query_removable (group, variant);
+          checks = g_ptr_array_new ();
+          box    = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
 
-          if ((!remove && is_installed) ||
-              (remove && !is_installed))
+          for (guint i = 0; i < n_entries; i++)
             {
-              g_ptr_array_add (checks, NULL);
-              continue;
+              g_autoptr (BzEntry) variant   = NULL;
+              gboolean         is_installed = FALSE;
+              g_autofree char *label        = NULL;
+              GtkWidget       *check        = NULL;
+              GtkWidget       *check_label  = NULL;
+
+              variant      = g_list_model_get_item (entries, i);
+              is_installed = bz_entry_group_query_removable (group, variant);
+
+              if ((!remove && is_installed) ||
+                  (remove && !is_installed))
+                {
+                  g_ptr_array_add (checks, NULL);
+                  continue;
+                }
+
+              label = g_strdup_printf (
+                  "%s: %s",
+                  bz_entry_get_remote_repo_name (variant),
+                  bz_entry_get_unique_id (variant));
+
+              check = gtk_check_button_new ();
+              g_ptr_array_add (checks, check);
+
+              gtk_widget_set_has_tooltip (check, TRUE);
+              gtk_widget_set_tooltip_text (check, label);
+
+              check_label = gtk_label_new (label);
+              gtk_label_set_wrap (GTK_LABEL (check_label), TRUE);
+              gtk_label_set_wrap_mode (GTK_LABEL (check_label), PANGO_WRAP_WORD_CHAR);
+              gtk_check_button_set_child (GTK_CHECK_BUTTON (check), check_label);
+
+              if (first_valid_check != NULL)
+                gtk_check_button_set_group (GTK_CHECK_BUTTON (check), first_valid_check);
+              else
+                {
+                  gtk_check_button_set_active (GTK_CHECK_BUTTON (check), TRUE);
+                  first_valid_check = GTK_CHECK_BUTTON (check);
+                }
+
+              gtk_box_append (GTK_BOX (box), check);
+              n_valid_checks++;
             }
 
-          label = g_strdup_printf (
-              "%s: %s",
-              bz_entry_get_remote_repo_name (variant),
-              bz_entry_get_unique_id (variant));
+          adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (alert), box);
 
-          check = gtk_check_button_new ();
-          g_ptr_array_add (checks, check);
+          g_object_set_data_full (
+              G_OBJECT (alert),
+              "checks",
+              checks,
+              (GDestroyNotify) g_ptr_array_unref);
 
-          gtk_widget_set_has_tooltip (check, TRUE);
-          gtk_widget_set_tooltip_text (check, label);
-
-          check_label = gtk_label_new (label);
-          gtk_label_set_wrap (GTK_LABEL (check_label), TRUE);
-          gtk_label_set_wrap_mode (GTK_LABEL (check_label), PANGO_WRAP_WORD_CHAR);
-          gtk_check_button_set_child (GTK_CHECK_BUTTON (check), check_label);
-
-          if (first_valid_check != NULL)
-            gtk_check_button_set_group (GTK_CHECK_BUTTON (check), first_valid_check);
-          else
-            {
-              gtk_check_button_set_active (GTK_CHECK_BUTTON (check), TRUE);
-              first_valid_check = GTK_CHECK_BUTTON (check);
-            }
-
-          gtk_box_append (GTK_BOX (box), check);
-          n_valid_checks++;
+          if (n_valid_checks == 1)
+            gtk_widget_set_sensitive (GTK_WIDGET (first_valid_check), FALSE);
         }
-
-      adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (alert), box);
-
-      g_object_set_data_full (
-          G_OBJECT (alert),
-          "checks",
-          checks,
-          (GDestroyNotify) g_ptr_array_unref);
-
-      if (n_valid_checks == 1)
-        gtk_widget_set_sensitive (GTK_WIDGET (first_valid_check), FALSE);
     }
 
   g_signal_connect (alert, "response", G_CALLBACK (install_confirmation_response), self);
