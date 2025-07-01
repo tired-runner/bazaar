@@ -381,8 +381,6 @@ search_widget_select_cb (BzWindow       *self,
 
   remove = installable == 0 && removable > 0;
   try_transact (self, NULL, group, remove);
-
-  adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
 }
 
 static void
@@ -1001,8 +999,17 @@ static void
 search (BzWindow   *self,
         const char *initial)
 {
-  bz_search_widget_set_text (self->search_widget, initial);
-  adw_overlay_split_view_set_show_sidebar (self->search_split, TRUE);
+  gboolean open_sidebar = FALSE;
+
+  if (initial != NULL && *initial != '\0')
+    {
+      bz_search_widget_set_text (self->search_widget, initial);
+      open_sidebar = TRUE;
+    }
+  else
+    open_sidebar = !adw_overlay_split_view_get_show_sidebar (self->search_split);
+
+  adw_overlay_split_view_set_show_sidebar (self->search_split, open_sidebar);
 }
 
 static void
