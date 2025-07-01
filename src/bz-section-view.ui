@@ -107,8 +107,7 @@
                         <style>
                           <class name="browser-banner-title"/>
                         </style>
-                        <property name="wrap">TRUE</property>
-                        <property name="wrap-mode">word-char</property>
+                        <property name="ellipsize">end</property>
                         <binding name="visible">
                           <closure function="invert_boolean" type="gboolean">
                             <closure function="is_null" type="gboolean">
@@ -136,8 +135,7 @@
                         <style>
                           <class name="browser-banner-subtitle"/>
                         </style>
-                        <property name="wrap">TRUE</property>
-                        <property name="wrap-mode">word-char</property>
+                        <property name="ellipsize">end</property>
                         <binding name="visible">
                           <closure function="invert_boolean" type="gboolean">
                             <closure function="is_null" type="gboolean">
@@ -165,8 +163,7 @@
                         <style>
                           <class name="browser-banner-description"/>
                         </style>
-                        <property name="wrap">TRUE</property>
-                        <property name="wrap-mode">word-char</property>
+                        <property name="ellipsize">end</property>
                         <binding name="visible">
                           <closure function="invert_boolean" type="gboolean">
                             <closure function="is_null" type="gboolean">
@@ -195,235 +192,11 @@
           </object>
         </child>
         <child>
-          <object class="GtkOverlay">
-            <property name="hexpand">TRUE</property>
-            <property name="child">
-              <object class="GtkScrolledWindow" id="entry_scroll">
-                <property name="hscrollbar-policy">external</property>
-                <property name="vscrollbar-policy">never</property>
-                <property name="child">
-                  <object class="GtkGridView">
-                    <property name="css-name">entry-grid</property>
-                    <style>
-                      <class name="navigation-sidebar"/>
-                    </style>
-                    <signal name="activate" handler="entry_activated_cb" swapped="true"/>
-                    <property name="orientation">horizontal</property>
-                    <property name="single-click-activate">TRUE</property>
-                    <binding name="min-columns">
-                      <lookup name="rows" type="BzContentSection">
-                        <lookup name="section">BzSectionView</lookup>
-                      </lookup>
-                    </binding>
-                    <binding name="max-columns">
-                      <lookup name="rows" type="BzContentSection">
-                        <lookup name="section">BzSectionView</lookup>
-                      </lookup>
-                    </binding>
-                    <property name="model">
-                      <object class="GtkNoSelection">
-                        <binding name="model">
-                          <lookup name="appids" type="BzContentSection">
-                            <lookup name="section">BzSectionView</lookup>
-                          </lookup>
-                        </binding>
-                      </object>
-                    </property>
-                    <property name="factory">
-                      <object class="GtkBuilderListItemFactory" id="factory">
-                        <property name="bytes"><![CDATA[
-<?xml version="1.0" encoding="UTF-8"?>
-<interface>
-  <template class="GtkListItem">
-    <property name="child">
-      <object class="GtkFrame">
-        <property name="css-name">entry</property>
-        <style>
-          <class name="card"/>
-        </style>
-        <property name="width-request">350</property>
-        <property name="child">
-          <object class="GtkBox">
-            <property name="margin-top">15</property>
-            <property name="margin-bottom">15</property>
-            <property name="margin-start">15</property>
-            <property name="margin-end">15</property>
-            <property name="orientation">horizontal</property>
-            <property name="spacing">15</property>
-            <child>
-              <object class="GtkPicture">
-                <property name="height-request">64</property>
-                <property name="width-request">64</property>
-                <property name="can-shrink">TRUE</property>
-                <binding name="paintable">
-                  <lookup name="icon-paintable" type="BzEntry">
-                    <lookup name="ui-entry" type="BzEntryGroup">
-                      <lookup name="item">GtkListItem</lookup>
-                    </lookup>
-                  </lookup>
-                </binding>
-                <binding name="visible">
-                  <closure function="invert_boolean" type="gboolean">
-                    <closure function="is_null" type="gboolean">
-                      <lookup name="icon-paintable" type="BzEntry">
-                        <lookup name="ui-entry" type="BzEntryGroup">
-                          <lookup name="item">GtkListItem</lookup>
-                        </lookup>
-                      </lookup>
-                    </closure>
-                  </closure>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkImage">
-                <property name="valign">center</property>
-                <property name="halign">center</property>
-                <property name="width-request">64</property>
-                <property name="height-request">64</property>
-                <property name="pixel-size">64</property>
-                <property name="icon-name">image-missing-symbolic</property>
-                <binding name="visible">
-                  <closure function="is_null" type="gboolean">
-                    <lookup name="icon-paintable" type="BzEntry">
-                      <lookup name="ui-entry" type="BzEntryGroup">
-                        <lookup name="item">GtkListItem</lookup>
-                      </lookup>
-                    </lookup>
-                  </closure>
-                </binding>
-              </object>
-            </child>
-            <child>
-              <object class="GtkBox">
-                <property name="valign">center</property>
-                <property name="orientation">vertical</property>
-                <property name="spacing">5</property>
-                <child>
-                  <object class="GtkBox">
-                    <property name="orientation">horizontal</property>
-                    <property name="spacing">10</property>
-                    <child>
-                      <object class="GtkLabel">
-                        <style>
-                          <class name="title-2"/>
-                        </style>
-                        <property name="xalign">0</property>
-                        <property name="ellipsize">end</property>
-                        <binding name="label">
-                          <lookup name="title" type="BzEntry">
-                            <lookup name="ui-entry" type="BzEntryGroup">
-                              <lookup name="item">GtkListItem</lookup>
-                            </lookup>
-                          </lookup>
-                        </binding>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRevealer" id="left_btn">
-                        <property name="transition-type">crossfade</property>
-                        <binding name="reveal-child">
-                          <lookup name="verified" type="BzEntry">
-                            <lookup name="ui-entry" type="BzEntryGroup">
-                              <lookup name="item">GtkListItem</lookup>
-                            </lookup>
-                          </lookup>
-                        </binding>
-                        <binding name="visible">
-                          <lookup name="verified" type="BzEntry">
-                            <lookup name="ui-entry" type="BzEntryGroup">
-                              <lookup name="item">GtkListItem</lookup>
-                            </lookup>
-                          </lookup>
-                        </binding>
-                        <property name="child">
-                          <object class="GtkImage">
-                            <style>
-                              <class name="accent"/>
-                            </style>
-                            <property name="has-tooltip">TRUE</property>
-                            <property name="tooltip-text" translatable="yes">This flatpak is verified by the original developers of the software.</property>
-                            <property name="icon-name">verified-checkmark-symbolic</property>
-                            <property name="icon-size">normal</property>
-                          </object>
-                        </property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <style>
-                      <class name="heading"/>
-                      <class name="dimmed"/>
-                    </style>
-                    <property name="xalign">0</property>
-                    <property name="ellipsize">end</property>
-                    <binding name="label">
-                      <lookup name="description" type="BzEntry">
-                        <lookup name="ui-entry" type="BzEntryGroup">
-                          <lookup name="item">GtkListItem</lookup>
-                        </lookup>
-                      </lookup>
-                    </binding>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-        </property>
-      </object>
-    </property>
-  </template>
-</interface>
-]]> 
-                        </property>
-                      </object>
-                    </property>
-                  </object>
-                </property>
-              </object>
-            </property>
-            <child type="overlay">
-              <object class="GtkRevealer" id="left_btn">
-                <property name="halign">start</property>
-                <property name="valign">fill</property>
-                <property name="reveal-child">FALSE</property>
-                <property name="transition-type">crossfade</property>
-                <property name="child">
-                  <object class="GtkButton">
-                    <style>
-                      <class name="osd"/>
-                    </style>
-                    <property name="margin-top">40</property>
-                    <property name="margin-bottom">40</property>
-                    <property name="margin-start">40</property>
-                    <property name="icon-name">left-large-symbolic</property>
-                    <signal name="clicked" handler="entries_left_clicked_cb" swapped="true" object="BzSectionView"/>
-                  </object>
-                </property>
-              </object>
-            </child>
-            <child type="overlay">
-              <object class="GtkRevealer" id="right_btn">
-                <property name="halign">end</property>
-                <property name="valign">fill</property>
-                <property name="reveal-child">FALSE</property>
-                <property name="transition-type">crossfade</property>
-                <property name="child">
-                  <object class="GtkButton">
-                    <style>
-                      <class name="osd"/>
-                    </style>
-                    <property name="margin-top">40</property>
-                    <property name="margin-bottom">40</property>
-                    <property name="margin-end">40</property>
-                    <property name="icon-name">right-large-symbolic</property>
-                    <signal name="clicked" handler="entries_right_clicked_cb" swapped="true" object="BzSectionView"/>
-                  </object>
-                </property>
-              </object>
-            </child>
+          <object class="GtkFlowBox" id="tile_flow">
+            <property name="homogeneous">TRUE</property>
+            <property name="selection-mode">none</property>
+            <property name="column-spacing">6</property>
+            <property name="row-spacing">6</property>
           </object>
         </child>
       </object>

@@ -7,6 +7,7 @@
     <file preprocess="xml-stripblanks">bz-content-provider-config-schema.xml</file>
     
     <file preprocess="xml-stripblanks">bz-addons-dialog.ui</file>
+    <file preprocess="xml-stripblanks">bz-app-tile.ui</file>
     <file preprocess="xml-stripblanks">bz-browse-widget.ui</file>
     <file preprocess="xml-stripblanks">bz-full-view.ui</file>
     <file preprocess="xml-stripblanks">bz-installed-page.ui</file>

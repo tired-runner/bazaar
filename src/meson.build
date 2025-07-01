@@ -7,6 +7,7 @@ gdbus_src = gnome.gdbus_codegen(
 
 bz_sources = [
   'bz-addons-dialog.c',
+  'bz-app-tile.c',
   'bz-application.c',
   'bz-async-texture.c',
   'bz-backend.c',
