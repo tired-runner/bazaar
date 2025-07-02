@@ -102,21 +102,57 @@ template $BzSearchWidget: Adw.Bin {
           child: Box {
             halign: start;
             orientation: vertical;
-            spacing: 5;
+            spacing: 8;
 
-            CheckButton regex_check {
-              label: _("Match using regular expressions");
-              toggled => $regex_toggled_cb(template) swapped;
+            Box {
+              orientation: vertical;
+              spacing: 3;
+
+              Label {
+                styles [
+                  "heading",
+                ]
+                label: _("Search Options");
+              }
+
+              CheckButton foss_check {
+                label: _("Exclude results with proprietary licenses");
+                toggled => $foss_toggled_cb(template) swapped;
+              }
+
+              CheckButton flathub_check {
+                label: _("Exclude results not originating from Flathub");
+                toggled => $flathub_toggled_cb(template) swapped;
+              }
             }
 
-            CheckButton foss_check {
-              label: _("Exclude results with proprietary licenses");
-              toggled => $foss_toggled_cb(template) swapped;
-            }
+            Separator {}
 
-            CheckButton flathub_check {
-              label: _("Exclude results not originating from Flathub");
-              toggled => $flathub_toggled_cb(template) swapped;
+            Box {
+              orientation: vertical;
+              spacing: 3;
+
+              Label {
+                styles [
+                  "heading",
+                ]
+                label: _("Advanced");
+              }
+
+              CheckButton regex_check {
+                label: _("Match using regular expressions");
+                toggled => $regex_toggled_cb(template) swapped;
+              }
+              
+              CheckButton crossfade_check {
+                label: _("Hide filtering and sorting behind a crossfade effect");
+                active: true;
+              }
+              
+              CheckButton debounce_check {
+                label: _("Debounce input to prevent instant replies");
+                active: true;
+              }
             }
           };
         };

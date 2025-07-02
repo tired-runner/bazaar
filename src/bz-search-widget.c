@@ -49,6 +49,8 @@ struct _BzSearchWidget
   GtkLabel       *regex_error;
   GtkCheckButton *foss_check;
   GtkCheckButton *flathub_check;
+  GtkCheckButton *crossfade_check;
+  GtkCheckButton *debounce_check;
   GtkBox         *content_box;
   GtkRevealer    *entry_list_revealer;
   GtkListView    *list_view;
@@ -329,6 +331,8 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, foss_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, flathub_check);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, crossfade_check);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, debounce_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, content_box);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_list_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
@@ -461,9 +465,14 @@ search_changed (GtkEditable    *editable,
                 BzSearchWidget *self)
 {
   g_clear_handle_id (&self->search_update_timeout, g_source_remove);
-  gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
-  self->search_update_timeout = g_timeout_add_once (
-      150 /* 150 ms */, (GSourceOnceFunc) update_filter, self);
+  if (gtk_check_button_get_active (self->crossfade_check))
+    gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
+
+  if (gtk_check_button_get_active (self->debounce_check))
+    self->search_update_timeout = g_timeout_add_once (
+        150 /* 150 ms */, (GSourceOnceFunc) update_filter, self);
+  else
+    update_filter (self);
 }
 
 static void
@@ -757,7 +766,8 @@ update_filter (BzSearchWidget *self)
   if (gtk_filter_list_model_get_pending (filter_list_model) > 0)
     {
       gtk_widget_set_visible (GTK_WIDGET (self->search_busy), TRUE);
-      gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
+      if (gtk_check_button_get_active (self->crossfade_check))
+        gtk_revealer_set_reveal_child (self->entry_list_revealer, FALSE);
     }
   else
     gtk_revealer_set_reveal_child (
