@@ -67,9 +67,32 @@ bz_deps = [
   dependency('json-glib-1.0', version : '>= 1.10.0'),
 ]
 
+blueprints = custom_target('blueprints',
+  input: files(
+    'gtk/help-overlay.blp',
+    'bz-addons-dialog.blp',
+    'bz-app-tile.blp',
+    'bz-browse-widget.blp',
+    'bz-full-view.blp',
+    'bz-installed-page.blp',
+    'bz-preferences-dialog.blp',
+    'bz-progress-bar.blp',
+    'bz-search-widget.blp',
+    'bz-section-view.blp',
+    'bz-share-dialog.blp',
+    'bz-stats-dialog.blp',
+    'bz-transaction-view.blp',
+    'bz-update-dialog.blp',
+    'bz-window.blp',
+  ),
+  output: '.',
+  command: [find_program('blueprint-compiler'), 'batch-compile', '@OUTPUT@', '@CURRENT_SOURCE_DIR@', '@INPUT@'],
+)
+
 bz_sources += gnome.compile_resources('bz-resources',
   'bazaar.gresource.xml',
-  c_name: 'bz'
+  c_name: 'bz',
+  dependencies: blueprints
 )
 
 executable('bazaar', bz_sources, gdbus_src,

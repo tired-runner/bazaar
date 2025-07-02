@@ -1,0 +1,116 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzSectionView: Adw.Bin {
+  child: Box {
+    orientation: vertical;
+    spacing: 5;
+
+    Label {
+      styles [
+        "heading",
+        "error",
+      ]
+
+      wrap: true;
+      wrap-mode: word_char;
+      xalign: 0;
+      visible: bind $invert_boolean($is_null(template.section as <$BzContentSection>.error) as <bool>) as <bool>;
+      label: bind template.section as <$BzContentSection>.error;
+    }
+
+    Overlay {
+      hexpand: true;
+
+      child: Revealer {
+        transition-type: crossfade;
+        transition-duration: 500;
+        height-request: bind template.section as <$BzContentSection>.banner-height;
+        reveal-child: bind template.section as <$BzContentSection>.banner as <$BzAsyncTexture>.loaded;
+
+        child: Picture {
+          css-name: "banner";
+
+          styles [
+            "browser-banner",
+          ]
+
+          can-shrink: true;
+          paintable: bind template.section as <$BzContentSection>.banner;
+          content-fit: bind template.section as <$BzContentSection>.banner-fit;
+        };
+      };
+
+      [overlay]
+      Overlay banner_text_overlay {
+        css-name: "banner-text-overlay";
+        hexpand: false;
+        vexpand: false;
+
+        child: Box banner_text_bg {
+          css-name: "banner-text-bg";
+        };
+
+        halign: bind template.section as <$BzContentSection>.banner-text-halign;
+        valign: bind template.section as <$BzContentSection>.banner-text-valign;
+
+        [overlay]
+        Box banner_text {
+          css-name: "banner-text";
+          hexpand: false;
+          vexpand: false;
+          halign: center;
+          valign: center;
+          orientation: vertical;
+          spacing: 5;
+
+          Label {
+            css-name: "title";
+
+            styles [
+              "browser-banner-title",
+            ]
+
+            ellipsize: end;
+            visible: bind $invert_boolean($is_null(template.section as <$BzContentSection>.title) as <bool>) as <bool>;
+            xalign: bind template.section as <$BzContentSection>.banner-text-label-xalign;
+            label: bind template.section as <$BzContentSection>.title;
+          }
+
+          Label {
+            css-name: "subtitle";
+
+            styles [
+              "browser-banner-subtitle",
+            ]
+
+            ellipsize: end;
+            visible: bind $invert_boolean($is_null(template.section as <$BzContentSection>.subtitle) as <bool>) as <bool>;
+            xalign: bind template.section as <$BzContentSection>.banner-text-label-xalign;
+            label: bind template.section as <$BzContentSection>.subtitle;
+          }
+
+          Label {
+            css-name: "description";
+
+            styles [
+              "browser-banner-description",
+            ]
+
+            ellipsize: end;
+            visible: bind $invert_boolean($is_null(template.section as <$BzContentSection>.description) as <bool>) as <bool>;
+            xalign: bind template.section as <$BzContentSection>.banner-text-label-xalign;
+            label: bind template.section as <$BzContentSection>.description;
+          }
+        }
+      }
+    }
+
+    FlowBox tile_flow {
+      homogeneous: true;
+      selection-mode: none;
+      column-spacing: 6;
+      row-spacing: 6;
+    }
+  };
+}

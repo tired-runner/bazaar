@@ -1,0 +1,217 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzSearchWidget: Adw.Bin {
+  styles [
+    "global-search",
+  ]
+
+  ShortcutController {
+    Shortcut {
+      trigger: "<primary>p";
+      action: "action(move)";
+      arguments: "-1";
+    }
+
+    Shortcut {
+      trigger: "<primary>n";
+      action: "action(move)";
+      arguments: "1";
+    }
+
+    Shortcut {
+      trigger: "<primary>k";
+      action: "action(move)";
+      arguments: "-1";
+    }
+
+    Shortcut {
+      trigger: "<primary>j";
+      action: "action(move)";
+      arguments: "1";
+    }
+
+    Shortcut {
+      trigger: "<primary><alt>p";
+      action: "action(move)";
+      arguments: "-10";
+    }
+
+    Shortcut {
+      trigger: "<primary><alt>n";
+      action: "action(move)";
+      arguments: "10";
+    }
+
+    Shortcut {
+      trigger: "<primary><alt>k";
+      action: "action(move)";
+      arguments: "-10";
+    }
+
+    Shortcut {
+      trigger: "<primary><alt>j";
+      action: "action(move)";
+      arguments: "10";
+    }
+  }
+
+  child: Box {
+    orientation: vertical;
+
+    Box {
+      css-name: "search";
+      orientation: horizontal;
+      spacing: 5;
+
+      Text search_bar {
+        hexpand: true;
+        placeholder-text: _("Type to filter");
+      }
+
+      Label search_text {}
+
+      Label regex_error {
+        styles [
+          "error",
+          "monospace",
+        ]
+
+        visible: false;
+        has-tooltip: true;
+        ellipsize: start;
+        max-width-chars: 30;
+      }
+
+      Image search_busy {
+        visible: false;
+        icon-name: "timer-sand-symbolic";
+      }
+
+      MenuButton {
+        styles [
+          "flat",
+        ]
+
+        icon-name: "view-more-horizontal-symbolic";
+        has-tooltip: true;
+        tooltip-text: _("Search Options");
+        direction: down;
+
+        popover: Popover {
+          child: Box {
+            halign: start;
+            orientation: vertical;
+            spacing: 5;
+
+            CheckButton regex_check {
+              label: _("Match using regular expressions");
+              toggled => $regex_toggled_cb(template) swapped;
+            }
+
+            CheckButton foss_check {
+              label: _("Exclude results with proprietary licenses");
+              toggled => $foss_toggled_cb(template) swapped;
+            }
+
+            CheckButton flathub_check {
+              label: _("Exclude results not originating from Flathub");
+              toggled => $flathub_toggled_cb(template) swapped;
+            }
+          };
+        };
+      }
+    }
+
+    Adw.Banner {
+      revealed: bind $is_valid_string(regex_error.label) as <bool>;
+      title: bind regex_error.label;
+    }
+
+    Revealer entry_list_revealer {
+      transition-type: crossfade;
+
+      child: Box content_box {
+        orientation: horizontal;
+        visible: bind $invert_boolean($is_null(list_view.model as <SingleSelection>.selected-item as <$BzEntryGroup>.ui-entry) as <bool>) as <bool>;
+
+        ScrolledWindow entry_list_scroll {
+          hexpand: true;
+          vexpand: true;
+          hscrollbar-policy: never;
+
+          child: ListView list_view {
+            styles [
+              "navigation-sidebar",
+            ]
+
+            single-click-activate: false;
+
+            factory: BuilderListItemFactory {
+              template ListItem {
+                child: Box {
+                  orientation: horizontal;
+                  margin-top: 8;
+                  margin-bottom: 8;
+                  margin-start: 3;
+                  margin-end: 3;
+                  spacing: 20;
+
+                  Picture {
+                    valign: center;
+                    halign: center;
+                    height-request: 64;
+                    width-request: 32;
+                    can-shrink: true;
+                    paintable: bind template.item as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable;
+                    visible: bind $invert_boolean($is_null(template.item as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable) as <bool>) as <bool>;
+                  }
+
+                  Image {
+                    valign: center;
+                    halign: center;
+                    width-request: 32;
+                    height-request: 32;
+                    pixel-size: 32;
+                    icon-name: "image-missing-symbolic";
+                    visible: bind $is_null(template.item as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable) as <bool>;
+                  }
+
+                  Box {
+                    hexpand: true;
+                    valign: center;
+                    orientation: vertical;
+                    spacing: 5;
+
+                    Label {
+                      styles [
+                        "heading",
+                      ]
+
+                      xalign: 0.0;
+                      width-chars: 13;
+                      ellipsize: end;
+                      single-line-mode: true;
+                      label: bind template.item as <$BzEntryGroup>.ui-entry as <$BzEntry>.title;
+                    }
+
+                    Label {
+                      styles [
+                        "dim-label",
+                      ]
+
+                      xalign: 0.0;
+                      ellipsize: end;
+                      single-line-mode: true;
+                      label: bind template.item as <$BzEntryGroup>.ui-entry as <$BzEntry>.description;
+                    }
+                  }
+                };
+              }
+            };
+          };
+        }
+      };
+    }
+  };
+}

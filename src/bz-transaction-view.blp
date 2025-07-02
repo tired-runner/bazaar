@@ -1,0 +1,206 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzTransactionView: Adw.Bin {
+  child: Frame {
+    styles [
+      "card",
+    ]
+
+    child: Box {
+      margin-top: 10;
+      margin-bottom: 10;
+      margin-start: 10;
+      margin-end: 10;
+      orientation: vertical;
+      spacing: 5;
+
+      Box {
+        hexpand: true;
+        orientation: horizontal;
+        spacing: 10;
+
+        Box installs {
+          hexpand: true;
+          orientation: vertical;
+          spacing: 3;
+
+          Label {
+            styles [
+              "title-4",
+            ]
+
+            ellipsize: end;
+            label: _("Installing");
+          }
+
+          ListView {
+            styles [
+              "navigation-sidebar",
+            ]
+
+            model: NoSelection {
+              model: bind template.transaction as <$BzTransaction>.installs;
+            };
+
+            factory: factory;
+          }
+        }
+
+        Separator separator_1 {}
+
+        Box updates {
+          hexpand: true;
+          orientation: vertical;
+          spacing: 3;
+
+          Label {
+            styles [
+              "title-4",
+            ]
+
+            ellipsize: end;
+            label: _("Updating");
+          }
+
+          ListView {
+            styles [
+              "navigation-sidebar",
+            ]
+
+            model: NoSelection {
+              model: bind template.transaction as <$BzTransaction>.updates;
+            };
+
+            factory: factory;
+          }
+        }
+
+        Separator separator_2 {}
+
+        Box removals {
+          hexpand: true;
+          orientation: vertical;
+          spacing: 3;
+
+          Label {
+            styles [
+              "title-4",
+            ]
+
+            ellipsize: end;
+            label: _("Removing");
+          }
+
+          ListView {
+            styles [
+              "navigation-sidebar",
+            ]
+
+            model: NoSelection {
+              model: bind template.transaction as <$BzTransaction>.removals;
+            };
+
+            factory: factory;
+          }
+        }
+      }
+
+      Separator {}
+
+      Label {
+        styles [
+          "accent",
+          "heading",
+        ]
+
+        margin-start: 15;
+        margin-top: 15;
+        margin-end: 15;
+        xalign: 0;
+        ellipsize: end;
+        label: bind template.transaction as <$BzTransaction>.status;
+      }
+
+      Label {
+        styles [
+          "error",
+          "heading",
+        ]
+
+        margin-start: 15;
+        margin-end: 15;
+        wrap: true;
+        wrap-mode: word_char;
+        xalign: 0;
+        visible: bind $invert_boolean(template.transaction as <$BzTransaction>.success) as <bool>;
+        label: bind template.transaction as <$BzTransaction>.error;
+      }
+
+      $BzProgressBar {
+        hexpand: "true";
+        margin-bottom: "15";
+        margin-start: "15";
+        margin-end: "15";
+        fraction: bind template.transaction as <$BzTransaction>.progress;
+        visible: bind $invert_boolean(template.transaction as <$BzTransaction>.finished) as <bool>;
+      }
+
+      Label {
+        styles [
+          "dimmed",
+        ]
+
+        margin-bottom: 15;
+        margin-start: 15;
+        margin-end: 15;
+        xalign: 0;
+        ellipsize: end;
+        label: bind template.transaction as <$BzTransaction>.name;
+      }
+    };
+  };
+}
+
+BuilderListItemFactory factory {
+  template ListItem {
+    activatable: false;
+
+    child: CenterBox {
+      orientation: horizontal;
+      margin-start: 5;
+      margin-end: 5;
+      margin-top: 5;
+      margin-bottom: 5;
+
+      start-widget: Box {
+        orientation: horizontal;
+        spacing: 15;
+
+        Image {
+          icon-size: large;
+          paintable: bind template.item as <$BzEntry>.icon-paintable;
+          visible: bind $invert_boolean($is_null(template.item as <$BzEntry>.icon-paintable) as <bool>) as <bool>;
+        }
+
+        Image {
+          icon-size: large;
+          icon-name: "image-missing-symbolic";
+          visible: bind $is_null(template.item as <$BzEntry>.icon-paintable) as <bool>;
+        }
+
+        Label {
+          styles [
+            "heading",
+          ]
+
+          hexpand: true;
+          xalign: 0;
+          ellipsize: end;
+          single-line-mode: true;
+          label: bind template.item as <$BzEntry>.title;
+        }
+      };
+    };
+  }
+}

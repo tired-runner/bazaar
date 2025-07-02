@@ -1,0 +1,84 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzAppTile: Adw.Bin {
+  css-name: "entry";
+
+  child: Box {
+    margin-top: 10;
+    margin-bottom: 10;
+    margin-start: 10;
+    margin-end: 10;
+    orientation: horizontal;
+    spacing: 15;
+
+    Image {
+      pixel-size: 64;
+      paintable: bind template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable;
+      visible: bind $invert_boolean($is_null(template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable) as <bool>) as <bool>;
+    }
+
+    Image {
+      valign: center;
+      halign: center;
+      width-request: 64;
+      height-request: 64;
+      pixel-size: 64;
+      icon-name: "image-missing-symbolic";
+      visible: bind $is_null(template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.icon-paintable) as <bool>;
+    }
+
+    Box {
+      valign: center;
+      hexpand: true;
+      orientation: vertical;
+      spacing: 5;
+
+      Box {
+        orientation: horizontal;
+        spacing: 10;
+
+        Label {
+          styles [
+            "title-2",
+          ]
+
+          xalign: 0.0;
+          ellipsize: end;
+          label: bind template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.title;
+        }
+
+        Revealer {
+          transition-type: crossfade;
+          reveal-child: bind template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.verified;
+          visible: bind template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.verified;
+
+          child: Image {
+            styles [
+              "accent",
+            ]
+
+            has-tooltip: true;
+            tooltip-text: _("This flatpak is verified by the original developers of the software.");
+            icon-name: "verified-checkmark-symbolic";
+            icon-size: normal;
+          };
+        }
+      }
+
+      Label {
+        styles [
+          "heading",
+          "dimmed",
+        ]
+
+        xalign: 0.0;
+        wrap: true;
+        ellipsize: end;
+        max-width-chars: 35;
+        lines: 3;
+        label: bind template.group as <$BzEntryGroup>.ui-entry as <$BzEntry>.description;
+      }
+    }
+  };
+}

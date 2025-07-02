@@ -1,0 +1,349 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzWindow: Adw.ApplicationWindow {
+  default-width: 1500;
+  default-height: 1000;
+  width-request: 550;
+  height-request: 400;
+
+  content: $BzCometOverlay comet_overlay {
+    child: Adw.BreakpointBin breakpoint_bin {
+      width-request: 550;
+      height-request: 450;
+
+      child: Adw.ToolbarView toolbar_view {
+        top-bar-style: raised_border;
+        bottom-bar-style: raised_border;
+        reveal-bottom-bars: false;
+
+        content: Adw.OverlaySplitView split_view {
+          show-sidebar: false;
+          pin-sidebar: true;
+          sidebar-position: end;
+
+          sidebar: Adw.ViewStack transactions_stack {
+            enable-transitions: true;
+            transition-duration: 200;
+
+            Adw.ViewStackPage {
+              name: "empty";
+              title: _("Empty");
+
+              child: Adw.StatusPage {
+                icon-name: "folder-download-symbolic";
+                title: _("Transactions Will Appear Here");
+              };
+            }
+
+            Adw.ViewStackPage {
+              name: "content";
+              title: _("Content");
+
+              child: Adw.ToolbarView {
+                bottom-bar-style: flat;
+
+                content: ScrolledWindow transactions {
+                  width-request: 400;
+                  hscrollbar-policy: never;
+                  propagate-natural-height: true;
+
+                  child: ListView list_view {
+                    styles [
+                      "navigation-sidebar",
+                    ]
+
+                    model: NoSelection no_selection {
+                      model: bind template.transaction-manager as <$BzTransactionManager>.transactions;
+                    };
+
+                    factory: BuilderListItemFactory {
+                      template ListItem {
+                        activatable: false;
+
+                        child: $BzTransactionView {
+                          margin-start: "5";
+                          margin-end: "5";
+                          margin-top: "10";
+                          margin-bottom: "10";
+                          transaction: bind template.item;
+                        };
+                      }
+                    };
+                  };
+                };
+
+                [bottom]
+                Adw.HeaderBar {
+                  show-start-title-buttons: false;
+                  show-end-title-buttons: false;
+                  show-title: false;
+
+                  [end]
+                  Box {
+                    styles [
+                      "linked",
+                    ]
+
+                    ToggleButton transactions_pause {
+                      has-tooltip: true;
+                      active: bind template.transaction-manager as <$BzTransactionManager>.paused;
+                      toggled => $pause_transactions_cb(template) swapped;
+                    }
+
+                    Button transactions_stop {
+                      has-tooltip: true;
+                      tooltip-text: _("Halt the execution of transactions");
+                      icon-name: "media-playback-stop-symbolic";
+                      sensitive: bind template.transaction-manager as <$BzTransactionManager>.active;
+                      clicked => $stop_transactions_cb(template) swapped;
+                    }
+
+                    Button transactions_clear {
+                      has-tooltip: true;
+                      tooltip-text: _("Clear all finished transactions");
+                      icon-name: "edit-clear-all-symbolic";
+                    }
+                  }
+                }
+              };
+            }
+          };
+
+          content: Adw.OverlaySplitView search_split {
+            show-sidebar: false;
+            pin-sidebar: true;
+            sidebar-position: start;
+            notify::show-sidebar => $search_split_open_changed_cb(template) swapped;
+
+            sidebar: Adw.ToolbarView {
+              content: $BzSearchWidget search_widget {
+                model: bind template.applications;
+                select => $search_widget_select_cb(template) swapped;
+              };
+            };
+
+            content: Adw.ToastOverlay toasts {
+              child: Overlay {
+                child: Adw.ViewStack main_stack {
+                  enable-transitions: true;
+                  transition-duration: 200;
+
+                  Adw.ViewStackPage {
+                    name: "offline";
+                    title: _("Offline");
+
+                    child: Adw.StatusPage {
+                      icon-name: "connected-squares-x";
+                      title: "Offline";
+                    };
+                  }
+
+                  Adw.ViewStackPage {
+                    name: "loading";
+                    title: _("Loading");
+
+                    child: Adw.Spinner spinner {};
+                  }
+
+                  Adw.ViewStackPage {
+                    name: "browse";
+                    title: _("Browse");
+
+                    child: $BzBrowseWidget browse {
+                      content-provider: bind template.content-provider;
+                      group-selected => $browser_group_selected_cb() swapped;
+                    };
+                  }
+
+                  Adw.ViewStackPage {
+                    name: "view";
+                    title: _("App View");
+
+                    child: $BzFullView full_view {
+                      transaction-manager: bind template.transaction-manager;
+                      install => $full_view_install_cb(template) swapped;
+                      remove => $full_view_remove_cb(template) swapped;
+                    };
+                  }
+
+                  Adw.ViewStackPage {
+                    name: "installed";
+                    title: _("Installed");
+
+                    child: $BzInstalledPage {
+                      model: bind template.installed;
+                      install => $installed_page_install_cb(template) swapped;
+                      remove => $installed_page_remove_cb(template) swapped;
+                    };
+                  }
+                };
+              };
+            };
+          };
+        };
+
+        [top]
+        Adw.HeaderBar top_header_bar {
+          [start]
+          Button go_back {
+            has-tooltip: true;
+            tooltip-text: _("Go Back");
+            icon-name: "go-previous-symbolic";
+          }
+
+          [start]
+          Button refresh {
+            has-tooltip: true;
+            tooltip-text: _("Refresh");
+            icon-name: "view-refresh-symbolic";
+            sensitive: bind $invert_boolean(template.busy) as <bool>;
+          }
+
+          [start]
+          ToggleButton search {
+            has-tooltip: true;
+            tooltip-text: _("Search");
+            icon-name: "system-search-symbolic";
+            active: bind search_split.show-sidebar bidirectional;
+          }
+
+          [start]
+          Button update_button {
+            styles [
+              "suggested-action",
+            ]
+
+            has-tooltip: true;
+            tooltip-text: _("Update");
+            icon-name: "software-update-available-symbolic";
+          }
+
+          title-widget: Revealer title_revealer {
+            transition-type: crossfade;
+            transition-duration: 200;
+
+            child: Adw.ToggleGroup title_toggle_group {
+              homogeneous: true;
+
+              Adw.Toggle {
+                tooltip: _("View curated applications");
+                name: "curated";
+
+                child: Box {
+                  halign: center;
+                  margin-start: 15;
+                  margin-end: 15;
+                  orientation: horizontal;
+                  spacing: 6;
+
+                  Image {
+                    icon-name: "starred-symbolic";
+                  }
+
+                  Label {
+                    label: _("Curated");
+                  }
+                };
+              }
+
+              Adw.Toggle {
+                tooltip: _("View installed applications");
+                name: "installed";
+
+                child: Box {
+                  halign: center;
+                  margin-start: 15;
+                  margin-end: 15;
+                  orientation: horizontal;
+                  spacing: 6;
+
+                  Image {
+                    icon-name: "library-symbolic";
+                  }
+
+                  Label {
+                    label: _("Installed");
+                  }
+                };
+              }
+
+              notify::active-name => $page_toggled_cb(template) swapped;
+            };
+          };
+
+          [end]
+          MenuButton {
+            primary: true;
+            icon-name: "open-menu-symbolic";
+            has-tooltip: true;
+            tooltip-text: _("Main Menu");
+            menu-model: primary_menu;
+          }
+
+          [end]
+          ToggleButton toggle_transactions {
+            styles [
+              "flat",
+            ]
+
+            has-tooltip: true;
+            tooltip-text: _("Toggle transaction sidebar");
+            active: bind split_view.show-sidebar bidirectional;
+
+            child: $BzGlobalProgress {
+              active: bind template.transaction-manager as <$BzTransactionManager>.active;
+              fraction: bind template.transaction-manager as <$BzTransactionManager>.current-progress;
+
+              child: Image {
+                halign: end;
+                icon-name: "folder-download-symbolic";
+              };
+            };
+          }
+        }
+
+        [bottom]
+        Adw.HeaderBar bottom_header_bar {
+          show-start-title-buttons: false;
+          show-end-title-buttons: false;
+          show-title: false;
+        }
+      };
+
+      Adw.Breakpoint {
+        condition ("max-width: 1200px")
+
+        setters {
+          split_view.collapsed: true;
+          transactions.width-request: 250;
+          toolbar_view.reveal-bottom-bars: true;
+          top_header_bar.show-title: false;
+          bottom_header_bar.show-title: true;
+        }
+
+        apply => $breakpoint_apply_cb(template) swapped;
+        unapply => $breakpoint_unapply_cb(template) swapped;
+      }
+    };
+  };
+}
+
+menu primary_menu {
+  section {
+    item {
+      label: _("_Keyboard Shortcuts");
+      action: "win.show-help-overlay";
+    }
+
+    item {
+      label: _("_About Bazaar");
+      action: "app.about";
+    }
+
+    item {
+      label: _("_Donate to Bazaar ❤️");
+      action: "app.donate";
+    }
+  }
+}

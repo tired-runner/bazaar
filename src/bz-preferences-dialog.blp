@@ -1,0 +1,22 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzPreferencesDialog: Adw.PreferencesDialog {
+  content-height: 500;
+  search-enabled: true;
+
+  Adw.PreferencesPage {
+    title: _("Preferences");
+    use-underline: true;
+
+    Adw.PreferencesGroup {
+      description: _("How the application looks");
+      title: _("Appearance");
+
+      Adw.SwitchRow {
+        title: _("Show animated background");
+        active: bind template.show-animated-background bidirectional;
+      }
+    }
+  }
+}

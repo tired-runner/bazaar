@@ -1,0 +1,99 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzAddonsDialog: Adw.Dialog {
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      title-widget: Label {
+        styles [
+          "heading",
+        ]
+
+        label: _("Manage Addons");
+      };
+    }
+
+    content: ScrolledWindow {
+      propagate-natural-height: true;
+      overflow: hidden;
+      vexpand: true;
+      hscrollbar-policy: never;
+
+      child: ListView {
+        styles [
+          "navigation-sidebar",
+        ]
+
+        hexpand: true;
+        margin-start: 5;
+        margin-end: 5;
+
+        model: NoSelection {
+          model: bind template.model;
+        };
+
+        factory: BuilderListItemFactory {
+          template ListItem {
+            activatable: false;
+
+            child: Box {
+              margin-top: 5;
+              margin-bottom: 5;
+              orientation: horizontal;
+              spacing: 15;
+
+              Box {
+                hexpand: true;
+                orientation: vertical;
+                spacing: 5;
+
+                Label {
+                  styles [
+                    "heading",
+                  ]
+
+                  xalign: 0;
+                  ellipsize: middle;
+                  label: bind template.item as <$BzEntry>.title;
+                }
+
+                Label {
+                  styles [
+                    "dimmed",
+                  ]
+
+                  xalign: 0;
+                  wrap: true;
+                  label: bind template.item as <$BzEntry>.description;
+                }
+              }
+
+              Button {
+                styles [
+                  "suggested-action",
+                ]
+
+                valign: center;
+                icon-name: "folder-download-symbolic";
+                visible: bind $invert_boolean(template.item as <$BzEntry>.installed) as <bool>;
+                clicked => $transact_cb(template) swapped;
+              }
+
+              Button {
+                styles [
+                  "destructive-action",
+                ]
+
+                valign: center;
+                icon-name: "user-trash-symbolic";
+                visible: bind template.item as <$BzEntry>.installed;
+                clicked => $transact_cb(template) swapped;
+              }
+            };
+          }
+        };
+      };
+    };
+  };
+}

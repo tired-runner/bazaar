@@ -1,0 +1,48 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzStatsDialog: Adw.Dialog {
+  child: Adw.ToolbarView {
+    bottom-bar-style: raised_border;
+
+    [top]
+    Adw.HeaderBar {
+      title-widget: Label {
+        styles [
+          "heading",
+        ]
+
+        label: _("Downloads Over Time");
+      };
+    }
+
+    [bottom]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+      show-title: false;
+
+      [end]
+      Box {
+        spacing: 10;
+        homogeneous: true;
+
+        CheckButton {
+          label: _("Minimize Lower Bound");
+          active: bind graph.has-dependent-min bidirectional;
+        }
+
+        CheckButton {
+          label: _("Maximize Upper Bound");
+          active: bind graph.has-dependent-max bidirectional;
+        }
+      }
+    }
+
+    content: $BzDataGraph graph {
+      model: bind template.model;
+      dependent-min: "0.0";
+      dependent-max: "10000.0";
+    };
+  };
+}

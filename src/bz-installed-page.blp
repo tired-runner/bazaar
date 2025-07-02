@@ -1,0 +1,202 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzInstalledPage: Adw.Bin {
+  child: Adw.ViewStack stack {
+    enable-transitions: true;
+    transition-duration: 400;
+
+    Adw.ViewStackPage {
+      name: "empty";
+      title: _("Empty");
+
+      child: Adw.StatusPage {
+        icon-name: "library-symbolic";
+        title: "No Flatpaks Installed";
+      };
+    }
+
+    Adw.ViewStackPage {
+      name: "content";
+      title: _("BzInstalledPage");
+
+      child: ScrolledWindow {
+        hscrollbar-policy: never;
+
+        child: Adw.ClampScrollable {
+          maximum-size: 650;
+
+          child: ListView list_view {
+            styles [
+              "navigation-sidebar",
+            ]
+
+            model: NoSelection no_selection {};
+
+            factory: BuilderListItemFactory {
+              template ListItem {
+                activatable: false;
+                selectable: false;
+
+                child: Box {
+                  styles [
+                    "card",
+                  ]
+
+                  orientation: horizontal;
+                  margin-top: 2;
+                  margin-bottom: 2;
+                  spacing: 15;
+
+                  Picture {
+                    margin-start: 10;
+                    margin-top: 10;
+                    margin-bottom: 10;
+                    height-request: 32;
+                    width-request: 32;
+                    paintable: bind template.item as <$BzEntry>.icon-paintable;
+                    visible: bind $invert_boolean($is_null(template.item as <$BzEntry>.icon-paintable) as <bool>) as <bool>;
+                  }
+
+                  Image {
+                    valign: center;
+                    halign: center;
+                    margin-start: 10;
+                    margin-top: 10;
+                    margin-bottom: 10;
+                    width-request: 32;
+                    height-request: 32;
+                    pixel-size: 32;
+                    icon-name: "image-missing-symbolic";
+                    visible: bind $is_null(template.item as <$BzEntry>.icon-paintable) as <bool>;
+                  }
+
+                  Label {
+                    styles [
+                      "heading",
+                    ]
+
+                    hexpand: true;
+                    xalign: 0.0;
+                    ellipsize: end;
+                    single-line-mode: true;
+                    label: bind template.item as <$BzEntry>.title;
+                  }
+
+                  Label {
+                    styles [
+                      "dimmed",
+                    ]
+
+                    xalign: 1.0;
+                    ellipsize: end;
+                    single-line-mode: true;
+                    label: bind template.item as <$BzEntry>.id;
+                  }
+
+                  Box {
+                    styles [
+                      "linked",
+                    ]
+
+                    hexpand: false;
+                    orientation: horizontal;
+                    width-request: 150;
+
+                    Button {
+                      styles [
+                        "destructive-action",
+                        "card-row-btn",
+                      ]
+
+                      valign: fill;
+                      halign: fill;
+                      hexpand: true;
+                      icon-name: "user-trash-symbolic";
+                      clicked => $remove_cb(template) swapped;
+                    }
+
+                    MenuButton {
+                      styles [
+                        "card-row-btn",
+                      ]
+
+                      valign: fill;
+                      halign: fill;
+                      hexpand: true;
+                      icon-name: "view-more-symbolic";
+                      has-tooltip: true;
+                      tooltip-text: _("More actions");
+                      direction: right;
+
+                      popover: Popover {
+                        child: Box {
+                          margin-start: 2;
+                          margin-end: 2;
+                          margin-top: 2;
+                          margin-bottom: 2;
+                          orientation: vertical;
+                          homogeneous: true;
+                          spacing: 10;
+
+                          Button {
+                            styles [
+                              "flat",
+                            ]
+
+                            has-tooltip: true;
+                            tooltip-text: _("Manage Addons");
+                            visible: bind $invert_boolean($is_null(template.item as <$BzEntry>.addons) as <bool>) as <bool>;
+
+                            child: Box {
+                              orientation: horizontal;
+                              spacing: 6;
+
+                              Image {
+                                icon-name: "puzzle-piece-symbolic";
+                              }
+
+                              Label {
+                                label: _("Manage Addons");
+                              }
+                            };
+
+                            clicked => $install_addons_cb(template) swapped;
+                          }
+
+                          Button {
+                            styles [
+                              "flat",
+                            ]
+
+                            has-tooltip: true;
+                            tooltip-text: _("Edit Permissions");
+
+                            child: Box {
+                              orientation: horizontal;
+                              spacing: 6;
+
+                              Image {
+                                icon-name: "sliders-horizontal-symbolic";
+                              }
+
+                              Label {
+                                label: _("Edit Permissions");
+                              }
+                            };
+
+                            clicked => $edit_permissions_cb(template) swapped;
+                          }
+                        };
+                      };
+                    }
+                  }
+                };
+              }
+            };
+          };
+        };
+      };
+    }
+  };
+}
