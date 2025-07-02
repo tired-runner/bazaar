@@ -23,6 +23,7 @@
 #include <glib/gi18n.h>
 
 #include "bz-async-texture.h"
+#include "bz-dynamic-list-view.h"
 #include "bz-full-view.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
@@ -400,6 +401,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
 
   g_type_ensure (BZ_TYPE_SCREENSHOT);
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
+  g_type_ensure (BZ_TYPE_DYNAMIC_LIST_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-full-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzFullView, stack);

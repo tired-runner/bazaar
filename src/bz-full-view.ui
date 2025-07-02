@@ -22,7 +22,7 @@
                     <setter object="start_box" property="width-request">-1</setter>
                     <setter object="main_scroll" property="vscrollbar-policy">automatic</setter>
                     <setter object="info_scroll" property="vscrollbar-policy">never</setter>
-                    <setter object="screenshots" property="vscrollbar-policy">never</setter>
+                    <setter object="screenshots" property="scroll">FALSE</setter>
                     <setter object="screenshots" property="vexpand">FALSE</setter>
                   </object>
                 </child>
@@ -619,10 +619,11 @@
                                   </object>
                                 </child>
                                 <child>
-                                  <object class="GtkScrolledWindow" id="screenshots">
+                                  <object class="BzDynamicListView" id="screenshots">
                                     <property name="vexpand">TRUE</property>
-                                    <property name="vscrollbar-policy">automatic</property>
-                                    <property name="hscrollbar-policy">never</property>
+                                    <property name="scroll">TRUE</property>
+                                    <property name="child-type">BzScreenshot</property>
+                                    <property name="child-prop">paintable</property>
                                     <binding name="visible">
                                       <closure function="invert_boolean" type="gboolean">
                                         <closure function="is_null" type="gboolean">
@@ -630,58 +631,14 @@
                                         </closure>
                                       </closure>
                                     </binding>
-                                    <property name="child">
-                                      <object class="GtkListView">
-                                        <style>
-                                          <class name="navigation-sidebar"/>
-                                        </style>
-                                        <property name="margin-start">5</property>
-                                        <property name="margin-end">5</property>
-                                        <property name="single-click-activate">TRUE</property>
-                                        <property name="model">
-                                          <object class="GtkNoSelection">
-                                            <binding name="model">
-                                              <lookup name="screenshot-paintables" type="BzEntry">
-                                                <lookup name="ui-entry" type="BzEntryGroup">
-                                                  <lookup name="debounced-group">BzFullView</lookup>
-                                                </lookup>
-                                              </lookup>
-                                            </binding>
-                                          </object>
-                                        </property>
-                                        <signal name="activate" handler="screenshot_activate_cb" swapped="true" object="BzFullView"/>
-                                        <property name="factory">
-                                          <object class="GtkBuilderListItemFactory">
-                                            <property name="bytes"><![CDATA[
-<?xml version="1.0" encoding="UTF-8"?>
-<interface>
-  <template class="GtkListItem">
-    <property name="child">
-      <object class="GtkRevealer">
-        <property name="transition-type">crossfade</property>
-        <property name="transition-duration">500</property>
-        <binding name="reveal-child">
-          <lookup name="loaded" type="BzAsyncTexture">
-            <lookup name="item">GtkListItem</lookup>
-          </lookup>
-        </binding>
-        <property name="child">
-          <object class="BzScreenshot">
-            <binding name="paintable">
-              <lookup name="item">GtkListItem</lookup>
-            </binding>
-          </object>
-        </property>
-      </object>
-    </property>
-  </template>
-</interface>
-]]>
-                                            </property>
-                                          </object>
-                                        </property>
-                                      </object>
-                                    </property>
+                                    <binding name="model">
+                                      <lookup name="screenshot-paintables" type="BzEntry">
+                                        <lookup name="ui-entry" type="BzEntryGroup">
+                                          <lookup name="debounced-group">BzFullView</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                    <!-- <signal name="activate" handler="screenshot_activate_cb" swapped="true" object="BzFullView"/> -->
                                   </object>
                                 </child>
                               </object>

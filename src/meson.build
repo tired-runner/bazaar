@@ -19,6 +19,7 @@ bz_sources = [
   'bz-content-section.c',
   'bz-data-graph.c',
   'bz-data-point.c',
+  'bz-dynamic-list-view.c',
   'bz-entry-group.c',
   'bz-entry.c',
   'bz-error.c',

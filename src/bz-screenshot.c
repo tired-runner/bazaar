@@ -139,14 +139,14 @@ bz_screenshot_measure (GtkWidget     *widget,
         }
       else
         {
-          *minimum = intrinsic_height;
+          *minimum = 0.0;
           *natural = intrinsic_height;
         }
     }
   else
     {
-      *minimum = 0.0;
-      *natural = (double) gdk_paintable_get_intrinsic_width (self->paintable);
+      *minimum = 0;
+      *natural = gdk_paintable_get_intrinsic_width (self->paintable);
     }
 }
 
