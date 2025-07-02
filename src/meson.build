@@ -11,7 +11,6 @@ bz_sources = [
   'bz-application.c',
   'bz-async-texture.c',
   'bz-backend.c',
-  'bz-background.c',
   'bz-browse-widget.c',
   'bz-comet-overlay.c',
   'bz-comet.c',

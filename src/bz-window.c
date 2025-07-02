@@ -24,7 +24,6 @@
 
 #include <glib/gi18n.h>
 
-#include "bz-background.h"
 #include "bz-browse-widget.h"
 #include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
@@ -528,7 +527,6 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_SEARCH_WIDGET);
   g_type_ensure (BZ_TYPE_GLOBAL_PROGRESS);
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
-  g_type_ensure (BZ_TYPE_BACKGROUND);
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
   g_type_ensure (BZ_TYPE_FULL_VIEW);
   g_type_ensure (BZ_TYPE_INSTALLED_PAGE);
