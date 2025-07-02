@@ -819,6 +819,17 @@ bz_entry_get_icon_paintable (BzEntry *self)
   return priv->icon_paintable;
 }
 
+GListModel *
+bz_entry_get_screenshot_paintables (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->screenshot_paintables;
+}
+
 GIcon *
 bz_entry_get_mini_icon (BzEntry *self)
 {

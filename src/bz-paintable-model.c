@@ -211,6 +211,26 @@ bz_paintable_model_get_model (BzPaintableModel *self)
   return self->input;
 }
 
+gboolean
+bz_paintable_model_is_fully_loaded (BzPaintableModel *self)
+{
+  guint n_items = 0;
+
+  g_return_val_if_fail (BZ_IS_PAINTABLE_MODEL (self), FALSE);
+
+  n_items = g_list_model_get_n_items (G_LIST_MODEL (self->output));
+  for (guint i = 0; i < n_items; i++)
+    {
+      g_autoptr (BzAsyncTexture) texture = NULL;
+
+      texture = g_list_model_get_item (G_LIST_MODEL (self->output), i);
+      if (!bz_async_texture_get_loaded (texture))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
 static void
 items_changed (GListModel       *model,
                guint             position,

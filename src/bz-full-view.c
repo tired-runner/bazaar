@@ -25,6 +25,7 @@
 #include "bz-async-texture.h"
 #include "bz-dynamic-list-view.h"
 #include "bz-full-view.h"
+#include "bz-paintable-model.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
 #include "bz-share-dialog.h"
@@ -468,9 +469,20 @@ bz_full_view_set_entry_group (BzFullView   *self,
 
   if (group != NULL)
     {
-      self->group            = g_object_ref (group);
-      self->debounce_timeout = g_timeout_add_once (
-          500, (GSourceOnceFunc) debounce_timeout, self);
+      BzEntry    *ui_entry    = NULL;
+      GListModel *screenshots = NULL;
+
+      self->group = g_object_ref (group);
+
+      ui_entry    = bz_entry_group_get_ui_entry (group);
+      screenshots = bz_entry_get_screenshot_paintables (ui_entry);
+
+      if (BZ_IS_PAINTABLE_MODEL (screenshots) &&
+          bz_paintable_model_is_fully_loaded (BZ_PAINTABLE_MODEL (screenshots)))
+        self->debounced_group = g_object_ref (group);
+      else
+        self->debounce_timeout = g_timeout_add_once (
+            500, (GSourceOnceFunc) debounce_timeout, self);
     }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ENTRY_GROUP]);

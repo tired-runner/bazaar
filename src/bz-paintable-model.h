@@ -38,4 +38,7 @@ bz_paintable_model_set_model (BzPaintableModel *self,
 GListModel *
 bz_paintable_model_get_model (BzPaintableModel *self);
 
+gboolean
+bz_paintable_model_is_fully_loaded (BzPaintableModel *self);
+
 G_END_DECLS

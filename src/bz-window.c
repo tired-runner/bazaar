@@ -50,6 +50,7 @@ struct _BzWindow
   gboolean              online;
 
   GBinding *search_to_view_binding;
+  gboolean  breakpoint_applied;
 
   /* Template widgets */
   BzCometOverlay      *comet_overlay;
@@ -166,6 +167,9 @@ check_transactions (BzWindow *self);
 
 static void
 set_page (BzWindow *self);
+
+static void
+set_bottom_bar (BzWindow *self);
 
 static void
 bz_window_dispose (GObject *object)
@@ -424,16 +428,24 @@ static void
 breakpoint_apply_cb (BzWindow      *self,
                      AdwBreakpoint *breakpoint)
 {
+  self->breakpoint_applied = TRUE;
+
   adw_header_bar_set_title_widget (self->top_header_bar, NULL);
   adw_header_bar_set_title_widget (self->bottom_header_bar, GTK_WIDGET (self->title_revealer));
+
+  set_bottom_bar (self);
 }
 
 static void
 breakpoint_unapply_cb (BzWindow      *self,
                        AdwBreakpoint *breakpoint)
 {
+  self->breakpoint_applied = FALSE;
+
   adw_header_bar_set_title_widget (self->bottom_header_bar, NULL);
   adw_header_bar_set_title_widget (self->top_header_bar, GTK_WIDGET (self->title_revealer));
+
+  set_bottom_bar (self);
 }
 
 static void
@@ -1078,6 +1090,7 @@ set_page (BzWindow *self)
   adw_view_stack_set_visible_child_name (self->main_stack, visible_child);
   gtk_widget_set_sensitive (GTK_WIDGET (self->title_toggle_group), !self->busy);
   gtk_revealer_set_reveal_child (self->title_revealer, !show_search);
+  set_bottom_bar (self);
 
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->search), TRUE);
@@ -1086,4 +1099,16 @@ set_page (BzWindow *self)
     gtk_widget_grab_focus (GTK_WIDGET (self->search_widget));
   else
     bz_full_view_set_entry_group (self->full_view, NULL);
+}
+
+static void
+set_bottom_bar (BzWindow *self)
+{
+  gboolean show_search     = FALSE;
+  gboolean show_bottom_bar = FALSE;
+
+  show_search     = adw_overlay_split_view_get_show_sidebar (self->search_split);
+  show_bottom_bar = self->breakpoint_applied && !show_search;
+
+  adw_toolbar_view_set_reveal_bottom_bars (self->toolbar_view, show_bottom_bar);
 }
