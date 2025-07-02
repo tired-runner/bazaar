@@ -488,7 +488,7 @@
         <attribute name="action">app.about</attribute>
       </item>
       <item>
-        <attribute name="label" translatable="yes">_Donate ❤️</attribute>
+        <attribute name="label" translatable="yes">_Donate to Bazaar ❤️</attribute>
         <attribute name="action">app.donate</attribute>
       </item>
     </section>
