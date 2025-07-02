@@ -908,13 +908,19 @@ try_transact (BzWindow     *self,
 
       if (n_entries > 0)
         {
+          GtkWidget      *box               = NULL;
+          GtkWidget      *expander          = NULL;
           GPtrArray      *checks            = NULL;
           GtkCheckButton *first_valid_check = NULL;
           int             n_valid_checks    = FALSE;
-          GtkWidget      *box               = NULL;
+
+          box      = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
+          expander = gtk_expander_new (_ ("More details"));
+
+          gtk_expander_set_child (GTK_EXPANDER (expander), box);
+          adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (alert), expander);
 
           checks = g_ptr_array_new ();
-          box    = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
 
           for (guint i = 0; i < n_entries; i++)
             {
@@ -961,8 +967,6 @@ try_transact (BzWindow     *self,
               gtk_box_append (GTK_BOX (box), check);
               n_valid_checks++;
             }
-
-          adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (alert), box);
 
           g_object_set_data_full (
               G_OBJECT (alert),
