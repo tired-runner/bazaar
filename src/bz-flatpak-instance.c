@@ -1270,33 +1270,50 @@ find_entry_from_operation (TransactionData             *data,
                            FlatpakTransactionOperation *operation,
                            int                         *n_operations)
 {
-  const char     *ref_fmt        = NULL;
-  BzFlatpakEntry *entry          = NULL;
-  GPtrArray      *related_to_ops = NULL;
-
-  ref_fmt = flatpak_transaction_operation_get_ref (operation);
-  entry   = g_hash_table_lookup (data->ref_to_entry_hash, ref_fmt);
-  if (entry != NULL)
-    return entry;
+  GPtrArray *related_to_ops = NULL;
 
   related_to_ops = flatpak_transaction_operation_get_related_to_ops (operation);
-  if (related_to_ops == NULL)
-    return NULL;
-
-  for (guint i = 0; i < related_to_ops->len; i++)
+  /* count all deps if applicable */
+  if (n_operations != NULL && related_to_ops != NULL)
     {
-      FlatpakTransactionOperation *related_op = NULL;
+      *n_operations += related_to_ops->len;
 
-      if (n_operations != NULL)
-        (*n_operations)++;
+      for (guint i = 0; i < related_to_ops->len; i++)
+        {
+          FlatpakTransactionOperation *related_op = NULL;
 
-      related_op = g_ptr_array_index (related_to_ops, i);
-      entry      = find_entry_from_operation (data, related_op, n_operations);
-      if (entry != NULL)
-        return entry;
+          related_op = g_ptr_array_index (related_to_ops, i);
+          find_entry_from_operation (NULL, related_op, n_operations);
+        }
     }
 
-  return NULL;
+  if (data != NULL)
+    {
+      const char     *ref_fmt = NULL;
+      BzFlatpakEntry *entry   = NULL;
+
+      ref_fmt = flatpak_transaction_operation_get_ref (operation);
+      entry   = g_hash_table_lookup (data->ref_to_entry_hash, ref_fmt);
+      if (entry != NULL)
+        return entry;
+
+      if (related_to_ops != NULL)
+        {
+          for (guint i = 0; i < related_to_ops->len; i++)
+            {
+              FlatpakTransactionOperation *related_op = NULL;
+
+              related_op = g_ptr_array_index (related_to_ops, i);
+              entry      = find_entry_from_operation (data, related_op, NULL);
+              if (entry != NULL)
+                break;
+            }
+        }
+
+      return entry;
+    }
+  else
+    return NULL;
 }
 
 static void
