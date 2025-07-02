@@ -48,6 +48,7 @@ struct _BzSearchWidget
   GtkCheckButton *regex_check;
   GtkLabel       *regex_error;
   GtkCheckButton *foss_check;
+  GtkCheckButton *flathub_check;
   GtkBox         *content_box;
   GtkRevealer    *entry_list_revealer;
   GtkListView    *list_view;
@@ -263,6 +264,13 @@ foss_toggled_cb (BzSearchWidget  *self,
 }
 
 static void
+flathub_toggled_cb (BzSearchWidget  *self,
+                    GtkToggleButton *toggle)
+{
+  update_filter (self);
+}
+
+static void
 bz_search_widget_class_init (BzSearchWidgetClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -320,6 +328,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, regex_error);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, foss_check);
+  gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, flathub_check);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, content_box);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, entry_list_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzSearchWidget, list_view);
@@ -329,6 +338,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, is_valid_string);
   gtk_widget_class_bind_template_callback (widget_class, regex_toggled_cb);
   gtk_widget_class_bind_template_callback (widget_class, foss_toggled_cb);
+  gtk_widget_class_bind_template_callback (widget_class, flathub_toggled_cb);
 
   gtk_widget_class_install_action (widget_class, "move", "i", action_move);
 }
@@ -535,6 +545,14 @@ match (BzEntryGroup   *item,
   entry = bz_entry_group_get_ui_entry (item);
   if (entry == NULL)
     return FALSE;
+
+  if (gtk_check_button_get_active (self->foss_check) &&
+      !bz_entry_get_is_foss (entry))
+    goto done;
+
+  if (gtk_check_button_get_active (self->flathub_check) &&
+      !bz_entry_get_is_flathub (entry))
+    goto done;
 
   search_tokens = bz_entry_get_search_tokens (entry);
 

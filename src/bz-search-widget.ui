@@ -125,9 +125,14 @@
                         </child>
                         <child>
                           <object class="GtkCheckButton" id="foss_check">
-                            <property name="sensitive">FALSE</property>
-                            <property name="label" translatable="yes">Only show libre software in results</property>
+                            <property name="label" translatable="yes">Exclude results with proprietary licenses</property>
                             <signal name="toggled" handler="foss_toggled_cb" swapped="true" object="BzSearchWidget"/>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="flathub_check">
+                            <property name="label" translatable="yes">Exclude results not originating from Flathub</property>
+                            <signal name="toggled" handler="flathub_toggled_cb" swapped="true" object="BzSearchWidget"/>
                           </object>
                         </child>
                       </object>
@@ -194,8 +199,11 @@
         <property name="spacing">20</property>
         <child>
           <object class="GtkPicture">
+            <property name="valign">center</property>
+            <property name="halign">center</property>
             <property name="height-request">64</property>
-            <property name="width-request">64</property>
+            <property name="width-request">32</property>
+            <property name="can-shrink">TRUE</property>
             <binding name="paintable">
               <lookup name="icon-paintable" type="BzEntry">
                 <lookup name="ui-entry" type="BzEntryGroup">
@@ -220,9 +228,9 @@
           <object class="GtkImage">
             <property name="valign">center</property>
             <property name="halign">center</property>
-            <property name="width-request">64</property>
-            <property name="height-request">64</property>
-            <property name="pixel-size">64</property>
+            <property name="width-request">32</property>
+            <property name="height-request">32</property>
+            <property name="pixel-size">32</property>
             <property name="icon-name">image-missing-symbolic</property>
             <binding name="visible">
               <closure function="is_null" type="gboolean">
@@ -247,6 +255,7 @@
                   <class name="heading"/>
                 </style>
                 <property name="xalign">0.0</property>
+                <property name="width-chars">13</property>
                 <property name="ellipsize">end</property>
                 <property name="single-line-mode">true</property>
                 <binding name="label">

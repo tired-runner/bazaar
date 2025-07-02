@@ -86,6 +86,12 @@ bz_entry_get_search_tokens (BzEntry *self);
 const char *
 bz_entry_get_donation_url (BzEntry *self);
 
+gboolean
+bz_entry_get_is_foss (BzEntry *self);
+
+gboolean
+bz_entry_get_is_flathub (BzEntry *self);
+
 gint
 bz_entry_cmp_usefulness (gconstpointer a,
                          gconstpointer b,

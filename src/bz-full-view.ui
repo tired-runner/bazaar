@@ -24,6 +24,7 @@
                     <setter object="info_scroll" property="vscrollbar-policy">never</setter>
                     <setter object="screenshots" property="scroll">FALSE</setter>
                     <setter object="screenshots" property="vexpand">FALSE</setter>
+                    <setter object="main_pill_btns" property="orientation">vertical</setter>
                   </object>
                 </child>
                 <property name="child">
@@ -167,6 +168,7 @@
                                                             </closure>
                                                           </closure>
                                                         </binding>
+                                                        <property name="valign">start</property>
                                                         <property name="has-tooltip">TRUE</property>
                                                         <property name="tooltip-text" translatable="yes">Support this developer</property>
                                                         <property name="icon-name">heart-filled-symbolic</property>
@@ -199,10 +201,10 @@
                                       </object>
                                     </child>
                                     <child>
-                                      <object class="GtkBox">
+                                      <object class="GtkBox" id="main_pill_btns">
                                         <property name="orientation">horizontal</property>
                                         <property name="vexpand">FALSE</property>
-                                        <property name="spacing">5</property>
+                                        <property name="spacing">10</property>
                                         <child>
                                           <object class="GtkBox">
                                             <style>
@@ -320,6 +322,7 @@
                                         <property name="wrap">TRUE</property>
                                         <property name="wrap-mode">word-char</property>
                                         <property name="use-markup">TRUE</property>
+                                        <property name="selectable">TRUE</property>
                                         <binding name="label">
                                           <lookup name="long-description" type="BzEntry">
                                             <lookup name="ui-entry" type="BzEntryGroup">

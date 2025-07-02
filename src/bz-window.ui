@@ -154,7 +154,6 @@
                           <object class="AdwToolbarView">
                             <property name="content">
                               <object class="BzSearchWidget" id="search_widget">
-                                <property name="width-request">400</property>
                                 <binding name="model">
                                   <lookup name="applications">BzWindow</lookup>
                                 </binding>
@@ -460,9 +459,8 @@
               <object class="AdwBreakpoint">
                 <condition>max-width: 1200px</condition>
                 <setter object="split_view" property="collapsed">TRUE</setter>
-                <setter object="search_split" property="collapsed">TRUE</setter>
+                <!-- <setter object="search_split" property="collapsed">TRUE</setter> -->
                 <setter object="transactions" property="width-request">250</setter>
-                <setter object="search_widget" property="width-request">250</setter>
                 <setter object="toolbar_view" property="reveal-bottom-bars">TRUE</setter>
                 <setter object="top_header_bar" property="show-title">FALSE</setter>
                 <setter object="bottom_header_bar" property="show-title">TRUE</setter>

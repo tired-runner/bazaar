@@ -852,6 +852,28 @@ bz_entry_get_donation_url (BzEntry *self)
   return priv->donation_url;
 }
 
+gboolean
+bz_entry_get_is_foss (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->is_floss;
+}
+
+gboolean
+bz_entry_get_is_flathub (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), 0);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->is_flathub;
+}
+
 gint
 bz_entry_cmp_usefulness (gconstpointer a,
                          gconstpointer b,
