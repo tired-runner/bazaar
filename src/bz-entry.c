@@ -72,6 +72,7 @@ typedef struct
   gboolean    is_flathub;
   gboolean    verified;
   GListModel *download_stats;
+  int         recent_downloads;
 
   GHashTable *flathub_prop_queries;
 } BzEntryPrivate;
@@ -117,6 +118,7 @@ enum
   PROP_IS_FLATHUB,
   PROP_VERIFIED,
   PROP_DOWNLOAD_STATS,
+  PROP_RECENT_DOWNLOADS,
 
   LAST_PROP
 };
@@ -297,6 +299,10 @@ bz_entry_get_property (GObject    *object,
       query_flathub (self, PROP_DOWNLOAD_STATS);
       g_value_set_object (value, priv->download_stats);
       break;
+    case PROP_RECENT_DOWNLOADS:
+      query_flathub (self, PROP_DOWNLOAD_STATS);
+      g_value_set_int (value, priv->recent_downloads);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -437,8 +443,35 @@ bz_entry_set_property (GObject      *object,
       priv->verified = g_value_get_boolean (value);
       break;
     case PROP_DOWNLOAD_STATS:
-      g_clear_object (&priv->download_stats);
-      priv->download_stats = g_value_dup_object (value);
+      {
+        g_clear_object (&priv->download_stats);
+        priv->download_stats = g_value_dup_object (value);
+
+        if (priv->download_stats != NULL)
+          {
+            guint n_items          = 0;
+            guint start            = 0;
+            guint recent_downloads = 0;
+
+            n_items = g_list_model_get_n_items (priv->download_stats);
+            start   = n_items - MIN (n_items, 30);
+
+            for (guint i = start; i < n_items; i++)
+              {
+                g_autoptr (BzDataPoint) point = NULL;
+
+                point = g_list_model_get_item (priv->download_stats, i);
+                recent_downloads += bz_data_point_get_dependent (point);
+              }
+            priv->recent_downloads = recent_downloads;
+          }
+        else
+          priv->recent_downloads = 0;
+        g_object_notify_by_pspec (object, props[PROP_RECENT_DOWNLOADS]);
+      }
+      break;
+    case PROP_RECENT_DOWNLOADS:
+      priv->recent_downloads = g_value_get_int (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -664,6 +697,13 @@ bz_entry_class_init (BzEntryClass *klass)
           "download-stats",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_RECENT_DOWNLOADS] =
+      g_param_spec_int (
+          "recent-downloads",
+          NULL, NULL,
+          0, G_MAXINT, 0,
           G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);

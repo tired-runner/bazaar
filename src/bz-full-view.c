@@ -182,6 +182,16 @@ is_null (gpointer object,
 }
 
 static char *
+format_recent_downloads (gpointer object,
+                         int      value)
+{
+  if (value > 0)
+    return g_strdup_printf ("%d", value);
+  else
+    return g_strdup ("---");
+}
+
+static char *
 format_size (gpointer object,
              guint64  value)
 {
@@ -409,6 +419,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_zero);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, format_recent_downloads);
   gtk_widget_class_bind_template_callback (widget_class, format_size);
   gtk_widget_class_bind_template_callback (widget_class, format_timestamp);
   gtk_widget_class_bind_template_callback (widget_class, format_as_link);

@@ -24,7 +24,6 @@ template $BzFullView: Adw.Bin {
             info_scroll.vscrollbar-policy: never;
             screenshots.scroll: "false";
             screenshots.vexpand: "false";
-            main_pill_btns.orientation: vertical;
           }
         }
 
@@ -97,38 +96,19 @@ template $BzFullView: Adw.Bin {
                           label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.title;
                         }
 
-                        Box {
-                          spacing: 15;
-                          orientation: horizontal;
+                        Label {
+                          styles [
+                            "title-4",
+                            "accent",
+                          ]
 
-                          Label {
-                            styles [
-                              "title-4",
-                              "accent",
-                            ]
-
-                            xalign: 0.0;
-                            wrap: true;
-                            wrap-mode: word_char;
-                            natural-wrap-mode: word;
-                            label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.developer;
-                          }
-
-                          Button {
-                            styles [
-                              "suggested-action",
-                              "circular",
-                            ]
-
-                            visible: bind $invert_boolean($is_null(template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.donation-url) as <bool>) as <bool>;
-                            valign: start;
-                            has-tooltip: true;
-                            tooltip-text: _("Support this developer");
-                            icon-name: "heart-filled-symbolic";
-                            clicked => $support_cb(template) swapped;
-                          }
+                          xalign: 0.0;
+                          wrap: true;
+                          wrap-mode: word_char;
+                          natural-wrap-mode: word;
+                          label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.developer;
                         }
-
+                        
                         Label {
                           styles [
                             "title-2",
@@ -143,16 +123,21 @@ template $BzFullView: Adw.Bin {
                     }
                   }
 
-                  Box main_pill_btns {
-                    orientation: horizontal;
-                    vexpand: false;
-                    spacing: 10;
+                  FlowBox {
+                    halign: start;
+                    hexpand: false;
+                    homogeneous: false;
+                    selection-mode: none;
+                    column-spacing: 3;
+                    row-spacing: 3;
 
                     Box {
                       styles [
                         "linked",
                       ]
 
+                      halign: start;
+                      hexpand: false;
                       orientation: horizontal;
 
                       Button {
@@ -168,6 +153,7 @@ template $BzFullView: Adw.Bin {
                         child: Box {
                           orientation: horizontal;
                           spacing: 5;
+                          hexpand: false;
 
                           Image {
                             icon-name: "folder-download-symbolic";
@@ -205,6 +191,8 @@ template $BzFullView: Adw.Bin {
                         "linked",
                       ]
 
+                      halign: start;
+                      hexpand: false;
                       orientation: horizontal;
 
                       Button {
@@ -215,7 +203,7 @@ template $BzFullView: Adw.Bin {
                         vexpand: false;
                         has-tooltip: true;
                         tooltip-text: _("Share this application");
-                        icon-name: "share-symbolic";
+                        icon-name: "share-alt-symbolic";
                         clicked => $share_cb(template) swapped;
                       }
 
@@ -226,9 +214,64 @@ template $BzFullView: Adw.Bin {
 
                         vexpand: false;
                         has-tooltip: true;
-                        tooltip-text: _("View this application's download statistics");
-                        icon-name: "graph-symbolic";
+                        tooltip-text: _("The number of downloads in the last 30 days. Click to view this application's download statistics.");
                         clicked => $dl_stats_cb(template) swapped;
+
+                        child: Box {
+                          hexpand: false;
+                          orientation: horizontal;
+                          spacing: 10;
+
+                          Image {
+                            icon-name: "graph-symbolic";
+                          }
+
+                          Adw.Spinner {
+                            visible: bind $is_null(template.debounced-group) as <bool>;
+                          }
+                          
+                          Label {
+                            label: bind $format_recent_downloads(template.debounced-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.recent-downloads) as <string>;
+                            visible: bind $invert_boolean($is_null(template.debounced-group) as <bool>) as <bool>;
+                          }
+                        };
+                      }
+                    }
+
+                    Box {
+                      styles [
+                        "linked",
+                      ]
+
+                      halign: start;
+                      hexpand: false;
+                      orientation: horizontal;
+                      
+                      Button {
+                        styles [
+                          "pill",
+                          "suggested-action",
+                        ]
+
+                        visible: bind $invert_boolean($is_null(template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.donation-url) as <bool>) as <bool>;
+                        valign: start;
+                        has-tooltip: true;
+                        tooltip-text: _("Support this developer");
+                        clicked => $support_cb(template) swapped;
+
+                        child: Box {
+                          hexpand: false;
+                          orientation: horizontal;
+                          spacing: 10;
+
+                          Image {
+                            icon-name: "heart-filled-symbolic";
+                          }
+
+                          Label {
+                            label: _("Support");
+                          }
+                        };
                       }
                     }
                   }
