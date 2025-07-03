@@ -1,4 +1,4 @@
-application_id = 'io.github.kolunmi.bazaar'
+application_id = 'io.github.kolunmi.Bazaar'
 
 scalable_dir = 'hicolor' / 'scalable' / 'apps'
 install_data(

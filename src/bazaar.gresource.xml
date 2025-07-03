@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/io/github/kolunmi/bazaar/">
+  <gresource prefix="/io/github/kolunmi/Bazaar/">
     
     <file>gtk/styles.css</file>
 

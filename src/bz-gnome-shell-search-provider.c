@@ -344,7 +344,7 @@ bz_gnome_shell_search_provider_set_connection (BzGnomeShellSearchProvider *self,
       success = g_dbus_interface_skeleton_export (
           G_DBUS_INTERFACE_SKELETON (self->skeleton),
           connection,
-          "/io/github/kolunmi/bazaar/SearchProvider",
+          "/io/github/kolunmi/Bazaar/SearchProvider",
           &local_error);
       if (!success)
         {

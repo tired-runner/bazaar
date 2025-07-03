@@ -148,7 +148,7 @@ bz_preferences_dialog_class_init (BzPreferencesDialogClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-preferences-dialog.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-preferences-dialog.ui");
 }
 
 static void

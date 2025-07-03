@@ -1,7 +1,7 @@
 # Bazaar
 
 <div align="center">
-<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.bazaar.svg" width="256" height="256" />
+<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="256" height="256" />
 </div>
 
 ![Image](https://github.com/user-attachments/assets/8c592f95-d921-49a1-9ffb-0058ca91cee2)

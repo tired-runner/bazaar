@@ -1,6 +1,6 @@
 # These are just convenience scripts, NOT a build system!
 
-appid := env("BAZAAR_APPID", "io.github.kolunmi.bazaar")
+appid := env("BAZAAR_APPID", "io.github.kolunmi.Bazaar")
 
 alias run := run-base
 
@@ -11,7 +11,7 @@ build-base:
     meson setup build --wipe
     ninja -C build
 
-build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.bazaar.Devel.json" $branch="stable":
+build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.Bazaar.Devel.json" $branch="stable":
     #!/usr/bin/env bash
     mkdir -p ".flatpak-builder"
     FLATPAK_BUILDER_DIR=$(realpath ".flatpak-builder")

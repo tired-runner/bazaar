@@ -369,7 +369,7 @@ bz_application_command_line (GApplication            *app,
             {
               self->css = gtk_css_provider_new ();
               gtk_css_provider_load_from_resource (
-                  self->css, "/io/github/kolunmi/bazaar/gtk/styles.css");
+                  self->css, "/io/github/kolunmi/Bazaar/gtk/styles.css");
               gtk_style_context_add_provider_for_display (
                   gdk_display_get_default (),
                   GTK_STYLE_PROVIDER (self->css),
@@ -1038,7 +1038,7 @@ bz_application_about_action (GSimpleAction *action,
   g_object_set (
       dialog,
       "application-name", "Bazaar",
-      "application-icon", "io.github.kolunmi.bazaar",
+      "application-icon", "io.github.kolunmi.Bazaar",
       "developer-name", "Adam Masciola",
       "translator-credits", _ ("translator-credits"),
       "version", PACKAGE_VERSION,

@@ -46,9 +46,9 @@ main (int   argc,
 
   app = g_object_new (
       BZ_TYPE_APPLICATION,
-      "application-id", "io.github.kolunmi.bazaar",
+      "application-id", "io.github.kolunmi.Bazaar",
       "flags", G_APPLICATION_HANDLES_COMMAND_LINE,
-      "resource-base-path", "/io/github/kolunmi/bazaar",
+      "resource-base-path", "/io/github/kolunmi/Bazaar",
       NULL);
   ret = g_application_run (G_APPLICATION (app), argc, argv);
 

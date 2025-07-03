@@ -1,5 +1,5 @@
 {
-    "id": "io.github.kolunmi.bazaar.Devel",
+    "id": "io.github.kolunmi.Bazaar.Devel",
     "runtime": "org.gnome.Platform",
     "runtime-version": "master",
     "sdk": "org.gnome.Sdk",
@@ -11,7 +11,7 @@
     "tags": [
         "nightly"
     ],
-    "rename-desktop-file": "io.github.kolunmi.bazaar.desktop",
+    "rename-desktop-file": "io.github.kolunmi.Bazaar.desktop",
     "finish-args": [
         "--share=network",
         "--share=ipc",
@@ -28,7 +28,7 @@
         "--filesystem=/var/tmp",
         "--filesystem=/tmp",
         "--talk-name=org.freedesktop.Flatpak",
-        "--own-name=io.github.kolunmi.bazaar",
+        "--own-name=io.github.kolunmi.Bazaar",
         "--system-talk-name=org.freedesktop.Flatpak.SystemHelper",
         "--system-talk-name=org.freedesktop.PolicyKit1",
         /* Required for libflatpak for detecting system language */

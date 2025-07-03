@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.kolunmi.bazaar</id>
+  <id>io.github.kolunmi.Bazaar</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
 
@@ -26,7 +26,7 @@
   <url type="contribute">https://github.com/kolunmi/bazaar</url>
 
   <translation type="gettext">bazaar</translation>
-  <launchable type="desktop-id">io.github.kolunmi.bazaar.desktop</launchable>
+  <launchable type="desktop-id">io.github.kolunmi.Bazaar.desktop</launchable>
   <content_rating type="oars-1.1" />
 
   <!-- FIXME: figure out nice colors -->

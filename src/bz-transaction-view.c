@@ -130,7 +130,7 @@ bz_transaction_view_class_init (BzTransactionViewClass *klass)
 
   g_type_ensure (BZ_TYPE_PROGRESS_BAR);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-transaction-view.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-transaction-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, installs);
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, separator_1);
   gtk_widget_class_bind_template_child (widget_class, BzTransactionView, updates);

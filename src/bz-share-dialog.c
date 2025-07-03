@@ -141,7 +141,7 @@ bz_share_dialog_class_init (BzShareDialogClass *klass)
 
   g_type_ensure (BZ_TYPE_URL);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-share-dialog.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-share-dialog.ui");
   gtk_widget_class_bind_template_callback (widget_class, copy_cb);
   gtk_widget_class_bind_template_callback (widget_class, follow_link_cb);
 }

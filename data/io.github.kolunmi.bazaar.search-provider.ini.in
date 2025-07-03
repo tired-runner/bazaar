@@ -1,5 +1,0 @@
-[Shell Search Provider]
-DesktopId=io.github.kolunmi.bazaar.desktop
-BusName=io.github.kolunmi.bazaar
-ObjectPath=/io/github/kolunmi/bazaar/SearchProvider
-Version=2

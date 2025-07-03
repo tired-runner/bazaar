@@ -1,8 +1,8 @@
 # List of source files containing translatable strings.
 # Please keep this file sorted alphabetically.
-data/io.github.kolunmi.bazaar.desktop.in
-data/io.github.kolunmi.bazaar.gschema.xml
-data/io.github.kolunmi.bazaar.metainfo.xml.in
+data/io.github.kolunmi.Bazaar.desktop.in
+data/io.github.kolunmi.Bazaar.gschema.xml
+data/io.github.kolunmi.Bazaar.metainfo.xml.in
 src/bz-application.c
 src/bz-error.c
 src/bz-preferences-dialog.blp

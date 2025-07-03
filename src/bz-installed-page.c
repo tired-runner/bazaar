@@ -262,7 +262,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
 
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-installed-page.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-installed-page.ui");
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, stack);
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, list_view);
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, no_selection);

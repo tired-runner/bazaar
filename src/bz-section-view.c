@@ -165,7 +165,7 @@ bz_section_view_class_init (BzSectionViewClass *klass)
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
   g_type_ensure (BZ_TYPE_APP_TILE);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-section-view.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-section-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_overlay);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_bg);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text);

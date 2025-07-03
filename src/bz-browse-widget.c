@@ -162,7 +162,7 @@ bz_browse_widget_class_init (BzBrowseWidgetClass *klass)
 
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
-  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/bazaar/bz-browse-widget.ui");
+  gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-browse-widget.ui");
   gtk_widget_class_bind_template_child (widget_class, BzBrowseWidget, stack);
   gtk_widget_class_bind_template_callback (widget_class, group_activated_cb);
 }
