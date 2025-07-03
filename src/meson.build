@@ -85,7 +85,13 @@ blueprints = custom_target('blueprints',
     'bz-window.blp',
   ),
   output: '.',
-  command: [find_program('blueprint-compiler'), 'batch-compile', '@OUTPUT@', '@CURRENT_SOURCE_DIR@', '@INPUT@'],
+  command: [
+    find_program('blueprint-compiler', version: '0.18.0'),
+    'batch-compile',
+    '@OUTPUT@',
+    '@CURRENT_SOURCE_DIR@',
+    '@INPUT@'
+  ],
 )
 
 bz_sources += gnome.compile_resources('bz-resources',
