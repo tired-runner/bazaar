@@ -21,6 +21,8 @@
 #include "config.h"
 
 #include "bz-addons-dialog.h"
+#include "bz-error.h"
+#include "bz-flatpak-entry.h"
 #include "bz-installed-page.h"
 #include "bz-section-view.h"
 
@@ -155,6 +157,31 @@ addon_transact_cb (BzInstalledPage *self,
 }
 
 static void
+run_cb (GtkListItem *list_item,
+        GtkButton   *button)
+{
+  BzEntry *item = NULL;
+
+  item = gtk_list_item_get_item (list_item);
+
+  if (BZ_IS_FLATPAK_ENTRY (item))
+    {
+      g_autoptr (GError) local_error = NULL;
+      gboolean result                = FALSE;
+
+      result = bz_flatpak_entry_launch (BZ_FLATPAK_ENTRY (item), &local_error);
+      if (!result)
+        {
+          GtkWidget *window = NULL;
+
+          window = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_WINDOW);
+          if (window != NULL)
+            bz_show_error_for_widget (window, local_error->message);
+        }
+    }
+}
+
+static void
 remove_cb (GtkListItem *list_item,
            GtkButton   *button)
 {
@@ -199,10 +226,10 @@ static void
 edit_permissions_cb (GtkListItem *list_item,
                      GtkButton   *button)
 {
-  BzEntry   *item     = NULL;
+  // BzEntry   *item     = NULL;
   GtkWidget *menu_btn = NULL;
 
-  item = gtk_list_item_get_item (list_item);
+  // item = gtk_list_item_get_item (list_item);
 
   menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
   if (menu_btn != NULL)
@@ -268,6 +295,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, no_selection);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, run_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_addons_cb);
   gtk_widget_class_bind_template_callback (widget_class, edit_permissions_cb);
