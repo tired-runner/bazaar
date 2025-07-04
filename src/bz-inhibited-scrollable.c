@@ -367,7 +367,6 @@ setup_vadjustments (BzInhibitedScrollable *self)
   g_clear_object (&self->vadjustment_binds.step_increment);
   g_clear_object (&self->vadjustment_binds.page_size);
   g_clear_object (&self->vadjustment_binds.value);
-  g_clear_object (&self->child_vadjustment);
 
   if (self->child_vadjustment != NULL)
     g_signal_handlers_disconnect_by_func (
