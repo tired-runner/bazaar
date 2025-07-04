@@ -28,6 +28,7 @@ bz_sources = [
   'bz-global-progress.c',
   'bz-global-state.c',
   'bz-gnome-shell-search-provider.c',
+  'bz-inhibited-scrollable.c',
   'bz-installed-page.c',
   'bz-issue.c',
   'bz-paintable-model.c',

@@ -28,26 +28,28 @@ template $BzBrowseWidget: Adw.Bin {
 
         hscrollbar-policy: never;
 
-        child: Adw.ClampScrollable {
-          maximum-size: 1500;
-          tightening-threshold: 1400;
+        child: $BzInhibitedScrollable {
+          scrollable: Adw.ClampScrollable {
+            maximum-size: 1500;
+            tightening-threshold: 1400;
 
-          child: ListView {
-            model: NoSelection {
-              model: bind template.content-provider;
-            };
+            child: ListView {
+              model: NoSelection {
+                model: bind template.content-provider;
+              };
 
-            factory: BuilderListItemFactory {
-              template ListItem {
-                activatable: false;
-                selectable: false;
-                focusable: false;
+              factory: BuilderListItemFactory {
+                template ListItem {
+                  activatable: false;
+                  selectable: false;
+                  focusable: false;
 
-                child: $BzSectionView {
-                  section: bind template.item;
-                  group-activated => $group_activated_cb();
-                };
-              }
+                  child: $BzSectionView {
+                    section: bind template.item;
+                    group-activated => $group_activated_cb();
+                  };
+                }
+              };
             };
           };
         };
