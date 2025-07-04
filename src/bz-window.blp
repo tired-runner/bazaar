@@ -103,6 +103,7 @@ template $BzWindow: Adw.ApplicationWindow {
                       has-tooltip: true;
                       tooltip-text: _("Clear all finished transactions");
                       icon-name: "edit-clear-all-symbolic";
+                      clicked => $transactions_clear_cb(template) swapped;
                     }
                   }
                 }
@@ -190,6 +191,7 @@ template $BzWindow: Adw.ApplicationWindow {
             has-tooltip: true;
             tooltip-text: _("Go Back");
             icon-name: "go-previous-symbolic";
+            clicked => $go_back_cb(template) swapped;
           }
 
           [start]
@@ -198,6 +200,7 @@ template $BzWindow: Adw.ApplicationWindow {
             tooltip-text: _("Refresh");
             icon-name: "view-refresh-symbolic";
             sensitive: bind $invert_boolean(template.busy) as <bool>;
+            clicked => $refresh_cb(template) swapped;
           }
 
           [start]
@@ -217,6 +220,7 @@ template $BzWindow: Adw.ApplicationWindow {
             has-tooltip: true;
             tooltip-text: _("Update");
             icon-name: "software-update-available-symbolic";
+            clicked => $update_cb(template) swapped;
           }
 
           title-widget: Revealer title_revealer {

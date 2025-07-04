@@ -117,22 +117,6 @@ updates_changed (GListModel *model,
                  BzWindow   *self);
 
 static void
-go_back_clicked (GtkButton *button,
-                 BzWindow  *self);
-
-static void
-refresh_clicked (GtkButton *button,
-                 BzWindow  *self);
-
-static void
-update_clicked (GtkButton *button,
-                BzWindow  *self);
-
-static void
-transactions_clear_clicked (GtkButton *button,
-                            BzWindow  *self);
-
-static void
 install_confirmation_response (AdwAlertDialog *alert,
                                gchar          *response,
                                BzWindow       *self);
@@ -468,6 +452,35 @@ stop_transactions_cb (BzWindow  *self,
 }
 
 static void
+go_back_cb (BzWindow  *self,
+            GtkButton *button)
+{
+  set_page (self);
+}
+
+static void
+refresh_cb (BzWindow  *self,
+            GtkButton *button)
+{
+  gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
+}
+
+static void
+update_cb (BzWindow  *self,
+           GtkButton *button)
+{
+  /* if the button is clickable, there have to be updates */
+  bz_window_push_update_dialog (self, self->updates);
+}
+
+static void
+transactions_clear_cb (BzWindow  *self,
+                       GtkButton *button)
+{
+  bz_transaction_manager_clear_finished (self->transaction_manager);
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -578,27 +591,27 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, pause_transactions_cb);
   gtk_widget_class_bind_template_callback (widget_class, stop_transactions_cb);
   gtk_widget_class_bind_template_callback (widget_class, search_split_open_changed_cb);
+  gtk_widget_class_bind_template_callback (widget_class, go_back_cb);
+  gtk_widget_class_bind_template_callback (widget_class, refresh_cb);
+  gtk_widget_class_bind_template_callback (widget_class, update_cb);
+  gtk_widget_class_bind_template_callback (widget_class, transactions_clear_cb);
 }
 
 static void
 bz_window_init (BzWindow *self)
 {
-  // GtkEventController *motion_controller = NULL;
+  // const char *desktop = NULL;
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
-  /* TODO: use class template callbacks */
-  g_signal_connect (self->go_back, "clicked", G_CALLBACK (go_back_clicked), self);
-  g_signal_connect (self->refresh, "clicked", G_CALLBACK (refresh_clicked), self);
-  g_signal_connect (self->update_button, "clicked", G_CALLBACK (update_clicked), self);
-  g_signal_connect (self->transactions_clear, "clicked", G_CALLBACK (transactions_clear_clicked), self);
-
-  // motion_controller = gtk_event_controller_motion_new ();
-  // gtk_event_controller_set_propagation_limit (motion_controller, GTK_LIMIT_NONE);
-  // bz_background_set_motion_controller (
-  //     self->background,
-  //     GTK_EVENT_CONTROLLER_MOTION (motion_controller));
-  // gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
+  // desktop = g_getenv ("XDG_CURRENT_DESKTOP");
+  // if (desktop != NULL)
+  //   {
+  //     if (g_strcmp0 (desktop, "GNOME") == 0)
+  //       gtk_widget_set_visible (GTK_WIDGET (self->support_gnome), TRUE);
+  //     else if (g_strcmp0 (desktop, "KDE") == 0)
+  //       gtk_widget_set_visible (GTK_WIDGET (self->support_kde), TRUE);
+  //   }
 
   adw_toggle_group_set_active_name (self->title_toggle_group, "curated");
 }
@@ -608,14 +621,6 @@ setting_changed (GSettings   *settings,
                  const gchar *pkey,
                  BzWindow    *self)
 {
-  if (g_strcmp0 (pkey, "show-animated-background") == 0)
-    {
-      // gtk_widget_set_visible (
-      //     GTK_WIDGET (self->background),
-      //     g_settings_get_boolean (
-      //         settings,
-      //         "show-animated-background"));
-    }
 }
 
 static void
@@ -644,35 +649,6 @@ updates_changed (GListModel *model,
   gtk_widget_set_visible (
       GTK_WIDGET (self->update_button),
       g_list_model_get_n_items (model) > 0);
-}
-
-static void
-go_back_clicked (GtkButton *button,
-                 BzWindow  *self)
-{
-  set_page (self);
-}
-
-static void
-refresh_clicked (GtkButton *button,
-                 BzWindow  *self)
-{
-  gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
-}
-
-static void
-update_clicked (GtkButton *button,
-                BzWindow  *self)
-{
-  /* if the button is clickable, there have to be updates */
-  bz_window_push_update_dialog (self, self->updates);
-}
-
-static void
-transactions_clear_clicked (GtkButton *button,
-                            BzWindow  *self)
-{
-  bz_transaction_manager_clear_finished (self->transaction_manager);
 }
 
 static void

@@ -16,19 +16,12 @@
     opacity: 0.55;
 }
 
-
 .card-row-btn {
     border-radius: 0;
 }
 
-
 .screenshot {
     border-radius: 20px;
-}
-
-.screenshot-scroll {
-    border-top: 2px solid var(--border-color);
-    border-bottom: 2px solid var(--border-color);
 }
 
 .browser-banner {
