@@ -13,7 +13,10 @@ build-base:
     meson setup build --wipe
     ninja -C build
 
-build-flatpak $manifest=manifest $branch=branch:
+build-flatpak:
+    just build-flatpak-devel ./build-aux/flatpak/io.github.kolunmi.Bazaar.json stable
+
+build-flatpak-devel $manifest=manifest $branch=branch:
     #!/usr/bin/env bash
     flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     mkdir -p ".flatpak-builder"
@@ -27,6 +30,7 @@ build-flatpak $manifest=manifest $branch=branch:
     BUILDER_ARGS+=("--ccache")
     BUILDER_ARGS+=("--force-clean")
     BUILDER_ARGS+=("--install")
+    BUILDER_ARGS+=("--install-deps-from=flathub")
     BUILDER_ARGS+=("--disable-rofiles-fuse")
     BUILDER_ARGS+=("${FLATPAK_BUILDER_DIR}/build-dir")
     BUILDER_ARGS+=("$(basename "${manifest}")")
