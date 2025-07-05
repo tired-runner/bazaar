@@ -15,6 +15,7 @@ build-base:
 
 build-flatpak $manifest=manifest $branch=branch:
     #!/usr/bin/env bash
+    flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     mkdir -p ".flatpak-builder"
     FLATPAK_BUILDER_DIR=$(realpath ".flatpak-builder")
     cd "$(dirname "${manifest}")"
@@ -27,7 +28,6 @@ build-flatpak $manifest=manifest $branch=branch:
     BUILDER_ARGS+=("--force-clean")
     BUILDER_ARGS+=("--install")
     BUILDER_ARGS+=("--disable-rofiles-fuse")
-    BUILDER_ARGS+=("--install-deps-from=flathub")
     BUILDER_ARGS+=("${FLATPAK_BUILDER_DIR}/build-dir")
     BUILDER_ARGS+=("$(basename "${manifest}")")
 
@@ -38,9 +38,9 @@ build-flatpak $manifest=manifest $branch=branch:
         flatpak run org.flatpak.Builder "${BUILDER_ARGS[@]}"
         exit $?
     fi
-    flatpak run org.flatpak.Builder --repo=repo "${FLATPAK_BUILDER_DIR}/build-dir" "$(basename "${manifest}")" ${appid}
+    flatpak build-export repo "${FLATPAK_BUILDER_DIR}/build-dir"
     flatpak build-bundle \
-    ./repo bazaar.flatpak\
+    repo bazaar.flatpak\
       ${id} \
 
 build-rpm:
