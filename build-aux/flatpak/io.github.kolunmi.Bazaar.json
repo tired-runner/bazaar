@@ -8,7 +8,6 @@
     "org.freedesktop.Sdk.Extension.rust-stable",
     "org.freedesktop.Sdk.Extension.llvm18"
   ],
-  "rename-desktop-file": "io.github.kolunmi.Bazaar.desktop",
   "finish-args": [
     "--share=network",
     "--share=ipc",
