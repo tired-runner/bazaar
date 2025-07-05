@@ -1,6 +1,8 @@
 # These are just convenience scripts, NOT a build system!
 
 appid := env("BAZAAR_APPID", "io.github.kolunmi.Bazaar")
+manifest := "./build-aux/flatpak/" + appid + ".json"
+branch := env("BAZAAR_BRANCH", "stable")
 
 alias run := run-base
 
@@ -11,8 +13,12 @@ build-base:
     meson setup build --wipe
     ninja -C build
 
-build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.Bazaar.Devel.json" $branch="stable":
+build-flatpak:
+    just build-flatpak-devel ./build-aux/flatpak/io.github.kolunmi.Bazaar.json stable
+
+build-flatpak-devel $manifest=manifest $branch=branch:
     #!/usr/bin/env bash
+    flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     mkdir -p ".flatpak-builder"
     FLATPAK_BUILDER_DIR=$(realpath ".flatpak-builder")
     cd "$(dirname "${manifest}")"
@@ -24,10 +30,11 @@ build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.Bazaar.Devel.json
     BUILDER_ARGS+=("--ccache")
     BUILDER_ARGS+=("--force-clean")
     BUILDER_ARGS+=("--install")
+    BUILDER_ARGS+=("--install-deps-from=flathub")
     BUILDER_ARGS+=("--disable-rofiles-fuse")
     BUILDER_ARGS+=("${FLATPAK_BUILDER_DIR}/build-dir")
     BUILDER_ARGS+=("$(basename "${manifest}")")
-    
+
     if which flatpak-builder &>/dev/null ; then
         flatpak-builder "${BUILDER_ARGS[@]}"
         exit $?
@@ -35,6 +42,10 @@ build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.Bazaar.Devel.json
         flatpak run org.flatpak.Builder "${BUILDER_ARGS[@]}"
         exit $?
     fi
+    flatpak build-export repo "${FLATPAK_BUILDER_DIR}/build-dir"
+    flatpak build-bundle \
+    repo bazaar.flatpak\
+      ${id} \
 
 build-rpm:
     #!/usr/bin/env bash

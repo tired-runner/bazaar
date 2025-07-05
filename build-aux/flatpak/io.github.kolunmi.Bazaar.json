@@ -1,15 +1,13 @@
 {
-  "id": "io.github.kolunmi.Bazaar.Devel",
+  "id": "io.github.kolunmi.Bazaar",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "master",
+  "runtime-version": "48",
   "sdk": "org.gnome.Sdk",
   "command": "bazaar-launcher",
   "sdk-extensions": [
     "org.freedesktop.Sdk.Extension.rust-stable",
     "org.freedesktop.Sdk.Extension.llvm18"
   ],
-  "tags": ["nightly"],
-  "rename-desktop-file": "io.github.kolunmi.Bazaar.desktop",
   "finish-args": [
     "--share=network",
     "--share=ipc",

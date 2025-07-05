@@ -2,5 +2,7 @@ build
 .cache
 .flatpak-builder
 rpmbuild
+repo
+*.flatpak
 
 /subprojects/blueprint-compiler
