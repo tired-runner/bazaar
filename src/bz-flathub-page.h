@@ -1,4 +1,4 @@
-/* bz-global-state.h
+/* bz-flathub-page.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,26 +20,23 @@
 
 #pragma once
 
-#include <json-glib/json-glib.h>
-#include <libdex.h>
-#include <libsoup/soup.h>
+#include <adwaita.h>
+
+#include "bz-flathub-state.h"
 
 G_BEGIN_DECLS
 
-SoupSession *
-bz_get_global_http_session (void);
+#define BZ_TYPE_FLATHUB_PAGE (bz_flathub_page_get_type ())
+G_DECLARE_FINAL_TYPE (BzFlathubPage, bz_flathub_page, BZ, FLATHUB_PAGE, AdwBin)
 
-DexFuture *
-bz_send_with_global_http_session (SoupMessage *message);
+GtkWidget *
+bz_flathub_page_new (void);
 
-DexFuture *
-bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
-                                                   GOutputStream *output);
+void
+bz_flathub_page_set_state (BzFlathubPage  *self,
+                           BzFlathubState *state);
 
-DexFuture *
-bz_query_flathub_v2_json (const char *request);
-
-DexFuture *
-bz_query_flathub_v2_json_take (char *request);
+BzFlathubState *
+bz_flathub_page_get_state (BzFlathubPage *self);
 
 G_END_DECLS

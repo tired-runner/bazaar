@@ -22,10 +22,12 @@
 
 #include <glib/gi18n.h>
 
+#include "bz-application-map-factory.h"
 #include "bz-application.h"
 #include "bz-content-provider.h"
 #include "bz-entry-group.h"
 #include "bz-error.h"
+#include "bz-flathub-state.h"
 #include "bz-flatpak-entry.h"
 #include "bz-flatpak-instance.h"
 #include "bz-gnome-shell-search-provider.h"
@@ -55,17 +57,20 @@ struct _BzApplication
   BzSearchEngine             *search_engine;
   BzGnomeShellSearchProvider *gs_search;
 
-  BzFlatpakInstance *flatpak;
-  GListStore        *all_entries;
-  GListStore        *applications;
-  GListStore        *runtimes;
-  GListStore        *addons;
-  GListStore        *installed;
-  GListStore        *updates;
-  GHashTable        *generic_id_to_entry_group_hash;
-  GHashTable        *unique_id_to_entry_hash;
-  GHashTable        *flatpak_name_to_app_hash;
-  GHashTable        *installed_unique_ids_set;
+  BzFlatpakInstance       *flatpak;
+  BzFlathubState          *flathub;
+  BzApplicationMapFactory *map_factory;
+
+  GListStore *all_entries;
+  GListStore *applications;
+  GListStore *runtimes;
+  GListStore *addons;
+  GListStore *installed;
+  GListStore *updates;
+  GHashTable *generic_id_to_entry_group_hash;
+  GHashTable *unique_id_to_entry_hash;
+  GHashTable *flatpak_name_to_app_hash;
+  GHashTable *installed_unique_ids_set;
 };
 
 G_DEFINE_FINAL_TYPE (BzApplication, bz_application, ADW_TYPE_APPLICATION)
@@ -158,6 +163,8 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->search_engine);
   g_clear_object (&self->gs_search);
   g_clear_object (&self->flatpak);
+  g_clear_object (&self->map_factory);
+  g_clear_object (&self->flathub);
   g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
   g_clear_pointer (&self->unique_id_to_entry_hash, g_hash_table_unref);
   g_clear_pointer (&self->flatpak_name_to_app_hash, g_hash_table_unref);
@@ -1106,6 +1113,19 @@ map_strings_to_files (GtkStringObject *string,
   return result;
 }
 
+static gpointer
+map_ids_to_groups (GtkStringObject *string,
+                   BzApplication   *self)
+{
+  const char   *id    = NULL;
+  BzEntryGroup *group = NULL;
+
+  id    = gtk_string_object_get_string (string);
+  group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+
+  return group != NULL ? g_object_ref (group) : NULL;
+}
+
 static void
 bz_application_init (BzApplication *self)
 {
@@ -1145,6 +1165,12 @@ bz_application_init (BzApplication *self)
 
   self->gs_search = bz_gnome_shell_search_provider_new ();
   bz_gnome_shell_search_provider_set_engine (self->gs_search, self->search_engine);
+
+  self->flathub     = bz_flathub_state_new (NULL);
+  self->map_factory = bz_application_map_factory_new (
+      (GtkMapListModelMapFunc) map_ids_to_groups,
+      self, NULL, NULL);
+  bz_flathub_state_set_map_factory (self->flathub, self->map_factory);
 
   g_action_map_add_action_entries (
       G_ACTION_MAP (self),
@@ -1483,7 +1509,9 @@ refresh_finally (DexFuture     *future,
   self->refresh_task = NULL;
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
+
   bz_content_provider_unblock (self->content_provider);
+  g_object_thaw_notify (G_OBJECT (self->flathub));
 
   return NULL;
 }
@@ -1497,6 +1525,7 @@ refresh (BzApplication *self)
     return;
 
   bz_content_provider_block (self->content_provider);
+  g_object_freeze_notify (G_OBJECT (self->flathub));
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
@@ -1522,6 +1551,8 @@ refresh (BzApplication *self)
       future, (DexFutureCallback) refresh_finally,
       self, NULL);
   self->refresh_task = g_steal_pointer (&future);
+
+  bz_flathub_state_update_to_today (self->flathub);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
@@ -1677,6 +1708,7 @@ new_window (BzApplication *self)
       "settings", self->settings,
       "transaction-manager", self->transactions,
       "content-provider", self->content_provider,
+      "flathub", self->flathub,
       "applications", self->applications,
       "installed", self->installed,
       "updates", self->updates,

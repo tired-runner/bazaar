@@ -8,6 +8,7 @@ gdbus_src = gnome.gdbus_codegen(
 bz_sources = [
   'bz-addons-dialog.c',
   'bz-app-tile.c',
+  'bz-application-map-factory.c',
   'bz-application.c',
   'bz-async-texture.c',
   'bz-backend.c',
@@ -22,6 +23,9 @@ bz_sources = [
   'bz-entry-group.c',
   'bz-entry.c',
   'bz-error.c',
+  'bz-flathub-category.c',
+  'bz-flathub-page.c',
+  'bz-flathub-state.c',
   'bz-flatpak-entry.c',
   'bz-flatpak-instance.c',
   'bz-full-view.c',
@@ -69,10 +73,10 @@ bz_deps = [
 
 blueprints = custom_target('blueprints',
   input: files(
-    'gtk/help-overlay.blp',
     'bz-addons-dialog.blp',
     'bz-app-tile.blp',
     'bz-browse-widget.blp',
+    'bz-flathub-page.blp',
     'bz-full-view.blp',
     'bz-installed-page.blp',
     'bz-preferences-dialog.blp',
@@ -84,6 +88,7 @@ blueprints = custom_target('blueprints',
     'bz-transaction-view.blp',
     'bz-update-dialog.blp',
     'bz-window.blp',
+    'gtk/help-overlay.blp',
   ),
   output: '.',
   command: [

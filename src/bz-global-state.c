@@ -27,9 +27,12 @@ BZ_DEFINE_DATA (
     {
       SoupMessage   *message;
       GOutputStream *output;
+      gboolean       close_output;
+      char          *content_type;
     },
     BZ_RELEASE_DATA (message, g_object_unref);
-    BZ_RELEASE_DATA (output, g_object_unref));
+    BZ_RELEASE_DATA (output, g_object_unref);
+    BZ_RELEASE_DATA (content_type, g_free));
 
 static DexFuture *
 http_send_fiber (HttpSendData *data);
@@ -43,6 +46,10 @@ static void
 splice_finish (GObject      *object,
                GAsyncResult *result,
                gpointer      user_data);
+
+static DexFuture *
+query_flathub_then (DexFuture    *future,
+                    HttpSendData *data);
 
 SoupSession *
 bz_get_global_http_session (void)
@@ -62,9 +69,11 @@ bz_send_with_global_http_session (SoupMessage *message)
 
   dex_return_error_if_fail (SOUP_IS_MESSAGE (message));
 
-  data          = http_send_data_new ();
-  data->message = g_object_ref (message);
-  data->output  = NULL;
+  data               = http_send_data_new ();
+  data->message      = g_object_ref (message);
+  data->output       = NULL;
+  data->close_output = FALSE;
+  data->content_type = NULL;
 
   return dex_scheduler_spawn (
       dex_scheduler_get_default (), 0,
@@ -81,14 +90,62 @@ bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
   dex_return_error_if_fail (SOUP_IS_MESSAGE (message));
   dex_return_error_if_fail (G_IS_OUTPUT_STREAM (output));
 
-  data          = http_send_data_new ();
-  data->message = g_object_ref (message);
-  data->output  = g_object_ref (output);
+  data               = http_send_data_new ();
+  data->message      = g_object_ref (message);
+  data->output       = g_object_ref (output);
+  data->close_output = FALSE;
+  data->content_type = NULL;
 
   return dex_scheduler_spawn (
       dex_scheduler_get_default (), 0,
       (DexFiberFunc) http_send_fiber,
       g_steal_pointer (&data), http_send_data_unref);
+}
+
+DexFuture *
+bz_query_flathub_v2_json (const char *request)
+{
+  g_autoptr (GError) local_error   = NULL;
+  g_autofree char *uri             = NULL;
+  g_autoptr (SoupMessage) message  = NULL;
+  g_autoptr (GOutputStream) output = NULL;
+  g_autoptr (HttpSendData) data    = NULL;
+  g_autoptr (DexFuture) future     = NULL;
+
+  dex_return_error_if_fail (request != NULL);
+
+  uri     = g_strdup_printf ("https://flathub.org/api/v2%s", request);
+  message = soup_message_new (SOUP_METHOD_GET, uri);
+  output  = g_memory_output_stream_new_resizable ();
+
+  data               = http_send_data_new ();
+  data->message      = g_object_ref (message);
+  data->output       = g_object_ref (output);
+  data->close_output = TRUE;
+  data->content_type = g_strdup ("application/json");
+
+  future = dex_scheduler_spawn (
+      dex_scheduler_get_default (), 0,
+      (DexFiberFunc) http_send_fiber,
+      http_send_data_ref (data), http_send_data_unref);
+  future = dex_future_then (
+      future,
+      (DexFutureCallback) query_flathub_then,
+      http_send_data_ref (data), http_send_data_unref);
+  return g_steal_pointer (&future);
+}
+
+DexFuture *
+bz_query_flathub_v2_json_take (char *request)
+{
+  DexFuture *future = NULL;
+
+  dex_return_error_if_fail (request != NULL);
+
+  future = bz_query_flathub_v2_json (request);
+  g_free (request);
+
+  return future;
 }
 
 static DexFuture *
@@ -105,27 +162,53 @@ http_send_fiber (HttpSendData *data)
       http_send_finish,
       dex_ref (promise));
 
-  if (data->output != NULL)
+  if (data->output != NULL || data->content_type != NULL)
     {
       g_autoptr (GError) local_error    = NULL;
       g_autoptr (GInputStream) response = NULL;
-      g_autoptr (DexPromise) splice     = NULL;
 
       response = dex_await_object (DEX_FUTURE (g_steal_pointer (&promise)), &local_error);
       if (response == NULL)
         return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-      splice = dex_promise_new_cancellable ();
-      g_output_stream_splice_async (
-          data->output,
-          response,
-          G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE,
-          G_PRIORITY_DEFAULT,
-          dex_promise_get_cancellable (splice),
-          splice_finish,
-          dex_ref (splice));
+      if (data->content_type != NULL)
+        {
+          SoupMessageHeaders *response_headers = NULL;
+          const char         *content_type     = NULL;
 
-      return DEX_FUTURE (g_steal_pointer (&splice));
+          response_headers = soup_message_get_response_headers (data->message);
+          content_type     = soup_message_headers_get_content_type (response_headers, NULL);
+          if (g_strcmp0 (content_type, data->content_type) != 0)
+            return dex_future_new_reject (
+                G_IO_ERROR,
+                G_IO_ERROR_INVALID_DATA,
+                "HTTP request cancelled: expected content type '%s', got '%s'",
+                data->content_type,
+                content_type);
+        }
+
+      if (data->output != NULL)
+        {
+          g_autoptr (DexPromise) splice  = NULL;
+          GOutputStreamSpliceFlags flags = G_OUTPUT_STREAM_SPLICE_NONE;
+
+          splice = dex_promise_new_cancellable ();
+          flags  = G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE;
+          if (data->close_output)
+            flags |= G_OUTPUT_STREAM_SPLICE_CLOSE_TARGET;
+
+          g_output_stream_splice_async (
+              data->output,
+              response,
+              flags,
+              G_PRIORITY_DEFAULT,
+              dex_promise_get_cancellable (splice),
+              splice_finish,
+              dex_ref (splice));
+          return DEX_FUTURE (g_steal_pointer (&splice));
+        }
+      else
+        return dex_future_new_for_object (response);
     }
   else
     return DEX_FUTURE (g_steal_pointer (&promise));
@@ -173,4 +256,29 @@ splice_finish (GObject      *object,
     dex_promise_reject (promise, g_steal_pointer (&local_error));
 
   dex_unref (promise);
+}
+
+static DexFuture *
+query_flathub_then (DexFuture    *future,
+                    HttpSendData *data)
+{
+  g_autoptr (GError) local_error = NULL;
+  g_autoptr (GBytes) bytes       = NULL;
+  gsize         bytes_size       = 0;
+  gconstpointer bytes_data       = NULL;
+  g_autoptr (JsonParser) parser  = NULL;
+  gboolean  result               = FALSE;
+  JsonNode *node                 = NULL;
+
+  bytes = g_memory_output_stream_steal_as_bytes (
+      G_MEMORY_OUTPUT_STREAM (data->output));
+  bytes_data = g_bytes_get_data (bytes, &bytes_size);
+
+  parser = json_parser_new_immutable ();
+  result = json_parser_load_from_data (parser, bytes_data, bytes_size, &local_error);
+  if (!result)
+    return dex_future_new_for_error (g_steal_pointer (&local_error));
+
+  node = json_parser_get_root (parser);
+  return dex_future_new_take_boxed (JSON_TYPE_NODE, json_node_ref (node));
 }

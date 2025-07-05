@@ -1,0 +1,69 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzFlathubPage: Adw.Bin {
+  child: Adw.ViewStack stack {
+    enable-transitions: true;
+    transition-duration: 400;
+
+    Adw.ViewStackPage {
+      name: "content";
+      title: _("Browser");
+
+      child: ScrolledWindow {
+        styles [
+          "view",
+        ]
+
+        hscrollbar-policy: never;
+
+        child: $BzInhibitedScrollable {
+          scrollable: Adw.ClampScrollable {
+            maximum-size: 1500;
+            tightening-threshold: 1400;
+
+            child: Viewport {
+              child: Box {
+                orientation: vertical;
+                spacing: 20;
+
+                Label {
+                  styles [
+                    "title-1",
+                    "warning",
+                  ]
+                  label: "WIP";
+                }
+
+                Label {
+                  styles [
+                    "title-1",
+                  ]
+                  label: _("Apps Of The Week");
+                }
+                $BzDynamicListView {
+                  hexpand: true;
+                  scroll: false;
+                  child-type: "BzAppTile";
+                  child-prop: "group";
+                  model: SliceListModel {
+                    offset: 0;
+                    size: 10;
+                    model: bind template.state as <$BzFlathubState>.apps_of_the_week;
+                  };
+                }
+                
+                Label {
+                  styles [
+                    "title-1",
+                  ]
+                  label: _("The rest...");
+                }
+              };
+            };
+          };
+        };
+      };
+    }
+  };
+}

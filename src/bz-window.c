@@ -27,6 +27,7 @@
 #include "bz-browse-widget.h"
 #include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
+#include "bz-flathub-page.h"
 #include "bz-full-view.h"
 #include "bz-global-progress.h"
 #include "bz-installed-page.h"
@@ -42,6 +43,7 @@ struct _BzWindow
 
   GSettings            *settings;
   BzContentProvider    *content_provider;
+  BzFlathubState       *flathub;
   BzTransactionManager *transaction_manager;
   GListModel           *applications;
   GListModel           *installed;
@@ -85,6 +87,7 @@ enum
   PROP_SETTINGS,
   PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
+  PROP_FLATHUB,
   PROP_APPLICATIONS,
   PROP_INSTALLED,
   PROP_UPDATES,
@@ -176,6 +179,7 @@ bz_window_dispose (GObject *object)
 
   g_clear_object (&self->settings);
   g_clear_object (&self->content_provider);
+  g_clear_object (&self->flathub);
   g_clear_object (&self->transaction_manager);
   g_clear_object (&self->applications);
   g_clear_object (&self->installed);
@@ -204,6 +208,9 @@ bz_window_get_property (GObject    *object,
       break;
     case PROP_CONTENT_PROVIDER:
       g_value_set_object (value, self->content_provider);
+      break;
+    case PROP_FLATHUB:
+      g_value_set_object (value, self->flathub);
       break;
     case PROP_APPLICATIONS:
       g_value_set_object (value, self->applications);
@@ -273,6 +280,10 @@ bz_window_set_property (GObject      *object,
     case PROP_CONTENT_PROVIDER:
       g_clear_object (&self->content_provider);
       self->content_provider = g_value_dup_object (value);
+      break;
+    case PROP_FLATHUB:
+      g_clear_object (&self->flathub);
+      self->flathub = g_value_dup_object (value);
       break;
     case PROP_APPLICATIONS:
       g_clear_object (&self->applications);
@@ -511,6 +522,13 @@ bz_window_class_init (BzWindowClass *klass)
           BZ_TYPE_CONTENT_PROVIDER,
           G_PARAM_READWRITE);
 
+  props[PROP_FLATHUB] =
+      g_param_spec_object (
+          "flathub",
+          NULL, NULL,
+          BZ_TYPE_FLATHUB_STATE,
+          G_PARAM_READWRITE);
+
   props[PROP_APPLICATIONS] =
       g_param_spec_object (
           "applications",
@@ -555,6 +573,7 @@ bz_window_class_init (BzWindowClass *klass)
   g_type_ensure (BZ_TYPE_BROWSE_WIDGET);
   g_type_ensure (BZ_TYPE_FULL_VIEW);
   g_type_ensure (BZ_TYPE_INSTALLED_PAGE);
+  g_type_ensure (BZ_TYPE_FLATHUB_PAGE);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-window.ui");
   gtk_widget_class_bind_template_child (widget_class, BzWindow, comet_overlay);
@@ -1062,6 +1081,8 @@ set_page (BzWindow *self)
     visible_child = "installed";
   else if (g_strcmp0 (active_name, "curated") == 0)
     visible_child = self->online ? "browse" : "offline";
+  else if (g_strcmp0 (active_name, "flathub") == 0)
+    visible_child = self->online ? "flathub" : "offline";
 
   adw_view_stack_set_visible_child_name (self->main_stack, visible_child);
   gtk_widget_set_sensitive (GTK_WIDGET (self->title_toggle_group), !self->busy);

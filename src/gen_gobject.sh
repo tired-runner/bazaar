@@ -326,6 +326,7 @@ print_set_property_methods () {
                     fi
 
                     printf ');\n'
+                    printf '  if (%s != NULL)\n  ' "$LOC_NAME"
                     ;;
             esac
 

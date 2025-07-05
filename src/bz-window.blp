@@ -169,6 +169,15 @@ template $BzWindow: Adw.ApplicationWindow {
                   }
 
                   Adw.ViewStackPage {
+                    name: "flathub";
+                    title: _("Flathub");
+
+                    child: $BzFlathubPage {
+                      state: bind template.flathub;
+                    };
+                  }
+                  
+                  Adw.ViewStackPage {
                     name: "installed";
                     title: _("Installed");
 
@@ -251,6 +260,27 @@ template $BzWindow: Adw.ApplicationWindow {
                 };
               }
 
+              Adw.Toggle {
+                tooltip: _("View the latest on Flathub");
+                name: "flathub";
+
+                child: Box {
+                  halign: center;
+                  margin-start: 15;
+                  margin-end: 15;
+                  orientation: horizontal;
+                  spacing: 6;
+
+                  Image {
+                    icon-name: "flatpak-symbolic";
+                  }
+
+                  Label {
+                    label: _("Flathub");
+                  }
+                };
+              }
+              
               Adw.Toggle {
                 tooltip: _("View installed applications");
                 name: "installed";

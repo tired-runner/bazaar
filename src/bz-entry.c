@@ -935,6 +935,11 @@ bz_entry_cmp_usefulness (gconstpointer a,
   int             a_score = 0;
   int             b_score = 0;
 
+  if (priv_a->is_flathub && !priv_b->is_flathub)
+    return -1;
+  if (!priv_a->is_flathub && priv_b->is_flathub)
+    return 1;
+
   a_score += priv_a->title != NULL ? 5 : 0;
   a_score += priv_a->description != NULL ? 1 : 0;
   a_score += priv_a->long_description != NULL ? 5 : 0;
@@ -1011,75 +1016,50 @@ query_flathub (BzEntry *self,
 static DexFuture *
 query_flathub_fiber (QueryFlathubData *data)
 {
-  int   prop                           = data->prop;
-  char *id                             = data->id;
-  g_autoptr (GError) local_error       = NULL;
-  g_autofree char *message_uri         = NULL;
-  g_autoptr (SoupMessage) message      = NULL;
-  g_autoptr (GInputStream) response    = NULL;
-  SoupMessageHeaders *response_headers = NULL;
-  const char         *content_type     = NULL;
-  g_autoptr (JsonParser) parser        = NULL;
-  gboolean    result                   = FALSE;
-  JsonNode   *node                     = NULL;
-  JsonObject *object                   = NULL;
+  int   prop                     = data->prop;
+  char *id                       = data->id;
+  g_autoptr (GError) local_error = NULL;
+  g_autofree char *request       = NULL;
+  g_autoptr (JsonNode) node      = NULL;
 
   switch (prop)
     {
     case PROP_VERIFIED:
-      message_uri = g_strdup_printf ("https://flathub.org/api/v2/verification/%s/status", id);
+      request = g_strdup_printf ("/verification/%s/status", id);
       break;
     case PROP_DOWNLOAD_STATS:
-      message_uri = g_strdup_printf ("https://flathub.org/api/v2/stats/%s?all=false&days=175", id);
+      request = g_strdup_printf ("/stats/%s?all=false&days=175", id);
       break;
     default:
       g_assert_not_reached ();
       return NULL;
     }
 
-  message  = soup_message_new (SOUP_METHOD_GET, message_uri);
-  response = dex_await_object (bz_send_with_global_http_session (message), &local_error);
-  if (response == NULL)
+  node = dex_await_boxed (bz_query_flathub_v2_json (request), &local_error);
+  if (node == NULL)
     {
       g_critical ("Could not retrieve property %s for %s from flathub: %s",
                   props[prop]->name, id, local_error->message);
       return dex_future_new_for_error (g_steal_pointer (&local_error));
     }
 
-  response_headers = soup_message_get_response_headers (message);
-  content_type     = soup_message_headers_get_content_type (response_headers, NULL);
-  if (g_strcmp0 (content_type, "application/json") != 0)
-    return dex_future_new_reject (
-        G_IO_ERROR,
-        G_IO_ERROR_INVALID_DATA,
-        "response is not json");
-
-  parser = json_parser_new_immutable ();
-  result = json_parser_load_from_stream (parser, response, NULL, &local_error);
-  if (!result)
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  node   = json_parser_get_root (parser);
-  object = json_node_get_object (node);
-  if (object == NULL)
-    return dex_future_new_reject (
-        G_IO_ERROR,
-        G_IO_ERROR_INVALID_DATA,
-        "unexpected response structure");
-
   switch (prop)
     {
     case PROP_VERIFIED:
       return dex_future_new_for_boolean (
-          json_object_get_boolean_member (object, "verified"));
+          json_object_get_boolean_member (
+              json_node_get_object (node),
+              "verified"));
       break;
     case PROP_DOWNLOAD_STATS:
       {
         JsonObject *per_day          = NULL;
         g_autoptr (GListStore) store = NULL;
 
-        per_day = json_object_get_object_member (object, "installs_per_day");
-        store   = g_list_store_new (BZ_TYPE_DATA_POINT);
+        per_day = json_object_get_object_member (
+            json_node_get_object (node),
+            "installs_per_day");
+        store = g_list_store_new (BZ_TYPE_DATA_POINT);
 
         json_object_foreach_member (
             per_day,
