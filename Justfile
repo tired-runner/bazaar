@@ -27,14 +27,30 @@ build-flatpak $manifest="./build-aux/flatpak/io.github.kolunmi.Bazaar.Devel.json
     BUILDER_ARGS+=("--disable-rofiles-fuse")
     BUILDER_ARGS+=("${FLATPAK_BUILDER_DIR}/build-dir")
     BUILDER_ARGS+=("$(basename "${manifest}")")
-    
+
     if which flatpak-builder &>/dev/null ; then
         flatpak-builder "${BUILDER_ARGS[@]}"
         exit $?
     else
+        flatpak install -y --noninteractive \
+        org.gnome.Platform//master \
+        org.gnome.Sdk//master \
+        org.freedesktop.Platform//24.08 \
+        org.freedesktop.Sdk.Extension.llvm18//24.08 \
+        org.freedesktop.Sdk.Extension.rust-stable//24.08
         flatpak run org.flatpak.Builder "${BUILDER_ARGS[@]}"
         exit $?
     fi
+
+build-flatpakref:
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p ".flatpak-builder"
+    FLATPAK_BUILDER_DIR=$(realpath ".flatpak-builder")
+    flatpak build-export repo "${FLATPAK_BUILDER_DIR}/build-dir"
+    flatpak build-bundle \
+      repo repo \
+      io.github.kolunmi.Bazaar.Devel
 
 build-rpm:
     #!/usr/bin/env bash
