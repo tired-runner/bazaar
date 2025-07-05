@@ -79,14 +79,19 @@ GListModel *
 bz_application_map_factory_generate (BzApplicationMapFactory *self,
                                      GListModel              *model)
 {
+  GtkMapListModel *map_model = NULL;
+
   g_return_val_if_fail (BZ_IS_APPLICATION_MAP_FACTORY (self), NULL);
-  g_return_val_if_fail (G_IS_LIST_MODEL (model) || model == NULL, NULL);
+  g_return_val_if_fail (G_IS_LIST_MODEL (model), NULL);
 
   if (self->ref_user_data != NULL && self->unref_user_data != NULL)
     self->ref_user_data (self->user_data);
 
-  return G_LIST_MODEL (gtk_map_list_model_new (
-      model, self->func, self->user_data, self->unref_user_data));
+  map_model = gtk_map_list_model_new (
+      g_object_ref (model), self->func,
+      self->user_data, self->unref_user_data);
+
+  return G_LIST_MODEL (map_model);
 }
 
 gpointer
