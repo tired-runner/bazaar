@@ -325,7 +325,7 @@ setup_hadjustments (BzInhibitedScrollable *self)
 
   if (self->child != NULL && self->hadjustment != NULL)
     {
-      self->child_hadjustment = gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      self->child_hadjustment = g_object_ref_sink (gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
       g_signal_connect_swapped (self->child_hadjustment, "value-changed",
                                 G_CALLBACK (child_adjustment_value_changed), self);
 
@@ -377,7 +377,7 @@ setup_vadjustments (BzInhibitedScrollable *self)
 
   if (self->child != NULL && self->vadjustment != NULL)
     {
-      self->child_vadjustment = gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      self->child_vadjustment = g_object_ref_sink (gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
       g_signal_connect_swapped (self->child_vadjustment, "value-changed",
                                 G_CALLBACK (child_adjustment_value_changed), self);
 
