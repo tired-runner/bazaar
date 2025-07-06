@@ -224,7 +224,7 @@ bz_data_graph_size_allocate (GtkWidget *widget,
 {
   BzDataGraph *self = BZ_DATA_GRAPH (widget);
 
-  refresh_path (self, (double) width - LABEL_MARGIN * 2.0, (double) height - LABEL_MARGIN * 2.0);
+  refresh_path (self, (double) width - LABEL_MARGIN * 1.5, (double) height - LABEL_MARGIN);
   gtk_widget_queue_draw (widget);
 }
 
@@ -266,7 +266,7 @@ bz_data_graph_snapshot (GtkWidget   *widget,
   gsk_stroke_set_line_cap (stroke, GSK_LINE_CAP_ROUND);
 
   gtk_snapshot_save (snapshot);
-  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (LABEL_MARGIN, LABEL_MARGIN));
+  gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (LABEL_MARGIN, 0.0));
 
   if (self->fg != NULL)
     {
