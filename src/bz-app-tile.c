@@ -22,12 +22,12 @@
 
 struct _BzAppTile
 {
-  AdwBin parent_instance;
+  GtkButton parent_instance;
 
   BzEntryGroup *group;
 };
 
-G_DEFINE_FINAL_TYPE (BzAppTile, bz_app_tile, ADW_TYPE_BIN);
+G_DEFINE_FINAL_TYPE (BzAppTile, bz_app_tile, GTK_TYPE_BUTTON);
 
 enum
 {

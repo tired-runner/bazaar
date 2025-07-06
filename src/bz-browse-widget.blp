@@ -46,7 +46,7 @@ template $BzBrowseWidget: Adw.Bin {
 
                   child: $BzSectionView {
                     section: bind template.item;
-                    group-activated => $group_activated_cb();
+                    group-activated => $group_activated_cb(template);
                   };
                 }
               };

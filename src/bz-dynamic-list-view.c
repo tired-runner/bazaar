@@ -19,15 +19,24 @@
  */
 
 #include "bz-dynamic-list-view.h"
+#include "bz-marshalers.h"
+
+G_DEFINE_ENUM_TYPE (
+    BzDynamicListViewKind,
+    bz_dynamic_list_view_kind,
+    G_DEFINE_ENUM_VALUE (BZ_DYNAMIC_LIST_VIEW_KIND_LIST_BOX, "list-box"),
+    G_DEFINE_ENUM_VALUE (BZ_DYNAMIC_LIST_VIEW_KIND_FLOW_BOX, "flow-box"),
+    G_DEFINE_ENUM_VALUE (BZ_DYNAMIC_LIST_VIEW_KIND_CAROUSEL, "carousel"))
 
 struct _BzDynamicListView
 {
   AdwBin parent_instance;
 
-  GListModel *model;
-  gboolean    scroll;
-  GType       child_type;
-  char       *child_prop;
+  GListModel           *model;
+  gboolean              scroll;
+  BzDynamicListViewKind noscroll_kind;
+  GType                 child_type;
+  char                 *child_prop;
 
   char *child_type_string;
 };
@@ -40,12 +49,22 @@ enum
 
   PROP_MODEL,
   PROP_SCROLL,
+  PROP_NOSCROLL_KIND,
   PROP_CHILD_TYPE,
   PROP_CHILD_PROP,
 
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+enum
+{
+  SIGNAL_BIND_WIDGET,
+  SIGNAL_UNBIND_WIDGET,
+
+  LAST_SIGNAL,
+};
+static guint signals[LAST_SIGNAL];
 
 static void
 refresh (BzDynamicListView *self);
@@ -71,15 +90,25 @@ list_item_factory_unbind (BzDynamicListView        *self,
                           GtkSignalListItemFactory *factory);
 
 static GtkWidget *
-create_list_box_widget (GObject           *object,
-                        BzDynamicListView *self);
+create_child_widget (GObject           *object,
+                     BzDynamicListView *self);
+
+static void
+items_changed (GListModel        *model,
+               guint              position,
+               guint              removed,
+               guint              added,
+               BzDynamicListView *self);
 
 static void
 bz_dynamic_list_view_dispose (GObject *object)
 {
   BzDynamicListView *self = BZ_DYNAMIC_LIST_VIEW (object);
 
-  g_clear_pointer (&self->model, g_object_unref);
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (self->model, items_changed, self);
+  g_clear_object (&self->model);
+
   g_clear_pointer (&self->child_prop, g_free);
   g_clear_pointer (&self->child_type_string, g_free);
 
@@ -101,6 +130,9 @@ bz_dynamic_list_view_get_property (GObject    *object,
       break;
     case PROP_SCROLL:
       g_value_set_boolean (value, bz_dynamic_list_view_get_scroll (self));
+      break;
+    case PROP_NOSCROLL_KIND:
+      g_value_set_enum (value, bz_dynamic_list_view_get_noscroll_kind (self));
       break;
     case PROP_CHILD_TYPE:
       g_value_set_string (value, bz_dynamic_list_view_get_child_type (self));
@@ -128,6 +160,9 @@ bz_dynamic_list_view_set_property (GObject      *object,
       break;
     case PROP_SCROLL:
       bz_dynamic_list_view_set_scroll (self, g_value_get_boolean (value));
+      break;
+    case PROP_NOSCROLL_KIND:
+      bz_dynamic_list_view_set_noscroll_kind (self, g_value_get_enum (value));
       break;
     case PROP_CHILD_TYPE:
       bz_dynamic_list_view_set_child_type (self, g_value_get_string (value));
@@ -162,6 +197,13 @@ bz_dynamic_list_view_class_init (BzDynamicListViewClass *klass)
           NULL, NULL, FALSE,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
+  props[PROP_NOSCROLL_KIND] =
+      g_param_spec_enum (
+          "noscroll-kind",
+          NULL, NULL,
+          BZ_TYPE_DYNAMIC_LIST_VIEW_KIND, BZ_DYNAMIC_LIST_VIEW_KIND_LIST_BOX,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
   props[PROP_CHILD_TYPE] =
       g_param_spec_string (
           "child-type",
@@ -175,12 +217,45 @@ bz_dynamic_list_view_class_init (BzDynamicListViewClass *klass)
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
+
+  signals[SIGNAL_BIND_WIDGET] =
+      g_signal_new (
+          "bind-widget",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          bz_marshal_VOID__OBJECT_OBJECT,
+          G_TYPE_NONE,
+          1,
+          GTK_TYPE_WIDGET);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_BIND_WIDGET],
+      G_TYPE_FROM_CLASS (klass),
+      bz_marshal_VOID__OBJECT_OBJECTv);
+
+  signals[SIGNAL_UNBIND_WIDGET] =
+      g_signal_new (
+          "unbind-widget",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          bz_marshal_VOID__OBJECT_OBJECT,
+          G_TYPE_NONE,
+          1,
+          GTK_TYPE_WIDGET);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_UNBIND_WIDGET],
+      G_TYPE_FROM_CLASS (klass),
+      bz_marshal_VOID__OBJECT_OBJECTv);
 }
 
 static void
 bz_dynamic_list_view_init (BzDynamicListView *self)
 {
-  self->child_type = G_TYPE_INVALID;
+  self->child_type    = G_TYPE_INVALID;
+  self->noscroll_kind = BZ_DYNAMIC_LIST_VIEW_KIND_LIST_BOX;
 }
 
 BzDynamicListView *
@@ -203,6 +278,13 @@ bz_dynamic_list_view_get_scroll (BzDynamicListView *self)
   return self->scroll;
 }
 
+BzDynamicListViewKind
+bz_dynamic_list_view_get_noscroll_kind (BzDynamicListView *self)
+{
+  g_return_val_if_fail (BZ_IS_DYNAMIC_LIST_VIEW (self), FALSE);
+  return self->noscroll_kind;
+}
+
 const char *
 bz_dynamic_list_view_get_child_type (BzDynamicListView *self)
 {
@@ -223,7 +305,10 @@ bz_dynamic_list_view_set_model (BzDynamicListView *self,
 {
   g_return_if_fail (BZ_IS_DYNAMIC_LIST_VIEW (self));
 
-  g_clear_pointer (&self->model, g_object_unref);
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (self->model, items_changed, self);
+  g_clear_object (&self->model);
+
   if (model != NULL)
     self->model = g_object_ref (model);
 
@@ -242,6 +327,19 @@ bz_dynamic_list_view_set_scroll (BzDynamicListView *self,
   refresh (self);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SCROLL]);
+}
+
+void
+bz_dynamic_list_view_set_noscroll_kind (BzDynamicListView    *self,
+                                        BzDynamicListViewKind noscroll_kind)
+{
+  g_return_if_fail (BZ_IS_DYNAMIC_LIST_VIEW (self));
+  g_return_if_fail (noscroll_kind >= 0 && noscroll_kind < BZ_DYNAMIC_LIST_VIEW_N_KINDS);
+
+  self->noscroll_kind = noscroll_kind;
+  refresh (self);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_NOSCROLL_KIND]);
 }
 
 void
@@ -285,7 +383,10 @@ bz_dynamic_list_view_set_child_prop (BzDynamicListView *self,
 static void
 refresh (BzDynamicListView *self)
 {
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (self->model, items_changed, self);
   adw_bin_set_child (ADW_BIN (self), NULL);
+
   if (self->model == NULL ||
       self->child_prop == NULL ||
       self->child_type == G_TYPE_INVALID)
@@ -317,15 +418,56 @@ refresh (BzDynamicListView *self)
     }
   else
     {
-      GtkWidget *list = NULL;
+      switch (self->noscroll_kind)
+        {
+        case BZ_DYNAMIC_LIST_VIEW_KIND_LIST_BOX:
+          {
+            GtkWidget *widget = NULL;
 
-      list = gtk_list_box_new ();
-      gtk_list_box_bind_model (
-          GTK_LIST_BOX (list), self->model,
-          (GtkFlowBoxCreateWidgetFunc) create_list_box_widget,
-          self, NULL);
+            widget = gtk_list_box_new ();
+            gtk_list_box_bind_model (
+                GTK_LIST_BOX (widget), self->model,
+                (GtkListBoxCreateWidgetFunc) create_child_widget,
+                self, NULL);
 
-      adw_bin_set_child (ADW_BIN (self), list);
+            adw_bin_set_child (ADW_BIN (self), widget);
+          }
+          break;
+        case BZ_DYNAMIC_LIST_VIEW_KIND_FLOW_BOX:
+          {
+            GtkWidget *widget = NULL;
+
+            widget = gtk_flow_box_new ();
+            gtk_flow_box_set_homogeneous (GTK_FLOW_BOX (widget), TRUE);
+            gtk_flow_box_set_column_spacing (GTK_FLOW_BOX (widget), 10);
+            gtk_flow_box_set_row_spacing (GTK_FLOW_BOX (widget), 10);
+            gtk_flow_box_bind_model (
+                GTK_FLOW_BOX (widget), self->model,
+                (GtkFlowBoxCreateWidgetFunc) create_child_widget,
+                self, NULL);
+
+            adw_bin_set_child (ADW_BIN (self), widget);
+          }
+          break;
+        case BZ_DYNAMIC_LIST_VIEW_KIND_CAROUSEL:
+          {
+            GtkWidget *widget = NULL;
+
+            widget = adw_carousel_new ();
+            adw_carousel_set_spacing (ADW_CAROUSEL (widget), 50);
+            adw_carousel_set_allow_long_swipes (ADW_CAROUSEL (widget), TRUE);
+            g_signal_connect (
+                self->model, "items-changed",
+                G_CALLBACK (items_changed), self);
+
+            adw_bin_set_child (ADW_BIN (self), widget);
+            items_changed (self->model, 0, 0, g_list_model_get_n_items (self->model), self);
+          }
+          break;
+        case BZ_DYNAMIC_LIST_VIEW_N_KINDS:
+        default:
+          g_assert_not_reached ();
+        }
     }
 }
 
@@ -365,6 +507,7 @@ list_item_factory_bind (BzDynamicListView        *self,
   object = gtk_list_item_get_item (item);
   child  = gtk_list_item_get_child (item);
   g_object_set (child, self->child_prop, object, NULL);
+  g_signal_emit (self, signals[SIGNAL_BIND_WIDGET], 0, child, object);
 }
 
 static void
@@ -372,21 +515,63 @@ list_item_factory_unbind (BzDynamicListView        *self,
                           GtkListItem              *item,
                           GtkSignalListItemFactory *factory)
 {
-  GtkWidget *child = NULL;
+  GtkWidget *child           = NULL;
+  g_autoptr (GObject) object = NULL;
 
   g_return_if_fail (self->child_type != G_TYPE_INVALID && self->child_prop != NULL);
 
   child = gtk_list_item_get_child (item);
+  g_object_get (child, self->child_prop, &object, NULL);
   g_object_set (child, self->child_prop, NULL, NULL);
+  g_signal_emit (self, signals[SIGNAL_UNBIND_WIDGET], 0, child, object);
 }
 
 static GtkWidget *
-create_list_box_widget (GObject           *object,
-                        BzDynamicListView *self)
+create_child_widget (GObject           *object,
+                     BzDynamicListView *self)
 {
+  GtkWidget *widget = NULL;
+
   g_return_val_if_fail (self->child_type != G_TYPE_INVALID && self->child_prop != NULL, NULL);
 
-  return g_object_new (self->child_type, self->child_prop, object, NULL);
+  widget = g_object_new (self->child_type, self->child_prop, object, NULL);
+  if (self->noscroll_kind == BZ_DYNAMIC_LIST_VIEW_KIND_CAROUSEL)
+    /* Make the widgets a certain card-like size
+     * by default, can be overridden in signal
+     */
+    gtk_widget_set_size_request (widget, 300, 150);
+
+  g_signal_emit (self, signals[SIGNAL_BIND_WIDGET], 0, widget, object);
+
+  return widget;
+}
+
+static void
+items_changed (GListModel        *model,
+               guint              position,
+               guint              removed,
+               guint              added,
+               BzDynamicListView *self)
+{
+  GtkWidget *carousel = NULL;
+
+  carousel = adw_bin_get_child (ADW_BIN (self));
+  g_return_if_fail (ADW_IS_CAROUSEL (carousel));
+
+  for (guint i = 0; i < removed; i++)
+    adw_carousel_remove (
+        ADW_CAROUSEL (carousel),
+        adw_carousel_get_nth_page (ADW_CAROUSEL (carousel), position));
+
+  for (guint i = 0; i < added; i++)
+    {
+      g_autoptr (GObject) object = NULL;
+      GtkWidget *widget          = NULL;
+
+      object = g_list_model_get_item (model, position + i);
+      widget = create_child_widget (object, self);
+      adw_carousel_insert (ADW_CAROUSEL (carousel), widget, position + i);
+    }
 }
 
 /* End of bz-dynamic-list-view.c */

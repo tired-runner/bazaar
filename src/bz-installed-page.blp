@@ -112,7 +112,7 @@ template $BzInstalledPage: Adw.Bin {
                       halign: fill;
                       hexpand: true;
                       icon-name: "media-playback-start-symbolic";
-                      clicked => run_cb(template) swapped;
+                      clicked => run_cb(template);
                     }
                     
                     Button {
@@ -125,7 +125,7 @@ template $BzInstalledPage: Adw.Bin {
                       halign: fill;
                       hexpand: true;
                       icon-name: "user-trash-symbolic";
-                      clicked => $remove_cb(template) swapped;
+                      clicked => $remove_cb(template);
                     }
 
                     MenuButton {
@@ -173,7 +173,7 @@ template $BzInstalledPage: Adw.Bin {
                               }
                             };
 
-                            clicked => $install_addons_cb(template) swapped;
+                            clicked => $install_addons_cb(template);
                           }
 
                           Button {
@@ -197,7 +197,7 @@ template $BzInstalledPage: Adw.Bin {
                               }
                             };
 
-                            clicked => $edit_permissions_cb(template) swapped;
+                            clicked => $edit_permissions_cb(template);
                           }
                         };
                       };

@@ -22,6 +22,7 @@
 
 #include "bz-app-tile.h"
 #include "bz-async-texture.h"
+#include "bz-dynamic-list-view.h"
 #include "bz-entry-group.h"
 #include "bz-section-view.h"
 
@@ -36,7 +37,6 @@ struct _BzSectionView
   GtkOverlay *banner_text_overlay;
   GtkBox     *banner_text_bg;
   GtkBox     *banner_text;
-  GtkFlowBox *tile_flow;
 };
 
 G_DEFINE_FINAL_TYPE (BzSectionView, bz_section_view, ADW_TYPE_BIN)
@@ -59,13 +59,9 @@ enum
 };
 static guint signals[LAST_SIGNAL];
 
-static GtkWidget *
-create_tile (BzEntryGroup  *group,
-             BzSectionView *self);
-
 static void
-tile_clicked (GtkButton    *button,
-              BzEntryGroup *group);
+tile_clicked (BzEntryGroup *group,
+              GtkButton    *button);
 
 static void
 bz_section_view_dispose (GObject *object)
@@ -129,6 +125,24 @@ is_null (gpointer object,
 }
 
 static void
+bind_widget_cb (BzSectionView     *self,
+                BzAppTile         *tile,
+                BzEntryGroup      *group,
+                BzDynamicListView *view)
+{
+  g_signal_connect_swapped (tile, "clicked", G_CALLBACK (tile_clicked), group);
+}
+
+static void
+unbind_widget_cb (BzSectionView     *self,
+                  BzAppTile         *tile,
+                  BzEntryGroup      *group,
+                  BzDynamicListView *view)
+{
+  g_signal_handlers_disconnect_by_func (tile, G_CALLBACK (tile_clicked), group);
+}
+
+static void
 bz_section_view_class_init (BzSectionViewClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -164,14 +178,16 @@ bz_section_view_class_init (BzSectionViewClass *klass)
 
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
   g_type_ensure (BZ_TYPE_APP_TILE);
+  g_type_ensure (BZ_TYPE_DYNAMIC_LIST_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-section-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_overlay);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text_bg);
   gtk_widget_class_bind_template_child (widget_class, BzSectionView, banner_text);
-  gtk_widget_class_bind_template_child (widget_class, BzSectionView, tile_flow);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, bind_widget_cb);
+  gtk_widget_class_bind_template_callback (widget_class, unbind_widget_cb);
 }
 
 static void
@@ -227,8 +243,6 @@ bz_section_view_set_section (BzSectionView    *self,
 
   if (section != NULL)
     {
-      g_autoptr (GListModel) appids = NULL;
-
       self->section = g_object_ref (section);
       g_object_get (section, "classes", &self->classes, NULL);
 
@@ -248,15 +262,7 @@ bz_section_view_set_section (BzSectionView    *self,
               gtk_widget_add_css_class (GTK_WIDGET (self), class);
             }
         }
-
-      g_object_get (section, "appids", &appids, NULL);
-      gtk_flow_box_bind_model (
-          self->tile_flow, appids,
-          (GtkFlowBoxCreateWidgetFunc) create_tile,
-          self, NULL);
     }
-  else
-    gtk_flow_box_bind_model (self->tile_flow, NULL, NULL, NULL, NULL);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SECTION]);
 }
@@ -268,27 +274,9 @@ bz_section_view_get_section (BzSectionView *self)
   return self->section;
 }
 
-static GtkWidget *
-create_tile (BzEntryGroup  *group,
-             BzSectionView *self)
-{
-  GtkWidget *button = NULL;
-  GtkWidget *tile   = NULL;
-
-  button = gtk_button_new ();
-  gtk_widget_add_css_class (button, "card");
-  g_signal_connect (button, "clicked", G_CALLBACK (tile_clicked), group);
-
-  tile = bz_app_tile_new ();
-  bz_app_tile_set_group (BZ_APP_TILE (tile), group);
-
-  gtk_button_set_child (GTK_BUTTON (button), tile);
-  return button;
-}
-
 static void
-tile_clicked (GtkButton    *button,
-              BzEntryGroup *group)
+tile_clicked (BzEntryGroup *group,
+              GtkButton    *button)
 {
   GtkWidget *self = NULL;
 

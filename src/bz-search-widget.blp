@@ -117,12 +117,12 @@ template $BzSearchWidget: Adw.Bin {
 
               CheckButton foss_check {
                 label: _("Exclude results with proprietary licenses");
-                toggled => $foss_toggled_cb(template) swapped;
+                toggled => $foss_toggled_cb(template);
               }
 
               CheckButton flathub_check {
                 label: _("Exclude results not originating from Flathub");
-                toggled => $flathub_toggled_cb(template) swapped;
+                toggled => $flathub_toggled_cb(template);
               }
             }
 
@@ -141,7 +141,7 @@ template $BzSearchWidget: Adw.Bin {
 
               CheckButton regex_check {
                 label: _("Match using regular expressions");
-                toggled => $regex_toggled_cb(template) swapped;
+                toggled => $regex_toggled_cb(template);
               }
               
               CheckButton crossfade_check {

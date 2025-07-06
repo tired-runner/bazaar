@@ -29,7 +29,7 @@ typedef enum
   BZ_ENTRY_KIND_APPLICATION = 1 << 0,
   BZ_ENTRY_KIND_RUNTIME     = 1 << 1,
   BZ_ENTRY_KIND_ADDON       = 1 << 2,
-} GcvItemKind;
+} BzEntryKind;
 
 GType bz_entry_kind_get_type (void);
 #define BZ_TYPE_ENTRY_KIND (bz_entry_kind_get_type ())

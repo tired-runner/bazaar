@@ -51,11 +51,15 @@ static GParamSpec *props[LAST_PROP] = { 0 };
 
 enum
 {
-  SIGNAL_ENTRY_SELECTED,
+  SIGNAL_GROUP_SELECTED,
 
   LAST_SIGNAL,
 };
 static guint signals[LAST_SIGNAL];
+
+static void
+tile_clicked (BzEntryGroup *group,
+              GtkButton    *button);
 
 static void
 bz_flathub_page_dispose (GObject *object)
@@ -104,6 +108,24 @@ bz_flathub_page_set_property (GObject      *object,
 }
 
 static void
+bind_widget_cb (BzFlathubPage     *self,
+                BzAppTile         *tile,
+                BzEntryGroup      *group,
+                BzDynamicListView *view)
+{
+  g_signal_connect_swapped (tile, "clicked", G_CALLBACK (tile_clicked), group);
+}
+
+static void
+unbind_widget_cb (BzFlathubPage     *self,
+                  BzAppTile         *tile,
+                  BzEntryGroup      *group,
+                  BzDynamicListView *view)
+{
+  g_signal_handlers_disconnect_by_func (tile, G_CALLBACK (tile_clicked), group);
+}
+
+static void
 bz_flathub_page_class_init (BzFlathubPageClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -122,9 +144,9 @@ bz_flathub_page_class_init (BzFlathubPageClass *klass)
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
-  signals[SIGNAL_ENTRY_SELECTED] =
+  signals[SIGNAL_GROUP_SELECTED] =
       g_signal_new (
-          "entry-selected",
+          "group-selected",
           G_OBJECT_CLASS_TYPE (klass),
           G_SIGNAL_RUN_FIRST,
           0,
@@ -133,7 +155,7 @@ bz_flathub_page_class_init (BzFlathubPageClass *klass)
           G_TYPE_NONE, 1,
           BZ_TYPE_ENTRY_GROUP);
   g_signal_set_va_marshaller (
-      signals[SIGNAL_ENTRY_SELECTED],
+      signals[SIGNAL_GROUP_SELECTED],
       G_TYPE_FROM_CLASS (klass),
       g_cclosure_marshal_VOID__OBJECTv);
 
@@ -144,6 +166,8 @@ bz_flathub_page_class_init (BzFlathubPageClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-flathub-page.ui");
   gtk_widget_class_bind_template_child (widget_class, BzFlathubPage, stack);
+  gtk_widget_class_bind_template_callback (widget_class, bind_widget_cb);
+  gtk_widget_class_bind_template_callback (widget_class, unbind_widget_cb);
 }
 
 static void
@@ -177,4 +201,14 @@ bz_flathub_page_get_state (BzFlathubPage *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_PAGE (self), NULL);
   return self->state;
+}
+
+static void
+tile_clicked (BzEntryGroup *group,
+              GtkButton    *button)
+{
+  GtkWidget *self = NULL;
+
+  self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_FLATHUB_PAGE);
+  g_signal_emit (self, signals[SIGNAL_GROUP_SELECTED], 0, group);
 }

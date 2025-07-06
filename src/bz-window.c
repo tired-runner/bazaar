@@ -332,9 +332,9 @@ invert_boolean (gpointer object,
 }
 
 static void
-browser_group_selected_cb (BzWindow       *self,
-                           BzEntryGroup   *group,
-                           BzBrowseWidget *browser)
+browser_group_selected_cb (BzWindow     *self,
+                           BzEntryGroup *group,
+                           gpointer      browser)
 {
   bz_full_view_set_entry_group (self->full_view, group);
   adw_view_stack_set_visible_child_name (self->main_stack, "view");

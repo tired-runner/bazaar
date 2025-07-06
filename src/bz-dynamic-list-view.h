@@ -24,6 +24,19 @@
 
 G_BEGIN_DECLS
 
+typedef enum
+{
+  BZ_DYNAMIC_LIST_VIEW_KIND_LIST_BOX,
+  BZ_DYNAMIC_LIST_VIEW_KIND_FLOW_BOX,
+  BZ_DYNAMIC_LIST_VIEW_KIND_CAROUSEL,
+
+  /*< private >*/
+  BZ_DYNAMIC_LIST_VIEW_N_KINDS,
+} BzDynamicListViewKind;
+
+GType bz_dynamic_list_view_kind_get_type (void);
+#define BZ_TYPE_DYNAMIC_LIST_VIEW_KIND (bz_dynamic_list_view_kind_get_type ())
+
 #define BZ_TYPE_DYNAMIC_LIST_VIEW (bz_dynamic_list_view_get_type ())
 G_DECLARE_FINAL_TYPE (BzDynamicListView, bz_dynamic_list_view, BZ, DYNAMIC_LIST_VIEW, AdwBin)
 
@@ -35,6 +48,9 @@ bz_dynamic_list_view_get_model (BzDynamicListView *self);
 
 gboolean
 bz_dynamic_list_view_get_scroll (BzDynamicListView *self);
+
+BzDynamicListViewKind
+bz_dynamic_list_view_get_noscroll_kind (BzDynamicListView *self);
 
 const char *
 bz_dynamic_list_view_get_child_type (BzDynamicListView *self);
@@ -49,6 +65,10 @@ bz_dynamic_list_view_set_model (BzDynamicListView *self,
 void
 bz_dynamic_list_view_set_scroll (BzDynamicListView *self,
                                  gboolean           scroll);
+
+void
+bz_dynamic_list_view_set_noscroll_kind (BzDynamicListView    *self,
+                                        BzDynamicListViewKind noscroll_kind);
 
 void
 bz_dynamic_list_view_set_child_type (BzDynamicListView *self,

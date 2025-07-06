@@ -4,7 +4,7 @@ using Adw 1;
 template $BzWindow: Adw.ApplicationWindow {
   default-width: 1500;
   default-height: 1000;
-  width-request: 550;
+  width-request: 650;
   height-request: 400;
 
   content: $BzCometOverlay comet_overlay {
@@ -88,7 +88,7 @@ template $BzWindow: Adw.ApplicationWindow {
                     ToggleButton transactions_pause {
                       has-tooltip: true;
                       active: bind template.transaction-manager as <$BzTransactionManager>.paused;
-                      toggled => $pause_transactions_cb(template) swapped;
+                      toggled => $pause_transactions_cb(template);
                     }
 
                     Button transactions_stop {
@@ -96,14 +96,14 @@ template $BzWindow: Adw.ApplicationWindow {
                       tooltip-text: _("Halt the execution of transactions");
                       icon-name: "media-playback-stop-symbolic";
                       sensitive: bind template.transaction-manager as <$BzTransactionManager>.active;
-                      clicked => $stop_transactions_cb(template) swapped;
+                      clicked => $stop_transactions_cb(template);
                     }
 
                     Button transactions_clear {
                       has-tooltip: true;
                       tooltip-text: _("Clear all finished transactions");
                       icon-name: "edit-clear-all-symbolic";
-                      clicked => $transactions_clear_cb(template) swapped;
+                      clicked => $transactions_clear_cb(template);
                     }
                   }
                 }
@@ -115,12 +115,12 @@ template $BzWindow: Adw.ApplicationWindow {
             show-sidebar: false;
             pin-sidebar: true;
             sidebar-position: start;
-            notify::show-sidebar => $search_split_open_changed_cb(template) swapped;
+            notify::show-sidebar => $search_split_open_changed_cb(template);
 
             sidebar: Adw.ToolbarView {
               content: $BzSearchWidget search_widget {
                 model: bind template.applications;
-                select => $search_widget_select_cb(template) swapped;
+                select => $search_widget_select_cb(template);
               };
             };
 
@@ -153,7 +153,7 @@ template $BzWindow: Adw.ApplicationWindow {
 
                     child: $BzBrowseWidget browse {
                       content-provider: bind template.content-provider;
-                      group-selected => $browser_group_selected_cb() swapped;
+                      group-selected => $browser_group_selected_cb(template);
                     };
                   }
 
@@ -163,8 +163,8 @@ template $BzWindow: Adw.ApplicationWindow {
 
                     child: $BzFullView full_view {
                       transaction-manager: bind template.transaction-manager;
-                      install => $full_view_install_cb(template) swapped;
-                      remove => $full_view_remove_cb(template) swapped;
+                      install => $full_view_install_cb(template);
+                      remove => $full_view_remove_cb(template);
                     };
                   }
 
@@ -174,6 +174,7 @@ template $BzWindow: Adw.ApplicationWindow {
 
                     child: $BzFlathubPage {
                       state: bind template.flathub;
+                      group-selected => $browser_group_selected_cb(template);
                     };
                   }
                   
@@ -183,8 +184,8 @@ template $BzWindow: Adw.ApplicationWindow {
 
                     child: $BzInstalledPage {
                       model: bind template.installed;
-                      install => $installed_page_install_cb(template) swapped;
-                      remove => $installed_page_remove_cb(template) swapped;
+                      install => $installed_page_install_cb(template);
+                      remove => $installed_page_remove_cb(template);
                     };
                   }
                 };
@@ -200,7 +201,7 @@ template $BzWindow: Adw.ApplicationWindow {
             has-tooltip: true;
             tooltip-text: _("Go Back");
             icon-name: "go-previous-symbolic";
-            clicked => $go_back_cb(template) swapped;
+            clicked => $go_back_cb(template);
           }
 
           [start]
@@ -209,7 +210,7 @@ template $BzWindow: Adw.ApplicationWindow {
             tooltip-text: _("Refresh");
             icon-name: "view-refresh-symbolic";
             sensitive: bind $invert_boolean(template.busy) as <bool>;
-            clicked => $refresh_cb(template) swapped;
+            clicked => $refresh_cb(template);
           }
 
           [start]
@@ -229,7 +230,7 @@ template $BzWindow: Adw.ApplicationWindow {
             has-tooltip: true;
             tooltip-text: _("Update");
             icon-name: "software-update-available-symbolic";
-            clicked => $update_cb(template) swapped;
+            clicked => $update_cb(template);
           }
 
           title-widget: Revealer title_revealer {
@@ -302,7 +303,7 @@ template $BzWindow: Adw.ApplicationWindow {
                 };
               }
 
-              notify::active-name => $page_toggled_cb(template) swapped;
+              notify::active-name => $page_toggled_cb(template);
             };
           };
 
@@ -355,8 +356,8 @@ template $BzWindow: Adw.ApplicationWindow {
           bottom_header_bar.show-title: true;
         }
 
-        apply => $breakpoint_apply_cb(template) swapped;
-        unapply => $breakpoint_unapply_cb(template) swapped;
+        apply => $breakpoint_apply_cb(template);
+        unapply => $breakpoint_unapply_cb(template);
       }
     };
   };

@@ -1,3 +1,9 @@
+marshalers = gnome.genmarshal('bz-marshalers',
+  sources: 'bz-marshalers.list',
+  prefix: 'bz_marshal',
+  valist_marshallers: true,
+)
+
 gdbus_src = gnome.gdbus_codegen(
   'gs-shell-search-provider-generated',
   'shell-search-provider-dbus-interfaces.xml',
@@ -106,7 +112,7 @@ bz_sources += gnome.compile_resources('bz-resources',
   dependencies: blueprints
 )
 
-executable('bazaar', bz_sources, gdbus_src,
+executable('bazaar', bz_sources, gdbus_src, marshalers,
   dependencies: bz_deps,
        install: true,
 )

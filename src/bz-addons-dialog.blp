@@ -77,7 +77,7 @@ template $BzAddonsDialog: Adw.Dialog {
                 valign: center;
                 icon-name: "folder-download-symbolic";
                 visible: bind $invert_boolean(template.item as <$BzEntry>.installed) as <bool>;
-                clicked => $transact_cb(template) swapped;
+                clicked => $transact_cb(template);
               }
 
               Button {
@@ -88,7 +88,7 @@ template $BzAddonsDialog: Adw.Dialog {
                 valign: center;
                 icon-name: "user-trash-symbolic";
                 visible: bind template.item as <$BzEntry>.installed;
-                clicked => $transact_cb(template) swapped;
+                clicked => $transact_cb(template);
               }
             };
           }

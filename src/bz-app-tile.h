@@ -20,14 +20,14 @@
 
 #pragma once
 
-#include <adwaita.h>
+#include <gtk/gtk.h>
 
 #include "bz-entry-group.h"
 
 G_BEGIN_DECLS
 
 #define BZ_TYPE_APP_TILE (bz_app_tile_get_type ())
-G_DECLARE_FINAL_TYPE (BzAppTile, bz_app_tile, BZ, APP_TILE, AdwBin)
+G_DECLARE_FINAL_TYPE (BzAppTile, bz_app_tile, BZ, APP_TILE, GtkButton)
 
 GtkWidget *
 bz_app_tile_new (void);
