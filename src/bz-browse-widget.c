@@ -115,9 +115,9 @@ bz_browse_widget_set_property (GObject      *object,
 }
 
 static void
-group_activated_cb (BzSectionView *view,
+group_activated_cb (GtkListItem   *list_item,
                     BzEntryGroup  *group,
-                    GtkListItem   *list_item)
+                    BzSectionView *view)
 {
   GtkWidget *self = NULL;
 
