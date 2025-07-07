@@ -2,7 +2,7 @@ using Gtk 4.0;
 using Adw 1;
 
 template $BzWindow: Adw.ApplicationWindow {
-  title: "Bazaar";
+  title: _("Bazaar");
   default-width: 1500;
   default-height: 1000;
   width-request: 650;
@@ -137,7 +137,7 @@ template $BzWindow: Adw.ApplicationWindow {
 
                     child: Adw.StatusPage {
                       icon-name: "connected-squares-x";
-                      title: "Offline";
+                      title: _("Offline");
                     };
                   }
 
