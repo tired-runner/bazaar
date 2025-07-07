@@ -84,6 +84,7 @@ template $BzFullView: Adw.Bin {
                         orientation: vertical;
                         spacing: 3;
 
+                        
                         Label {
                           styles [
                             "title-1",
@@ -96,17 +97,39 @@ template $BzFullView: Adw.Bin {
                           label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.title;
                         }
 
-                        Label {
-                          styles [
-                            "title-4",
-                            "accent",
-                          ]
+                        Box {
+                          orientation: horizontal;
+                          spacing: 10;
+                          
+                          Label {
+                            styles [
+                              "title-4",
+                              "accent",
+                            ]
 
-                          xalign: 0.0;
-                          wrap: true;
-                          wrap-mode: word_char;
-                          natural-wrap-mode: word;
-                          label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.developer;
+                            xalign: 0.0;
+                            wrap: true;
+                            wrap-mode: word_char;
+                            natural-wrap-mode: word;
+                            label: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.developer;
+                          }
+                          
+                          Revealer {
+                            transition-type: crossfade;
+                            reveal-child: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.verified;
+                            visible: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.verified;
+
+                            child: Image {
+                              styles [
+                                "accent",
+                              ]
+
+                              has-tooltip: true;
+                              tooltip-text: _("This flatpak is verified by the original developers of the software.");
+                              icon-name: "verified-checkmark-symbolic";
+                              icon-size: normal;
+                            };
+                          }
                         }
                         
                         Label {
