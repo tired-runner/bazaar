@@ -7,8 +7,19 @@ template $BzFullView: Adw.Bin {
     transition-duration: 400;
 
     Adw.ViewStackPage {
+      name: "empty";
+      title: _("Empty");
+
+      child: Adw.StatusPage {
+        icon-name: "sad-computer-symbolic";
+        title: _("No Results");
+        description: _("Try a different search query");
+      };
+    }
+    
+    Adw.ViewStackPage {
       name: "content";
-      title: _("Browser");
+      title: _("Content");
 
       child: Adw.BreakpointBin breakpoint_bin {
         width-request: 200;

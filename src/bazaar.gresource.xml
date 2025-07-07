@@ -59,6 +59,7 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/cross-large-circle-filled-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/timer-sand-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/flatpak-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/sad-computer-symbolic.svg</file>
 
   </gresource>
 </gresources>

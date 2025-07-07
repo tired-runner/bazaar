@@ -494,7 +494,11 @@ bz_full_view_set_entry_group (BzFullView   *self,
       else
         self->debounce_timeout = g_timeout_add_once (
             500, (GSourceOnceFunc) debounce_timeout, self);
+
+      adw_view_stack_set_visible_child_name (self->stack, "content");
     }
+  else
+    adw_view_stack_set_visible_child_name (self->stack, "empty");
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ENTRY_GROUP]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_GROUP]);
