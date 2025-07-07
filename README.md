@@ -1,21 +1,35 @@
 # Bazaar
 
 <div align="center">
-<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="256" height="256" />
+<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="128" height="128" />
 </div>
 
-![Image](https://github.com/user-attachments/assets/8c592f95-d921-49a1-9ffb-0058ca91cee2)
-![Image](https://github.com/user-attachments/assets/1deb5900-7642-44ae-b60a-34eed92c489f)
-![Image](https://github.com/user-attachments/assets/01010ccc-d3f1-4202-b2a7-8888377e09f3)
+A new app store for GNOME with a focus on discovering and installing
+applications and add-ons from Flatpak remotes, particularly
+[Flathub](https://flathub.org/), while putting a strong emphasis on
+supporting the developers that make the Linux desktop possible. Bazaar
+also allows distributors to populate and theme a "curated" tab for
+their users with easy to understand YAML files, enhancing the
+personality of the app.
 
-A new app store idea for GNOME. This is very much work-in-progress,
-and nothing about the current state of the project is final; I intend
-to add everything necessary to eclipse gnome-software in
-functionality, at least as far as flatpak is concerned. Much of the
-flatpak related code is referenced from gnome-software, which you can
-find [here](https://gitlab.gnome.org/GNOME/gnome-software). Thanks to
-everyone in the GNOME development community for creating such an
-awesome desktop environment!
+Bazaar is fast and highly multi-threaded, guaranteeing a smooth
+experience in the UI. You can queue as many downloads as you wish and
+run them while perusing Flathub's latest releases. This is due to the
+UI being completely decoupled from all backend operations.
+
+It runs as a service, meaning state will be maintained even if you
+close all windows, and implements the gnome-shell search provider dbus
+interface. A krunner
+[plugin](https://github.com/ublue-os/krunner-bazaar) was written for
+use on the KDE Plasma desktop.
+
+<img width="1750" height="1044" alt="Image" src="https://github.com/user-attachments/assets/aa5c07bc-693d-4c77-91d5-6d126ff4fda7" />
+<img width="888" height="806" alt="Image" src="https://github.com/user-attachments/assets/e19e7d54-89fb-433b-897c-eebc7c207cd2" />
+<img width="1806" height="946" alt="Image" src="https://github.com/user-attachments/assets/c56f7c7c-2eb6-4615-9bca-7112dfad80bc" />
+<img width="1771" height="1271" alt="Image" src="https://github.com/user-attachments/assets/79b04065-3e1b-4f5d-8260-a32e81c5736b" />
+
+Thanks to everyone in the GNOME development community for creating
+such an awesome desktop environment!
 
 If you would like to try this project on your local machine, clone it
 on the cli and type these commands inside the project root:
@@ -39,6 +53,8 @@ If you are a user, this section should be irrelevant to you, but it
 still may be interesting.
 
 ### Configuring the Browser
+
+Note: the screenshots below are extremely outdated.
 
 As of writing, the browser does not show anything unless you customize
 it by detailing "sections" inside any number of YAML configuration
