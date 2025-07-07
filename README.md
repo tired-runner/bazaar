@@ -6,10 +6,10 @@
 
 A new app store for GNOME with a focus on discovering and installing
 applications and add-ons from Flatpak remotes, particularly
-[Flathub](https://flathub.org/). It emphazies supporting the developers 
-that make the Linux desktop possible. Bazaar features a "curated" tab
-that can be configured by distributors to allow for a more locallized
-experience. 
+[Flathub](https://flathub.org/). It emphasizes supporting the
+developers who make the Linux desktop possible. Bazaar features a
+"curated" tab that can be configured by distributors to allow for a
+more locallized experience.
 
 Bazaar is fast and highly multi-threaded, guaranteeing a smooth
 experience in the user interface. You can queue as many downloads as 
