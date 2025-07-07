@@ -7,3 +7,8 @@ option('hardcoded_content_config_path',
        type: 'string',
        value: '',
        description: 'Hardcoded absolute path to a yaml content configuration which will be read at runtime')
+
+option('im_a_translator',
+       type: 'boolean',
+       value: false,
+       description: 'Whether to set up the environment for translation work')

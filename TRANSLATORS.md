@@ -39,9 +39,10 @@ es
 ms
 ```
 
-Next, setup the project with meson as normal and enter the build directory:
+Next, setup the project with meson with the `im_a_translator` flag set
+to `true` and enter the build directory:
 ```sh
-meson setup build
+meson setup build -Dim_a_translator=true
 cd build
 ```
 
