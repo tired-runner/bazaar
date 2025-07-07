@@ -6,21 +6,20 @@
 
 A new app store for GNOME with a focus on discovering and installing
 applications and add-ons from Flatpak remotes, particularly
-[Flathub](https://flathub.org/), while putting a strong emphasis on
-supporting the developers that make the Linux desktop possible. Bazaar
-also allows distributors to populate and theme a "curated" tab for
-their users with easy to understand YAML files, enhancing the
-personality of the app.
+[Flathub](https://flathub.org/). It emphazies supporting the developers 
+that make the Linux desktop possible. Bazaar features a "curated" tab
+that can be configured by distributors to allow for a more locallized
+experience. 
 
 Bazaar is fast and highly multi-threaded, guaranteeing a smooth
-experience in the UI. You can queue as many downloads as you wish and
-run them while perusing Flathub's latest releases. This is due to the
-UI being completely decoupled from all backend operations.
+experience in the user interface. You can queue as many downloads as 
+you wish and run them while perusing Flathub's latest releases. 
+This is due to the UI being completely decoupled from all backend operations.
 
 It runs as a service, meaning state will be maintained even if you
 close all windows, and implements the gnome-shell search provider dbus
 interface. A krunner
-[plugin](https://github.com/ublue-os/krunner-bazaar) was written for
+[plugin](https://github.com/ublue-os/krunner-bazaar) is available for
 use on the KDE Plasma desktop.
 
 <img width="1750" height="1044" alt="Image" src="https://github.com/user-attachments/assets/aa5c07bc-693d-4c77-91d5-6d126ff4fda7" />
