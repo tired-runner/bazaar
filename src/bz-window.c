@@ -785,6 +785,7 @@ bz_window_push_update_dialog (BzWindow   *self,
   g_return_if_fail (BZ_IS_WINDOW (self));
 
   update_dialog = bz_update_dialog_new (G_LIST_MODEL (updates));
+  adw_dialog_set_content_width (update_dialog, 500);
   g_signal_connect (update_dialog, "response", G_CALLBACK (update_dialog_response), self);
 
   adw_dialog_present (update_dialog, GTK_WIDGET (self));

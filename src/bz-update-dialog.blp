@@ -17,40 +17,81 @@ template $BzUpdateDialog: Adw.AlertDialog {
     vexpand: true;
     hscrollbar-policy: never;
 
-    child: ListView list_view {
-      styles [
-        "navigation-sidebar",
-      ]
+    child: Box {
+      orientation: vertical;
+      spacing: 5;
+                
+      ListView list_view {
+        styles [
+          "navigation-sidebar",
+        ]
 
-      model: NoSelection selection_model {};
+        model: NoSelection selection_model {};
 
-      factory: BuilderListItemFactory {
-        template ListItem {
-          child: Box {
-            orientation: horizontal;
-            margin-top: 5;
-            margin-bottom: 5;
-            spacing: 6;
+        factory: BuilderListItemFactory {
+          template ListItem {
+            activatable: false;
+            
+            child: Box {
+              orientation: horizontal;
+              margin-top: 5;
+              margin-bottom: 5;
+              spacing: 6;
 
-            Label {
-              styles [
-                "heading",
-              ]
+              Image {
+                icon-size: large;
+                paintable: bind template.item as <$BzEntry>.icon-paintable;
+                visible: bind $invert_boolean($is_null(template.item as <$BzEntry>.icon-paintable) as <bool>) as <bool>;
+              }
 
-              hexpand: true;
-              xalign: 0;
-              ellipsize: end;
-              single-line-mode: true;
-              label: bind template.item as <$BzEntry>.title;
-            }
+              Image {
+                icon-size: large;
+                icon-name: "image-missing-symbolic";
+                visible: bind $is_null(template.item as <$BzEntry>.icon-paintable) as <bool>;
+              }
 
-            Image {
-              icon-size: large;
-              paintable: bind template.item as <$BzEntry>.icon-paintable;
-            }
-          };
-        }
-      };
+              Box {
+                orientation: vertical;
+                spacing: 3;
+                
+                Label {
+                  styles [
+                    "heading",
+                  ]
+
+                  hexpand: true;
+                  xalign: 0.0;
+                  ellipsize: end;
+                  single-line-mode: true;
+                  label: bind template.item as <$BzEntry>.title;
+                }
+
+                Label {
+                  styles [
+                    "dimmed",
+                  ]
+
+                  hexpand: true;
+                  xalign: 0.0;
+                  wrap: true;
+                  single-line-mode: true;
+                  selectable: true;
+                  label: bind template.item as <$BzEntry>.id;
+                }
+              }
+            };
+          }
+        };
+      }
+
+      Label runtime_label {
+        styles [
+          "dimmed",
+        ]
+        visible: false;
+        wrap: true;
+        justify: center;
+      }
     };
   };
 }
