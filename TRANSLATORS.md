@@ -11,6 +11,7 @@ Some basic rules:
 
 Fork the project (so you can open a pr later) and clone the repo. Then
 make sure your current directory is the bazaar project root:
+
 ```
 # Replace '...' with the URL of your Bazaar fork
 # for which you have write permissions
@@ -18,10 +19,17 @@ git clone ...
 cd bazaar
 ```
 
-Once you've done that, add your language name to `po/LINGUAS`. For
-example, if you are adding a Spanish translation, insert `es` into the
-newline-separated list, keeping it sorted alphabetically. So if the
-`po/LINGUAS` file currently looks like this:
+Once you've done that, setup the project with meson with the
+`im_a_translator` flag set to `true`:
+
+```sh
+meson setup build -Dim_a_translator=true
+```
+
+Add your language identifier to `po/LINGUAS`. For example, if you are
+adding a Spanish translation, insert `es` into the newline-separated
+list, keeping it sorted alphabetically. So if the `po/LINGUAS` file
+currently looks like this:
 
 ```
 # Please keep this file sorted alphabetically.
@@ -31,6 +39,7 @@ ms
 ```
 
 you will edit the file to look like this:
+
 ```
 # Please keep this file sorted alphabetically.
 ab
@@ -39,15 +48,15 @@ es
 ms
 ```
 
-Next, setup the project with meson with the `im_a_translator` flag set
-to `true` and enter the build directory:
+Next, enter the build directory:
+
 ```sh
-meson setup build -Dim_a_translator=true
 cd build
 ```
 
 Run this command to generate the main `pot` (**P**ortable **O**bject
 **T**emplate) file:
+
 ```sh
 meson compile bazaar-pot
 ```
@@ -57,6 +66,7 @@ is unknown. You can ignore this.
 
 Finally, still inside the build directory, run the following command
 to update and/or create the `po` (**P**ortable **O**bject) files:
+
 ```sh
 meson compile bazaar-update-po
 ```
