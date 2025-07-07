@@ -72,6 +72,7 @@ enum
 
   PROP_GROUP_HASH,
   PROP_INPUT_FILES,
+  PROP_HAS_INPUTS,
 
   LAST_PROP
 };
@@ -187,6 +188,9 @@ bz_content_provider_get_property (GObject    *object,
     case PROP_INPUT_FILES:
       g_value_set_object (value, bz_content_provider_get_input_files (self));
       break;
+    case PROP_HAS_INPUTS:
+      g_value_set_boolean (value, bz_content_provider_get_has_inputs (self));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -208,6 +212,7 @@ bz_content_provider_set_property (GObject      *object,
     case PROP_INPUT_FILES:
       bz_content_provider_set_input_files (self, g_value_get_object (value));
       break;
+    case PROP_HAS_INPUTS:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -227,14 +232,20 @@ bz_content_provider_class_init (BzContentProviderClass *klass)
           "group-hash",
           NULL, NULL,
           G_TYPE_HASH_TABLE,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   props[PROP_INPUT_FILES] =
       g_param_spec_object (
           "input-files",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
-          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_HAS_INPUTS] =
+      g_param_spec_boolean (
+          "has-inputs",
+          NULL, NULL, FALSE,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 }
@@ -361,6 +372,14 @@ bz_content_provider_get_group_hash (BzContentProvider *self)
   return self->group_hash;
 }
 
+gboolean
+bz_content_provider_get_has_inputs (BzContentProvider *self)
+{
+  g_return_val_if_fail (BZ_IS_CONTENT_PROVIDER (self), FALSE);
+  return self->input_files != NULL &&
+         g_list_model_get_n_items (self->input_files) > 0;
+}
+
 void
 bz_content_provider_block (BzContentProvider *self)
 {
@@ -430,8 +449,12 @@ input_files_changed (GListModel        *input_files,
                      guint              added,
                      BzContentProvider *self)
 {
-  g_autofree GFile      **additions   = NULL;
-  g_autofree GListStore **new_outputs = NULL;
+  gboolean                emit_has_inputs = FALSE;
+  g_autofree GFile      **additions       = NULL;
+  g_autofree GListStore **new_outputs     = NULL;
+
+  emit_has_inputs = g_list_model_get_n_items (input_files) == 0 ||
+                    g_list_model_get_n_items (G_LIST_MODEL (self->input_mirror)) == 0;
 
   if (removed > 0)
     {
@@ -501,6 +524,9 @@ input_files_changed (GListModel        *input_files,
           g_steal_pointer (&additions[i]),
           input_tracking_data_ref (data));
     }
+
+  if (emit_has_inputs)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HAS_INPUTS]);
 }
 
 static void

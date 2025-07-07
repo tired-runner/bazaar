@@ -280,6 +280,10 @@ bz_window_set_property (GObject      *object,
     case PROP_CONTENT_PROVIDER:
       g_clear_object (&self->content_provider);
       self->content_provider = g_value_dup_object (value);
+      if (!gtk_window_is_active (GTK_WINDOW (self)) &&
+          (self->content_provider == NULL ||
+           !bz_content_provider_get_has_inputs (self->content_provider)))
+        adw_toggle_group_set_active_name (self->title_toggle_group, "flathub");
       break;
     case PROP_FLATHUB:
       g_clear_object (&self->flathub);

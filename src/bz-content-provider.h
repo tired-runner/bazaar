@@ -46,6 +46,9 @@ bz_content_provider_set_input_files (BzContentProvider *self,
 GListModel *
 bz_content_provider_get_input_files (BzContentProvider *self);
 
+gboolean
+bz_content_provider_get_has_inputs (BzContentProvider *self);
+
 /* WARNING: it is ineffective to use this function unless directly after initialization */
 void
 bz_content_provider_set_group_hash (BzContentProvider *self,
