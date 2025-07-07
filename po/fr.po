@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bazaar\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-07 21:00+0000\n"
-"PO-Revision-Date: 2025-07-07 23:58+0200\n"
+"POT-Creation-Date: 2025-07-07 22:10+0000\n"
+"PO-Revision-Date: 2025-07-08 00:14+0200\n"
 "Last-Translator: Atom <29772841+AtomHare@users.noreply.github.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -20,7 +20,7 @@ msgstr ""
 "X-Generator: Gtranslator 48.0\n"
 
 #: data/io.github.kolunmi.Bazaar.desktop.in:2
-#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:7
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:7 src/bz-window.blp:5
 msgid "Bazaar"
 msgstr "Bazaar"
 
@@ -331,7 +331,7 @@ msgstr "Arrêter l'execution des opérations"
 msgid "Clear all finished transactions"
 msgstr "Effacer toutes les opérations terminées"
 
-#: src/bz-window.blp:136
+#: src/bz-window.blp:136 src/bz-window.blp:140
 msgid "Offline"
 msgstr "Hors ligne"
 
@@ -468,3 +468,33 @@ msgstr "Reprendre les opérations"
 #: src/bz-window.c:1061
 msgid "Pause the execution of transactions"
 msgstr "Mettre en pause les opérations"
+
+#: src/gtk/help-overlay.blp:11
+msgctxt "shortcut window"
+msgid "General"
+msgstr "Général"
+
+#: src/gtk/help-overlay.blp:14
+msgctxt "shortcut window"
+msgid "Open Search Dialog"
+msgstr "Ouvrir la page de recherche"
+
+#: src/gtk/help-overlay.blp:19
+msgctxt "shortcut window"
+msgid "Refresh"
+msgstr "Rafraîchir"
+
+#: src/gtk/help-overlay.blp:24
+msgctxt "shortcut window"
+msgid "Toggle Transaction Manager"
+msgstr "Afficher la barre latérale des opérations"
+
+#: src/gtk/help-overlay.blp:29
+msgctxt "shortcut window"
+msgid "Show Shortcuts"
+msgstr "_Afficher les raccourcis"
+
+#: src/gtk/help-overlay.blp:34
+msgctxt "shortcut window"
+msgid "Quit"
+msgstr "Quitter"
