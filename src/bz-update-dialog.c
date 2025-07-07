@@ -132,7 +132,7 @@ bz_update_dialog_new (GListModel *updates)
         {
           g_autofree char *body = NULL;
 
-          body = g_strdup_printf (_ ("%d runtimes and/or addons will be updated."), n_updates);
+          body = g_strdup_printf (_ ("%d runtimes and/or addons are eligible for updates. Would you like to install them?"), n_updates);
           adw_alert_dialog_set_body (ADW_ALERT_DIALOG (update_dialog), body);
           adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (update_dialog), NULL);
         }
