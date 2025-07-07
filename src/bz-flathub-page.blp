@@ -105,38 +105,6 @@ template $BzFlathubPage: Adw.Bin {
               }
 
               Separator {}
-
-              Box {
-                orientation: vertical;
-                spacing: 10;
-                
-                Label {
-                  styles [
-                    "title-1",
-                  ]
-                  label: _("Trending");
-                  xalign: 0.0;
-                }
-                
-                $BzDynamicListView {
-                  hexpand: true;
-                  
-                  scroll: false;
-                  noscroll-kind: flow-box;
-                  child-type: "BzAppTile";
-                  child-prop: "group";
-                  model: SliceListModel {
-                    offset: 0;
-                    size: 30;
-                    model: bind template.state as <$BzFlathubState>.trending;
-                  };
-                  
-                  bind-widget => $bind_widget_cb(template);      
-                  unbind-widget => $unbind_widget_cb(template);      
-                }
-              }
-
-              Separator {}
               
               Box {
                 orientation: vertical;
