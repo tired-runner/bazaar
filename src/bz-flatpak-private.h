@@ -39,6 +39,7 @@ char *
 bz_flatpak_ref_format_unique (FlatpakRef *ref,
                               gboolean    user);
 
+/* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      gboolean           user,

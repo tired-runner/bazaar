@@ -23,6 +23,7 @@
 #include <xmlb.h>
 
 #include "bz-flatpak-private.h"
+#include "bz-global-state.h"
 #include "bz-issue.h"
 #include "bz-paintable-model.h"
 #include "bz-release.h"
@@ -244,6 +245,7 @@ bz_flatpak_entry_init (BzFlatpakEntry *self)
 {
 }
 
+/* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                                      gboolean           user,
@@ -352,7 +354,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   if (component != NULL)
     {
       const char    *long_description_raw = NULL;
-      AsIcon        *icon                 = NULL;
+      GPtrArray     *icons                = NULL;
       AsDeveloper   *developer_obj        = NULL;
       GPtrArray     *screenshots          = NULL;
       AsReleaseList *releases             = NULL;
@@ -423,54 +425,109 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
               "", G_REGEX_MATCH_DEFAULT, NULL);
         }
 
-      icon = as_component_get_icon_stock (component);
-      if (icon == NULL)
+      icons = as_component_get_icons (component);
+      if (icons != NULL)
         {
-          GPtrArray *icons = NULL;
+          g_autofree char *select        = NULL;
+          gboolean         local         = FALSE;
+          int              select_width  = 0;
+          int              select_height = 0;
 
-          icons = as_component_get_icons (component);
-          if (icons != NULL && icons->len > 0)
-            icon = g_ptr_array_index (icons, 0);
-        }
-      if (icon != NULL)
-        {
-          for (int i = 128; i > 0; i -= 64)
+          for (guint i = 0; i < icons->len; i++)
             {
-              g_autofree char *resolution = NULL;
-              const char      *filename   = NULL;
-              g_autofree char *basename   = NULL;
-              g_autoptr (GFile) icon_file = NULL;
+              AsIcon *icon   = NULL;
+              int     width  = 0;
+              int     height = 0;
 
-              resolution = g_strdup_printf ("%dx%d", i, i);
-              filename   = as_icon_get_filename (icon);
-              if (filename == NULL)
+              icon   = g_ptr_array_index (icons, i);
+              width  = as_icon_get_width (icon);
+              height = as_icon_get_height (icon);
+
+              if (select != NULL &&
+                  (width < select_width || height < select_height))
+                continue;
+
+              if (as_icon_get_kind (icon) == AS_ICON_KIND_REMOTE)
                 {
-                  basename = g_strdup_printf ("%s.png", as_icon_get_name (icon));
-                  filename = basename;
+                  const char *url = NULL;
+
+                  url = as_icon_get_url (icon);
+                  if (url == NULL)
+                    continue;
+
+                  g_clear_pointer (&select, g_free);
+                  select        = g_strdup (url);
+                  local         = FALSE;
+                  select_width  = width;
+                  select_height = height;
                 }
-              icon_file = g_file_new_build_filename (
-                  appstream_dir,
-                  "icons",
-                  "flatpak",
-                  resolution,
-                  filename,
-                  NULL);
-
-              if (g_file_query_exists (icon_file, NULL))
+              else
                 {
-                  g_autoptr (GBytes) icon_bytes          = NULL;
-                  CairoStreamReader closure              = { 0 };
-                  cairo_surface_t  *surface_in           = NULL;
-                  cairo_surface_t  *surface_out          = NULL;
-                  cairo_t          *cairo                = NULL;
-                  g_autoptr (GString) mini_icon_basename = NULL;
-                  g_autofree char *mini_icon_path        = NULL;
-                  g_autoptr (GFile) mini_icon_file       = NULL;
+                  const char      *filename   = NULL;
+                  g_autofree char *resolution = NULL;
+                  g_autofree char *path       = NULL;
 
-                  icon_bytes = g_file_load_bytes (icon_file, NULL, NULL, error);
-                  if (icon_bytes == NULL)
-                    return NULL;
+                  filename = as_icon_get_filename (icon);
+                  if (filename == NULL)
+                    continue;
 
+                  resolution = g_strdup_printf ("%dx%d", width, height);
+                  path       = g_build_filename (
+                      appstream_dir,
+                      "icons",
+                      "flatpak",
+                      resolution,
+                      filename,
+                      NULL);
+                  if (!g_file_test (path, G_FILE_TEST_EXISTS))
+                    continue;
+
+                  g_clear_pointer (&select, g_free);
+                  select        = g_steal_pointer (&path);
+                  local         = TRUE;
+                  select_width  = width;
+                  select_height = height;
+                }
+            }
+
+          if (select != NULL)
+            {
+              g_autoptr (GBytes) icon_bytes          = NULL;
+              CairoStreamReader closure              = { 0 };
+              cairo_surface_t  *surface_in           = NULL;
+              cairo_surface_t  *surface_out          = NULL;
+              cairo_t          *cairo                = NULL;
+              g_autoptr (GString) mini_icon_basename = NULL;
+              g_autofree char *mini_icon_path        = NULL;
+              g_autoptr (GFile) mini_icon_file       = NULL;
+
+              if (local)
+                {
+                  g_autoptr (GFile) file = NULL;
+
+                  file       = g_file_new_for_path (select);
+                  icon_bytes = g_file_load_bytes (file, NULL, NULL, NULL);
+                }
+              else
+                {
+                  g_autoptr (SoupMessage) message  = NULL;
+                  g_autoptr (GOutputStream) output = NULL;
+                  guint64 bytes_written            = 0;
+
+                  message       = soup_message_new (SOUP_METHOD_GET, select);
+                  output        = g_memory_output_stream_new_resizable ();
+                  bytes_written = dex_await_uint64 (
+                      bz_send_with_global_http_session_then_splice_into (message, output),
+                      NULL);
+                  result = g_output_stream_close (output, NULL, NULL);
+
+                  if (result && bytes_written >= 0)
+                    icon_bytes = g_memory_output_stream_steal_as_bytes (
+                        G_MEMORY_OUTPUT_STREAM (output));
+                }
+
+              if (icon_bytes != NULL)
+                {
                   /* Using glycin here is extremely slow for
                    * some reason so we'll opt for the old method.
                    */
@@ -486,7 +543,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
                   surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
                   cairo       = cairo_create (surface_out);
 
-                  cairo_scale (cairo, 24.0 / (double) i, 24.0 / (double) i);
+                  cairo_scale (cairo, 24.0 / (double) select_width, 24.0 / (double) select_height);
                   cairo_set_source_surface (cairo, surface_in, 0, 0);
                   cairo_paint (cairo);
                   cairo_restore (cairo);
@@ -504,8 +561,6 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
 
                   mini_icon_file = g_file_new_for_path (mini_icon_path);
                   mini_icon      = g_file_icon_new (mini_icon_file);
-
-                  break;
                 }
             }
         }
