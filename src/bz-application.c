@@ -1123,6 +1123,7 @@ map_ids_to_groups (GtkStringObject *string,
   id    = gtk_string_object_get_string (string);
   group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
 
+  g_object_unref (string);
   return group != NULL ? g_object_ref (group) : NULL;
 }
 
