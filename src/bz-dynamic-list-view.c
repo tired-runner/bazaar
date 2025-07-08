@@ -536,10 +536,14 @@ create_child_widget (GObject           *object,
 
   widget = g_object_new (self->child_type, self->child_prop, object, NULL);
   if (self->noscroll_kind == BZ_DYNAMIC_LIST_VIEW_KIND_CAROUSEL)
-    /* Make the widgets a certain card-like size
-     * by default, can be overridden in signal
-     */
-    gtk_widget_set_size_request (widget, 300, 150);
+    {
+      /* Make the widgets a certain card-like size
+       * by default, can be overridden in signal
+       */
+      gtk_widget_set_size_request (widget, 300, 150);
+      gtk_widget_set_margin_top (widget, 15);
+      gtk_widget_set_margin_bottom (widget, 15);
+    }
 
   g_signal_emit (self, signals[SIGNAL_BIND_WIDGET], 0, widget, object);
 
