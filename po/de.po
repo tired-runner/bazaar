@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: bazaar\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-08 03:52+0200\n"
-"PO-Revision-Date: 2025-07-08 18:42+0200\n"
+"PO-Revision-Date: 2025-07-08 19:58+0200\n"
 "Last-Translator: renner <renner0@posteo.de>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
 "Language: de\n"
@@ -62,7 +62,7 @@ msgstr "Dieses Flatpak wurde von den ursprünglichen Entwicklern der Software ve
 
 #: src/bz-application.c:1050
 msgid "translator-credits"
-msgstr ""
+msgstr "renner"
 
 #: src/bz-browse-widget.blp:11 src/bz-full-view.blp:11
 #: src/bz-installed-page.blp:11 src/bz-window.blp:32
@@ -71,14 +71,14 @@ msgstr "Leer"
 
 #: src/bz-browse-widget.blp:15
 msgid "No Curated Applications"
-msgstr "Keine auserkorenen Anwendungen"
+msgstr "Keine vorgestellten Anwendungen"
 
 #: src/bz-browse-widget.blp:16
 msgid ""
 "Bazaar was not provided a curated content configuration. Contact your "
 "operating system's support channels for assistance."
 msgstr ""
-"Bazaar wurde nicht mit einer erkorenen Inhaltseinrichtung versehen. "
+"Bazaar wurde nicht mit vorgestellten Inhalten eingerichtet. "
 "Nehme Sie Kontakt mit den Entwicklern Ihres Betriebssystems auf, um Hilfe zu erhalten."
 
 #: src/bz-browse-widget.blp:22 src/bz-flathub-page.blp:11
@@ -260,7 +260,7 @@ msgstr "Untere Grenze verringern"
 
 #: src/bz-stats-dialog.blp:36
 msgid "Maximize Upper Bound"
-msgstr "Obere Grenze verrgrößern"
+msgstr "Obere Grenze vergrößern"
 
 #: src/bz-transaction-manager.c:439
 #, c-format
@@ -371,11 +371,11 @@ msgstr "Aktualisieren"
 
 #: src/bz-window.blp:249
 msgid "View curated applications"
-msgstr "Auserkorene Anwendung anzeigen"
+msgstr "Vorgestellte Anwendung anzeigen"
 
 #: src/bz-window.blp:264
 msgid "Curated"
-msgstr "Auserkoren"
+msgstr "Vorgestellt"
 
 #: src/bz-window.blp:270
 msgid "View the latest on Flathub"
