@@ -219,7 +219,7 @@ format_as_link (gpointer    object,
     return g_strdup_printf ("<a href=\"%s\" title=\"%s\">%s</a>",
                             value, value, value);
   else
-    return g_strdup ("No URL");
+    return g_strdup (_ ("No URL"));
 }
 
 static char *
@@ -227,8 +227,8 @@ pick_license_warning (gpointer object,
                       gboolean value)
 {
   return value
-             ? g_strdup ("This application has a FLOSS license, meaning the source code can be audited for safety.")
-             : g_strdup ("This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk.");
+             ? g_strdup (_ ("This application has a FLOSS license, meaning the source code can be audited for safety."))
+             : g_strdup (_ ("This application has a proprietary license, meaning the source code cannot be audited and your privacy is at risk."));
 }
 
 static void

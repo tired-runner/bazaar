@@ -12,13 +12,13 @@ template $BzInstalledPage: Adw.Bin {
 
       child: Adw.StatusPage {
         icon-name: "library-symbolic";
-        title: "No Flatpaks Installed";
+        title: _("No Flatpaks Installed");
       };
     }
 
     Adw.ViewStackPage {
       name: "content";
-      title: _("BzInstalledPage");
+      title: _("Installed");
 
       child: ScrolledWindow {
         hscrollbar-policy: never;
