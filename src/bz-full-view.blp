@@ -334,6 +334,7 @@ template $BzFullView: Adw.Bin {
 
                     Adw.ActionRow {
                       title: bind template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.project-license;
+                      title-selectable: true;
                       subtitle: bind $pick_license_warning(template.entry-group as <$BzEntryGroup>.ui-entry as <$BzEntry>.is-floss) as <string>;
 
                       [prefix]
