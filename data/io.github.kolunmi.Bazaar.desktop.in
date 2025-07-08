@@ -1,5 +1,6 @@
 [Desktop Entry]
 Name=Bazaar
+Comment=Add, remove or update flatpak software on this computer
 Exec=bazaar window --auto-service
 Icon=io.github.kolunmi.Bazaar
 Terminal=false
