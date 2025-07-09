@@ -122,6 +122,7 @@ template $BzInstalledPage: Adw.Bin {
                         "card-row-btn",
                       ]
 
+                      sensitive: bind $invert_boolean(template.item as <$BzEntry>.holding) as <bool>;
                       valign: fill;
                       halign: fill;
                       hexpand: true;
