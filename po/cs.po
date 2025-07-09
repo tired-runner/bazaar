@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: bazaar\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-08 03:52+0200\n"
-"PO-Revision-Date: 2025-07-08 04:02+0200\n"
+"PO-Revision-Date: 2025-07-09 06:02+0200\n"
 "Last-Translator: Vlastimil Dědek <dedek.vlastimil2@proton.me>\n"
 "Language-Team: Czech\n"
 "Language: cs\n"
@@ -216,11 +216,11 @@ msgstr "Možnosti vyhledávání"
 
 #: src/bz-search-widget.blp:119
 msgid "Exclude results with proprietary licenses"
-msgstr "Skryj výsledky s proprietárními licencemi"
+msgstr "Skrýt výsledky s proprietárními licencemi"
 
 #: src/bz-search-widget.blp:124
 msgid "Exclude results not originating from Flathub"
-msgstr "Skryj výsledky mimo Flathub"
+msgstr "Skrýt výsledky mimo Flathub"
 
 #: src/bz-search-widget.blp:139
 msgid "Advanced"
@@ -228,11 +228,11 @@ msgstr "Pokročilé"
 
 #: src/bz-search-widget.blp:143
 msgid "Match using regular expressions"
-msgstr "Použij regulérní výrazi"
+msgstr "Použít regulérní výrazy"
 
 #: src/bz-search-widget.blp:148
 msgid "Hide filtering and sorting behind a crossfade effect"
-msgstr "Skyj filtrování a řazení za efekt prolínání"
+msgstr "Skrýt filtrování a řazení za efekt prolínání"
 
 #: src/bz-search-widget.blp:153
 msgid "Debounce input to prevent instant replies"
