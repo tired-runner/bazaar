@@ -1043,12 +1043,12 @@ bz_application_about_action (GSimpleAction *action,
     NULL
   };
   const char *translators[] = {
-    C_ ("About Dialog Translator Credit", "Ahmed Najmawi <iramosu@protonmail.com>"),
-    C_ ("About Dialog Translator Credit", "Atom <29772841+AtomHare@users.noreply.github.com>"),
-    C_ ("About Dialog Translator Credit", "Jill Fiore <contact@lumaeris.com>"),
-    C_ ("About Dialog Translator Credit", "Vlastimil Dědek <dedek.vlastimil2@proton.me>"),
-    C_ ("About Dialog Translator Credit", "asen23 <andersenlim23@gmail.com>"),
-    C_ ("About Dialog Translator Credit", "renner <renner0@posteo.de>"),
+    C_ ("About Dialog Translator Credit", "Ahmed Najmawi"),
+    C_ ("About Dialog Translator Credit", "Atom"),
+    C_ ("About Dialog Translator Credit", "Jill Fiore"),
+    C_ ("About Dialog Translator Credit", "Vlastimil Dědek"),
+    C_ ("About Dialog Translator Credit", "asen23"),
+    C_ ("About Dialog Translator Credit", "renner"),
     /* This array MUST be NULL terminated */
     NULL
   };
