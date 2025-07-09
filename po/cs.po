@@ -123,7 +123,7 @@ msgstr "Žádné výsledky"
 
 #: src/bz-full-view.blp:16
 msgid "Try a different search query"
-msgstr "Zkus jiný dotaz"
+msgstr "Zkuste jiný dotaz"
 
 #: src/bz-full-view.blp:22 src/bz-window.blp:42
 msgid "Content"
@@ -188,7 +188,7 @@ msgstr "Další akce"
 
 #: src/bz-installed-page.blp:186 src/bz-installed-page.blp:197
 msgid "Edit Permissions"
-msgstr "Správa oprávnění"
+msgstr "Správce oprávnění"
 
 #: src/bz-preferences-dialog.blp:9
 msgid "Preferences"
@@ -208,7 +208,7 @@ msgstr "Zobraz animované pozadí"
 
 #: src/bz-search-widget.blp:69
 msgid "Type to filter"
-msgstr "Piš pro filtrování"
+msgstr "Pište pro filtrování"
 
 #: src/bz-search-widget.blp:98 src/bz-search-widget.blp:115
 msgid "Search Options"
@@ -289,7 +289,7 @@ msgstr "Později"
 
 #: src/bz-update-dialog.blp:7
 msgid "Install Now"
-msgstr "Instaluj nyní"
+msgstr "Nainstalovat nyní"
 
 #: src/bz-update-dialog.blp:10
 msgid "Updates Are Available"
@@ -387,7 +387,7 @@ msgstr "Zobraz nainstalované aplikace"
 
 #: src/bz-window.blp:320
 msgid "Main Menu"
-msgstr "Hlavní menu"
+msgstr "Hlavní Menu"
 
 #: src/bz-window.blp:331
 msgid "Toggle transaction sidebar"
@@ -403,7 +403,7 @@ msgstr "_O Bazaaru"
 
 #: src/bz-window.blp:384
 msgid "_Donate to Bazaar ❤️"
-msgstr "_Přispějte na pivo ❤️"
+msgstr "_Podpořte Vývoj ❤️"
 
 #: src/bz-window.c:845
 msgid "Can't do that right now!"
@@ -475,22 +475,22 @@ msgstr "Obecné"
 #: src/gtk/help-overlay.blp:14
 msgctxt "shortcut window"
 msgid "Open Search Dialog"
-msgstr "Otevři vyhledávání"
+msgstr "Otevřít Vyhledávání"
 
 #: src/gtk/help-overlay.blp:19
 msgctxt "shortcut window"
 msgid "Refresh"
-msgstr "Obnov"
+msgstr "Obnovit"
 
 #: src/gtk/help-overlay.blp:24
 msgctxt "shortcut window"
 msgid "Toggle Transaction Manager"
-msgstr "Otvři přehled translakcí"
+msgstr "Otevřít Přehled translakcí"
 
 #: src/gtk/help-overlay.blp:29
 msgctxt "shortcut window"
 msgid "Show Shortcuts"
-msgstr "Zobraz zkratky"
+msgstr "Zobrazit Zkratky"
 
 #: src/gtk/help-overlay.blp:34
 msgctxt "shortcut window"
