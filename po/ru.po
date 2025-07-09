@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bazaar\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-08 04:54+0300\n"
-"PO-Revision-Date: 2025-07-08 17:58+0300\n"
+"POT-Creation-Date: 2025-07-09 02:28+0300\n"
+"PO-Revision-Date: 2025-07-09 08:48+0300\n"
 "Last-Translator: Jill Fiore <contact@lumaeris.com>\n"
 "Language-Team: Russian\n"
 "Language: ru\n"
@@ -25,7 +25,12 @@ msgstr ""
 msgid "Bazaar"
 msgstr "Bazaar"
 
-#: data/io.github.kolunmi.Bazaar.desktop.in:8
+#: data/io.github.kolunmi.Bazaar.desktop.in:3
+msgid "Add, remove or update flatpak software on this computer"
+msgstr ""
+"Установка, удаление или обновление Flatpak приложений на этом компьютере"
+
+#: data/io.github.kolunmi.Bazaar.desktop.in:9
 msgid "GTK;System;PackageManager;Discover;Flatpak;Software;Store;"
 msgstr "GTK;Система;УправлениеПакетами;Discover;Flatpak;Приложения;Магазин;"
 
@@ -164,15 +169,15 @@ msgstr "Поддержать этого разработчика"
 msgid "Support"
 msgstr "Поддержать"
 
-#: src/bz-full-view.blp:363
+#: src/bz-full-view.blp:364
 msgid "Remote repo name"
 msgstr "Название репозитория"
 
-#: src/bz-full-view.blp:376
+#: src/bz-full-view.blp:377
 msgid "Project URL"
 msgstr "Веб-сайт проекта"
 
-#: src/bz-full-view.blp:388
+#: src/bz-full-view.blp:389
 msgid "Download size"
 msgstr "Размер скачивания"
 
@@ -181,9 +186,34 @@ msgstr "Размер скачивания"
 msgid "Released %x"
 msgstr "Выпущено %x"
 
-#: src/bz-installed-page.blp:21
-msgid "BzInstalledPage"
-msgstr "BzInstalledPage"
+#: src/bz-full-view.c:222
+msgid "No URL"
+msgstr "Нет URL"
+
+#: src/bz-full-view.c:230
+msgid ""
+"This application has a FLOSS license, meaning the source code can be audited "
+"for safety."
+msgstr ""
+"Это приложение имеет лицензию FLOSS, что значит исходный код может "
+"быть проверен на безопасность."
+
+#: src/bz-full-view.c:231
+msgid ""
+"This application has a proprietary license, meaning the source code is "
+"developed privately and cannot be audited by an independent third party."
+msgstr ""
+"Это приложение имеет проприетарную лицензию, что значит "
+"исходный код разрабатывается в тайне и не может быть "
+"проверен независимой третьей стороной."
+
+#: src/bz-installed-page.blp:15
+msgid "No Flatpaks Installed"
+msgstr "Нет установленных Flatpak"
+
+#: src/bz-installed-page.blp:21 src/bz-window.blp:184 src/bz-window.blp:306
+msgid "Installed"
+msgstr "Установленное"
 
 #: src/bz-installed-page.blp:142
 msgid "More actions"
@@ -351,10 +381,6 @@ msgstr "Вид приложения"
 msgid "Flathub"
 msgstr "Flathub"
 
-#: src/bz-window.blp:184 src/bz-window.blp:306
-msgid "Installed"
-msgstr "Установленное"
-
 #: src/bz-window.blp:203
 msgid "Go Back"
 msgstr "Назад"
@@ -498,3 +524,6 @@ msgstr "Открыть сочетания клавиш"
 msgctxt "shortcut window"
 msgid "Quit"
 msgstr "Закрыть"
+
+#~ msgid "BzInstalledPage"
+#~ msgstr "BzInstalledPage"
