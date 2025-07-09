@@ -1048,6 +1048,7 @@ bz_application_about_action (GSimpleAction *action,
     C_ ("About Dialog Translator Credit", "Jill Fiore <contact@lumaeris.com>"),
     C_ ("About Dialog Translator Credit", "Vlastimil Dědek <dedek.vlastimil2@proton.me>"),
     C_ ("About Dialog Translator Credit", "asen23 <andersenlim23@gmail.com>"),
+    C_ ("About Dialog Translator Credit", "renner <renner0@posteo.de>"),
     /* This array MUST be NULL terminated */
     NULL
   };
