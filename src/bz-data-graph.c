@@ -753,7 +753,7 @@ refresh_path (BzDataGraph *self,
   metrics     = pango_context_get_metrics (pango, NULL, NULL);
   font_height = (double) (int) PANGO_PIXELS_CEIL (pango_font_metrics_get_height (metrics));
   g_clear_pointer (&metrics, pango_font_metrics_unref);
-  independent_label_step = n_items / MAX (1, floor (width / MAX (font_height + 10.0, LABEL_MARGIN)));
+  independent_label_step = MAX (1, n_items / MAX (1, floor (width / MAX (font_height + 10.0, LABEL_MARGIN))));
   dependent_label_step   = MAX (1, floor (height / (font_height + 10.0)));
 
   curve_builder = gsk_path_builder_new ();
