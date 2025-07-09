@@ -1044,7 +1044,7 @@ bz_application_about_action (GSimpleAction *action,
   };
   const char *translators[] = {
     C_ ("About Dialog Translator Credit", "Ahmed Najmawi"),
-    C_ ("About Dialog Translator Credit", "Atom"),
+    C_ ("About Dialog Translator Credit", "AtomHare"),
     C_ ("About Dialog Translator Credit", "Jill Fiore"),
     C_ ("About Dialog Translator Credit", "Vlastimil Dědek"),
     C_ ("About Dialog Translator Credit", "asen23"),
