@@ -75,6 +75,15 @@ You are now ready to open your `po` file in your text editor and begin
 translating. When you are done, commit your changes and submit a pull
 request on github.
 
+## Update existing translations
+
+Generate a fresh `.pot` file again (if necessary) with the commands from above.
+
+```
+msgmerge --update --verbose po/de.po po/bazaar.pot
+```
+
+
 ## Test your translations
 
 Adjust for your [Language code](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)!
@@ -84,7 +93,7 @@ msgfmt po/de.po -o bazaar.mo
 sudo cp bazaar.mo /usr/share/locale/de/LC_MESSAGES/
 ```
 
-Make sure to kill all the background processes fo bazaar first
+Make sure to kill all the background processes from bazaar first
 
 ```
 killall bazaar
