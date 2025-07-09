@@ -59,7 +59,7 @@ template $BzFullView: Adw.Bin {
                   margin-end: 15;
                   margin-top: 15;
                   margin-bottom: 15;
-                  width-request: 550;
+                  width-request: 650;
                   orientation: vertical;
                   spacing: 20;
 
@@ -166,59 +166,80 @@ template $BzFullView: Adw.Bin {
                     row-spacing: 3;
 
                     Box {
-                      styles [
-                        "linked",
-                      ]
-
                       halign: start;
                       hexpand: false;
                       orientation: horizontal;
+                      spacing: 10;
 
-                      Button {
+                      Button run_button {
                         styles [
-                          "suggested-action",
                           "pill",
                         ]
 
                         has-tooltip: true;
-                        tooltip-text: _("Download and install this application");
-                        visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable) as <bool>) as <bool>;
-                        sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable-and-available) as <bool>) as <bool>;
-
-                        child: Box {
-                          orientation: horizontal;
-                          spacing: 5;
-                          hexpand: false;
-
-                          Image {
-                            icon-name: "folder-download-symbolic";
-                          }
-
-                          Label {
-                            styles [
-                              "caption-heading",
-                            ]
-
-                            label: _("Install");
-                          }
-                        };
-
-                        clicked => $install_cb(template);
-                      }
-
-                      Button remove_button {
-                        styles [
-                          "destructive-action",
-                          "pill",
-                        ]
-
-                        has-tooltip: true;
-                        tooltip-text: _("Uninstall this application");
+                        tooltip-text: _("Run this application");
                         visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
                         sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
                         
-                        icon-name: "user-trash-symbolic";
-                        clicked => $remove_cb(template);
+                        icon-name: "media-playback-start-symbolic";
+                        clicked => $run_cb(template);
+                      }
+
+                      Box {
+                        styles [
+                          "linked",
+                        ]
+
+                        halign: start;
+                        hexpand: false;
+                        orientation: horizontal;
+
+                        Button {
+                          styles [
+                            "suggested-action",
+                            "pill",
+                          ]
+
+                          has-tooltip: true;
+                          tooltip-text: _("Download and install this application");
+                          visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable) as <bool>) as <bool>;
+                          sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable-and-available) as <bool>) as <bool>;
+
+                          child: Box {
+                            orientation: horizontal;
+                            spacing: 5;
+                            hexpand: false;
+
+                            Image {
+                              icon-name: "folder-download-symbolic";
+                            }
+
+                            Label {
+                              styles [
+                                "caption-heading",
+                              ]
+
+                              label: _("Install");
+                            }
+                          };
+
+                          clicked => $install_cb(template);
+                        }
+
+                        Button remove_button {
+                          styles [
+                            "destructive-action",
+                            "pill",
+                          ]
+
+                          has-tooltip: true;
+                          tooltip-text: _("Uninstall this application");
+                          visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
+                          sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
+                          
+                          icon-name: "user-trash-symbolic";
+                          clicked => $remove_cb(template);
+                        }
                       }
                     }
 

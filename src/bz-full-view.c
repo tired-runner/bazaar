@@ -24,6 +24,8 @@
 
 #include "bz-async-texture.h"
 #include "bz-dynamic-list-view.h"
+#include "bz-error.h"
+#include "bz-flatpak-entry.h"
 #include "bz-full-view.h"
 #include "bz-paintable-model.h"
 #include "bz-screenshot.h"
@@ -267,6 +269,45 @@ dl_stats_cb (BzFullView *self,
 }
 
 static void
+run_cb (BzFullView *self,
+        GtkButton  *button)
+{
+  GListModel *model   = NULL;
+  guint       n_items = 0;
+
+  if (self->group == NULL)
+    return;
+
+  model   = bz_entry_group_get_model (self->group);
+  n_items = g_list_model_get_n_items (model);
+
+  for (guint i = 0; i < n_items; i++)
+    {
+      g_autoptr (BzEntry) entry = NULL;
+
+      entry = g_list_model_get_item (model, i);
+
+      if (BZ_IS_FLATPAK_ENTRY (entry) &&
+          bz_entry_group_query_removable (self->group, entry))
+        {
+          g_autoptr (GError) local_error = NULL;
+          gboolean result                = FALSE;
+
+          result = bz_flatpak_entry_launch (BZ_FLATPAK_ENTRY (entry), &local_error);
+          if (!result)
+            {
+              GtkWidget *window = NULL;
+
+              window = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_WINDOW);
+              if (window != NULL)
+                bz_show_error_for_widget (window, local_error->message);
+            }
+          break;
+        }
+    }
+}
+
+static void
 install_cb (BzFullView *self,
             GtkButton  *button)
 {
@@ -425,6 +466,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, format_as_link);
   gtk_widget_class_bind_template_callback (widget_class, share_cb);
   gtk_widget_class_bind_template_callback (widget_class, dl_stats_cb);
+  gtk_widget_class_bind_template_callback (widget_class, run_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);
