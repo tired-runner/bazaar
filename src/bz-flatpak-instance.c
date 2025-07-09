@@ -423,10 +423,17 @@ backend_iface_init (BzBackendInterface *iface)
 }
 
 FlatpakInstallation *
-bz_flatpak_instance_get_installation (BzFlatpakInstance *self)
+bz_flatpak_instance_get_system_installation (BzFlatpakInstance *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
   return self->system;
+}
+
+FlatpakInstallation *
+bz_flatpak_instance_get_user_installation (BzFlatpakInstance *self)
+{
+  g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (self), NULL);
+  return self->user;
 }
 
 DexFuture *

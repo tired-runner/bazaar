@@ -913,7 +913,10 @@ bz_flatpak_entry_launch (BzFlatpakEntry *self,
 
   g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), FALSE);
 
-  installation = bz_flatpak_instance_get_installation (self->flatpak);
+  installation =
+      self->user
+          ? bz_flatpak_instance_get_user_installation (self->flatpak)
+          : bz_flatpak_instance_get_system_installation (self->flatpak);
 
   /* async? */
   return flatpak_installation_launch (
