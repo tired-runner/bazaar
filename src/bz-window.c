@@ -404,7 +404,7 @@ installed_page_install_cb (BzWindow   *self,
                            BzEntry    *entry,
                            BzFullView *view)
 {
-  transact (self, entry, FALSE);
+  try_transact (self, entry, NULL, FALSE);
 }
 
 static void
