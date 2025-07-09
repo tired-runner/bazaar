@@ -1032,22 +1032,40 @@ bz_application_about_action (GSimpleAction *action,
                              GVariant      *parameter,
                              gpointer       user_data)
 {
-  static const char *developers[] = { "Adam Masciola", NULL };
-  BzApplication     *self         = user_data;
-  GtkWindow         *window       = NULL;
-  AdwDialog         *dialog       = NULL;
+  BzApplication   *self               = user_data;
+  GtkWindow       *window             = NULL;
+  AdwDialog       *dialog             = NULL;
+  g_autofree char *translators_string = NULL;
+
+  const char *developers[] = {
+    C_ ("About Dialog Developer Credit", "Adam Masciola <kolunmi@posteo.net>"),
+    /* This array MUST be NULL terminated */
+    NULL
+  };
+  const char *translators[] = {
+    C_ ("About Dialog Translator Credit", "Ahmed Najmawi"),
+    C_ ("About Dialog Translator Credit", "AtomHare"),
+    C_ ("About Dialog Translator Credit", "Jill Fiore"),
+    C_ ("About Dialog Translator Credit", "Vlastimil Dědek"),
+    C_ ("About Dialog Translator Credit", "asen23"),
+    C_ ("About Dialog Translator Credit", "renner"),
+    /* This array MUST be NULL terminated */
+    NULL
+  };
 
   g_assert (BZ_IS_APPLICATION (self));
 
   window = gtk_application_get_active_window (GTK_APPLICATION (self));
-
   dialog = adw_about_dialog_new ();
+
+  translators_string = g_strjoinv ("\n", (gchar **) translators);
+
   g_object_set (
       dialog,
       "application-name", "Bazaar",
       "application-icon", "io.github.kolunmi.Bazaar",
-      "developer-name", "Adam Masciola",
-      "translator-credits", _ ("translator-credits"),
+      "developer-name", _ ("Adam Masciola"),
+      "translator-credits", translators_string,
       "version", PACKAGE_VERSION,
       "developers", developers,
       "copyright", "© 2025 Adam Masciola",

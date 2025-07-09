@@ -31,7 +31,10 @@ G_BEGIN_DECLS
 /* BzFlatpakInstance */
 
 FlatpakInstallation *
-bz_flatpak_instance_get_installation (BzFlatpakInstance *self);
+bz_flatpak_instance_get_system_installation (BzFlatpakInstance *self);
+
+FlatpakInstallation *
+bz_flatpak_instance_get_user_installation (BzFlatpakInstance *self);
 
 /* BzFlatpakEntry */
 
