@@ -42,6 +42,15 @@ struct _BzEntryClass
   GObjectClass parent_class;
 };
 
+void
+bz_entry_hold (BzEntry *self);
+
+void
+bz_entry_release (BzEntry *self);
+
+gboolean
+bz_entry_is_holding (BzEntry *self);
+
 gboolean
 bz_entry_is_of_kinds (BzEntry *self,
                       guint    kinds);

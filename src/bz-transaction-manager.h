@@ -51,9 +51,6 @@ bz_transaction_manager_get_active (BzTransactionManager *self);
 gboolean
 bz_transaction_manager_get_has_transactions (BzTransactionManager *self);
 
-BzTransaction *
-bz_transaction_manager_get_last_success (BzTransactionManager *self);
-
 void
 bz_transaction_manager_add (BzTransactionManager *self,
                             BzTransaction        *transaction);

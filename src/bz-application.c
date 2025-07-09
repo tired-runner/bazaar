@@ -96,9 +96,9 @@ gather_entries_progress (BzEntry       *entry,
                          BzApplication *self);
 
 static void
-last_success_changed (BzTransactionManager *manager,
-                      GParamSpec           *pspec,
-                      BzApplication        *self);
+transaction_success (BzApplication        *self,
+                     BzTransaction        *transaction,
+                     BzTransactionManager *manager);
 
 static DexFuture *
 refresh_then (DexFuture     *future,
@@ -1133,8 +1133,8 @@ bz_application_init (BzApplication *self)
   self->running = FALSE;
 
   self->transactions = bz_transaction_manager_new ();
-  g_signal_connect (self->transactions, "notify::last-success",
-                    G_CALLBACK (last_success_changed), self);
+  g_signal_connect_swapped (self->transactions, "success",
+                            G_CALLBACK (transaction_success), self);
 
   self->all_entries  = g_list_store_new (BZ_TYPE_ENTRY);
   self->applications = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
@@ -1252,76 +1252,70 @@ gather_entries_progress (BzEntry       *entry,
 }
 
 static void
-last_success_changed (BzTransactionManager *manager,
-                      GParamSpec           *pspec,
-                      BzApplication        *self)
+transaction_success (BzApplication        *self,
+                     BzTransaction        *transaction,
+                     BzTransactionManager *manager)
 {
-  BzTransaction *transaction = NULL;
+  GListModel *installs   = NULL;
+  GListModel *removals   = NULL;
+  guint       n_installs = 0;
+  guint       n_removals = 0;
 
-  transaction = bz_transaction_manager_get_last_success (manager);
-  if (transaction != NULL)
+  installs = bz_transaction_get_installs (transaction);
+  removals = bz_transaction_get_removals (transaction);
+
+  if (installs != NULL)
+    n_installs = g_list_model_get_n_items (installs);
+  if (removals != NULL)
+    n_removals = g_list_model_get_n_items (removals);
+
+  for (guint i = 0; i < n_installs; i++)
     {
-      GListModel *installs   = NULL;
-      GListModel *removals   = NULL;
-      guint       n_installs = 0;
-      guint       n_removals = 0;
+      g_autoptr (BzEntry) entry = NULL;
+      const char *unique_id     = NULL;
 
-      installs = bz_transaction_get_installs (transaction);
-      removals = bz_transaction_get_removals (transaction);
+      entry = g_list_model_get_item (installs, i);
+      g_object_set (entry, "installed", TRUE, NULL);
+      unique_id = bz_entry_get_unique_id (entry);
+      g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
 
-      if (installs != NULL)
-        n_installs = g_list_model_get_n_items (installs);
-      if (removals != NULL)
-        n_removals = g_list_model_get_n_items (removals);
-
-      for (guint i = 0; i < n_installs; i++)
+      if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
         {
-          g_autoptr (BzEntry) entry = NULL;
-          const char *unique_id     = NULL;
+          const char   *id    = NULL;
+          BzEntryGroup *group = NULL;
 
-          entry = g_list_model_get_item (installs, i);
-          g_object_set (entry, "installed", TRUE, NULL);
-          unique_id = bz_entry_get_unique_id (entry);
-          g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
+          g_list_store_append (self->installed, entry);
 
-          if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
-            {
-              const char   *id    = NULL;
-              BzEntryGroup *group = NULL;
-
-              g_list_store_append (self->installed, entry);
-
-              id    = bz_entry_get_id (entry);
-              group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
-              if (group != NULL)
-                bz_entry_group_install (group, entry);
-            }
+          id    = bz_entry_get_id (entry);
+          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+          if (group != NULL)
+            bz_entry_group_install (group, entry);
         }
+    }
 
-      for (guint i = 0; i < n_removals; i++)
+  for (guint i = 0; i < n_removals; i++)
+    {
+      g_autoptr (BzEntry) entry = NULL;
+      const char *unique_id     = NULL;
+
+      entry = g_list_model_get_item (removals, i);
+      g_object_set (entry, "installed", FALSE, NULL);
+      unique_id = bz_entry_get_unique_id (entry);
+      g_hash_table_remove (self->installed_unique_ids_set, unique_id);
+
+      if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
         {
-          g_autoptr (BzEntry) entry = NULL;
-          const char *unique_id     = NULL;
+          guint         idx   = 0;
+          const char   *id    = NULL;
+          BzEntryGroup *group = NULL;
 
-          entry = g_list_model_get_item (removals, i);
-          g_object_set (entry, "installed", FALSE, NULL);
-          unique_id = bz_entry_get_unique_id (entry);
-          g_hash_table_remove (self->installed_unique_ids_set, unique_id);
+          if (g_list_store_find (self->installed, entry, &idx))
+            g_list_store_remove (self->installed, idx);
 
-          if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
-            {
-              guint         idx   = 0;
-              const char   *id    = NULL;
-              BzEntryGroup *group = NULL;
-
-              if (g_list_store_find (self->installed, entry, &idx))
-                g_list_store_remove (self->installed, idx);
-
-              id    = bz_entry_get_id (entry);
-              group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
-              if (group != NULL)
-                bz_entry_group_remove (group, entry);
-            }
+          id    = bz_entry_get_id (entry);
+          group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+          if (group != NULL)
+            bz_entry_group_remove (group, entry);
         }
     }
 }

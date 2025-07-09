@@ -945,7 +945,8 @@ try_transact (BzWindow     *self,
               variant      = g_list_model_get_item (entries, i);
               is_installed = bz_entry_group_query_removable (group, variant);
 
-              if ((!remove && is_installed) ||
+              if (bz_entry_is_holding (variant) ||
+                  (!remove && is_installed) ||
                   (remove && !is_installed))
                 {
                   g_ptr_array_add (checks, NULL);

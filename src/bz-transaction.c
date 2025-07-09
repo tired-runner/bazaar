@@ -26,9 +26,9 @@
 
 typedef struct
 {
-  GListModel *installs;
-  GListModel *updates;
-  GListModel *removals;
+  GListStore *installs;
+  GListStore *updates;
+  GListStore *removals;
 
   char    *name;
   gboolean pending;
@@ -261,9 +261,9 @@ bz_transaction_init (BzTransaction *self)
   now        = g_date_time_new_now_local ();
   priv->name = g_date_time_format (now, "%X");
 
-  priv->installs = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
-  priv->updates  = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
-  priv->removals = G_LIST_MODEL (g_list_store_new (BZ_TYPE_ENTRY));
+  priv->installs = g_list_store_new (BZ_TYPE_ENTRY);
+  priv->updates  = g_list_store_new (BZ_TYPE_ENTRY);
+  priv->removals = g_list_store_new (BZ_TYPE_ENTRY);
   priv->pending  = TRUE;
   priv->status   = g_strdup (_ ("Pending"));
   priv->success  = TRUE;
@@ -286,40 +286,22 @@ bz_transaction_new_full (BzEntry **installs,
                             (removals != NULL && n_removals),
                         NULL);
 
-  if (n_installs > 0)
-    {
-      for (guint i = 0; i < n_installs; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (installs[i]), NULL);
-    }
-  if (n_updates > 0)
-    {
-      for (guint i = 0; i < n_updates; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (updates[i]), NULL);
-    }
-  if (n_removals > 0)
-    {
-      for (guint i = 0; i < n_removals; i++)
-        g_return_val_if_fail (BZ_IS_ENTRY (removals[i]), NULL);
-    }
+  for (guint i = 0; i < n_installs; i++)
+    g_return_val_if_fail (BZ_IS_ENTRY (installs[i]), NULL);
+  for (guint i = 0; i < n_updates; i++)
+    g_return_val_if_fail (BZ_IS_ENTRY (updates[i]), NULL);
+  for (guint i = 0; i < n_removals; i++)
+    g_return_val_if_fail (BZ_IS_ENTRY (removals[i]), NULL);
 
   self = g_object_new (BZ_TYPE_TRANSACTION, NULL);
   priv = bz_transaction_get_instance_private (self);
 
-  if (n_installs > 0)
-    {
-      for (guint i = 0; i < n_installs; i++)
-        g_list_store_append (G_LIST_STORE (priv->installs), installs[i]);
-    }
-  if (n_updates > 0)
-    {
-      for (guint i = 0; i < n_updates; i++)
-        g_list_store_append (G_LIST_STORE (priv->updates), updates[i]);
-    }
-  if (n_removals > 0)
-    {
-      for (guint i = 0; i < n_removals; i++)
-        g_list_store_append (G_LIST_STORE (priv->removals), removals[i]);
-    }
+  for (guint i = 0; i < n_installs; i++)
+    g_list_store_append (priv->installs, installs[i]);
+  for (guint i = 0; i < n_updates; i++)
+    g_list_store_append (priv->updates, updates[i]);
+  for (guint i = 0; i < n_removals; i++)
+    g_list_store_append (priv->removals, removals[i]);
 
   return g_steal_pointer (&self);
 }
@@ -384,7 +366,7 @@ bz_transaction_get_installs (BzTransaction *self)
   g_return_val_if_fail (BZ_IS_TRANSACTION (self), NULL);
 
   priv = bz_transaction_get_instance_private (self);
-  return priv->installs;
+  return G_LIST_MODEL (priv->installs);
 }
 
 GListModel *
@@ -395,7 +377,7 @@ bz_transaction_get_updates (BzTransaction *self)
   g_return_val_if_fail (BZ_IS_TRANSACTION (self), NULL);
 
   priv = bz_transaction_get_instance_private (self);
-  return priv->updates;
+  return G_LIST_MODEL (priv->updates);
 }
 
 GListModel *
@@ -406,5 +388,67 @@ bz_transaction_get_removals (BzTransaction *self)
   g_return_val_if_fail (BZ_IS_TRANSACTION (self), NULL);
 
   priv = bz_transaction_get_instance_private (self);
-  return priv->removals;
+  return G_LIST_MODEL (priv->removals);
+}
+
+void
+bz_transaction_hold (BzTransaction *self)
+{
+  BzTransactionPrivate *priv = NULL;
+
+  g_return_if_fail (BZ_IS_TRANSACTION (self));
+
+  priv = bz_transaction_get_instance_private (self);
+
+#define HOLD_MODEL(_model)                                            \
+  if ((_model) != NULL)                                               \
+    {                                                                 \
+      guint n_items = 0;                                              \
+                                                                      \
+      n_items = g_list_model_get_n_items (G_LIST_MODEL ((_model)));   \
+      for (guint i = 0; i < n_items; i++)                             \
+        {                                                             \
+          g_autoptr (BzEntry) entry = NULL;                           \
+                                                                      \
+          entry = g_list_model_get_item (G_LIST_MODEL ((_model)), i); \
+          bz_entry_hold (entry);                                      \
+        }                                                             \
+    }
+
+  HOLD_MODEL (priv->installs);
+  HOLD_MODEL (priv->updates);
+  HOLD_MODEL (priv->removals);
+
+#undef HOLD_MODEL
+}
+
+void
+bz_transaction_release (BzTransaction *self)
+{
+  BzTransactionPrivate *priv = NULL;
+
+  g_return_if_fail (BZ_IS_TRANSACTION (self));
+
+  priv = bz_transaction_get_instance_private (self);
+
+#define RELEASE_MODEL(_model)                                         \
+  if ((_model) != NULL)                                               \
+    {                                                                 \
+      guint n_items = 0;                                              \
+                                                                      \
+      n_items = g_list_model_get_n_items (G_LIST_MODEL ((_model)));   \
+      for (guint i = 0; i < n_items; i++)                             \
+        {                                                             \
+          g_autoptr (BzEntry) entry = NULL;                           \
+                                                                      \
+          entry = g_list_model_get_item (G_LIST_MODEL ((_model)), i); \
+          bz_entry_release (entry);                                   \
+        }                                                             \
+    }
+
+  RELEASE_MODEL (priv->installs);
+  RELEASE_MODEL (priv->updates);
+  RELEASE_MODEL (priv->removals);
+
+#undef RELEASE_MODEL
 }

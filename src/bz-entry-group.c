@@ -46,15 +46,32 @@ enum
   PROP_INSTALLABLE,
   PROP_UPDATABLE,
   PROP_REMOVABLE,
+  PROP_INSTALLABLE_AND_AVAILABLE,
+  PROP_UPDATABLE_AND_AVAILABLE,
+  PROP_REMOVABLE_AND_AVAILABLE,
 
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
+holding_changed (BzEntryGroup *self,
+                 GParamSpec   *pspec,
+                 BzEntry      *entry);
+
+static void
 bz_entry_group_dispose (GObject *object)
 {
-  BzEntryGroup *self = BZ_ENTRY_GROUP (object);
+  BzEntryGroup *self    = BZ_ENTRY_GROUP (object);
+  guint         n_items = 0;
+
+  for (guint i = 0; i < n_items; i++)
+    {
+      g_autoptr (BzEntry) entry = NULL;
+
+      entry = g_list_model_get_item (G_LIST_MODEL (self->store), i);
+      g_signal_handlers_disconnect_by_func (entry, holding_changed, self);
+    }
 
   g_clear_object (&self->store);
   g_clear_object (&self->ui_entry);
@@ -84,6 +101,8 @@ bz_entry_group_get_property (GObject    *object,
     case PROP_REMOTE_REPOS_STRING:
       {
         guint n_items = 0;
+
+        /* TODO: bring this into a function and cache result */
 
         n_items = g_list_model_get_n_items (G_LIST_MODEL (self->store));
         if (n_items > 0)
@@ -120,13 +139,22 @@ bz_entry_group_get_property (GObject    *object,
       }
       break;
     case PROP_INSTALLABLE:
-      g_value_set_int (value, self->installable->len);
+      g_value_set_int (value, bz_entry_group_get_installable (self));
       break;
     case PROP_UPDATABLE:
-      g_value_set_int (value, self->updatable->len);
+      g_value_set_int (value, bz_entry_group_get_updatable (self));
       break;
     case PROP_REMOVABLE:
-      g_value_set_int (value, self->removable->len);
+      g_value_set_int (value, bz_entry_group_get_removable (self));
+      break;
+    case PROP_INSTALLABLE_AND_AVAILABLE:
+      g_value_set_int (value, bz_entry_group_get_installable_and_available (self));
+      break;
+    case PROP_UPDATABLE_AND_AVAILABLE:
+      g_value_set_int (value, bz_entry_group_get_updatable_and_available (self));
+      break;
+    case PROP_REMOVABLE_AND_AVAILABLE:
+      g_value_set_int (value, bz_entry_group_get_removable_and_available (self));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -181,28 +209,49 @@ bz_entry_group_class_init (BzEntryGroupClass *klass)
       g_param_spec_string (
           "remote-repos-string",
           NULL, NULL, NULL,
-          G_PARAM_READWRITE);
+          G_PARAM_READABLE);
 
   props[PROP_INSTALLABLE] =
       g_param_spec_int (
           "installable",
           NULL, NULL,
           0, G_MAXINT, 0,
-          G_PARAM_READWRITE);
+          G_PARAM_READABLE);
 
   props[PROP_UPDATABLE] =
       g_param_spec_int (
           "updatable",
           NULL, NULL,
           0, G_MAXINT, 0,
-          G_PARAM_READWRITE);
+          G_PARAM_READABLE);
 
   props[PROP_REMOVABLE] =
       g_param_spec_int (
           "removable",
           NULL, NULL,
           0, G_MAXINT, 0,
-          G_PARAM_READWRITE);
+          G_PARAM_READABLE);
+
+  props[PROP_INSTALLABLE_AND_AVAILABLE] =
+      g_param_spec_int (
+          "installable-and-available",
+          NULL, NULL,
+          0, G_MAXINT, 0,
+          G_PARAM_READABLE);
+
+  props[PROP_UPDATABLE_AND_AVAILABLE] =
+      g_param_spec_int (
+          "updatable-and-available",
+          NULL, NULL,
+          0, G_MAXINT, 0,
+          G_PARAM_READABLE);
+
+  props[PROP_REMOVABLE_AND_AVAILABLE] =
+      g_param_spec_int (
+          "removable-and-available",
+          NULL, NULL,
+          0, G_MAXINT, 0,
+          G_PARAM_READABLE);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
 }
@@ -236,6 +285,84 @@ bz_entry_group_get_ui_entry (BzEntryGroup *self)
   return self->ui_entry;
 }
 
+int
+bz_entry_group_get_installable (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+  return self->installable->len;
+}
+
+int
+bz_entry_group_get_updatable (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+  return self->updatable->len;
+}
+
+int
+bz_entry_group_get_removable (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+  return self->removable->len;
+}
+
+int
+bz_entry_group_get_installable_and_available (BzEntryGroup *self)
+{
+  int available = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+
+  for (guint i = 0; i < self->installable->len; i++)
+    {
+      BzEntry *entry = NULL;
+
+      entry = g_ptr_array_index (self->installable, i);
+      if (!bz_entry_is_holding (entry))
+        available++;
+    }
+
+  return available;
+}
+
+int
+bz_entry_group_get_updatable_and_available (BzEntryGroup *self)
+{
+  int available = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+
+  for (guint i = 0; i < self->updatable->len; i++)
+    {
+      BzEntry *entry = NULL;
+
+      entry = g_ptr_array_index (self->updatable, i);
+      if (!bz_entry_is_holding (entry))
+        available++;
+    }
+
+  return available;
+}
+
+int
+bz_entry_group_get_removable_and_available (BzEntryGroup *self)
+{
+  int available = 0;
+
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), 0);
+
+  for (guint i = 0; i < self->removable->len; i++)
+    {
+      BzEntry *entry = NULL;
+
+      entry = g_ptr_array_index (self->removable, i);
+      if (!bz_entry_is_holding (entry))
+        available++;
+    }
+
+  return available;
+}
+
 void
 bz_entry_group_add (BzEntryGroup *self,
                     BzEntry      *entry,
@@ -255,17 +382,25 @@ bz_entry_group_add (BzEntryGroup *self,
     {
       g_ptr_array_add (self->installable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
+      if (!bz_entry_is_holding (entry))
+        g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE_AND_AVAILABLE]);
     }
   if (updatable)
     {
       g_ptr_array_add (self->updatable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UPDATABLE]);
+      if (!bz_entry_is_holding (entry))
+        g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UPDATABLE_AND_AVAILABLE]);
     }
   if (removable)
     {
       g_ptr_array_add (self->removable, g_object_ref (entry));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
+      if (!bz_entry_is_holding (entry))
+        g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE_AND_AVAILABLE]);
     }
+
+  g_signal_connect_swapped (entry, "notify::holding", G_CALLBACK (holding_changed), self);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UI_ENTRY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOTE_REPOS_STRING]);
@@ -293,6 +428,8 @@ bz_entry_group_install (BzEntryGroup *self,
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE_AND_AVAILABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE_AND_AVAILABLE]);
 }
 
 void
@@ -317,6 +454,8 @@ bz_entry_group_remove (BzEntryGroup *self,
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE_AND_AVAILABLE]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE_AND_AVAILABLE]);
 }
 
 gboolean
@@ -353,4 +492,17 @@ bz_entry_group_query_removable (BzEntryGroup *self,
   g_return_val_if_fail (BZ_IS_ENTRY (entry), FALSE);
 
   return g_ptr_array_find (self->removable, entry, &idx);
+}
+
+static void
+holding_changed (BzEntryGroup *self,
+                 GParamSpec   *pspec,
+                 BzEntry      *entry)
+{
+  if (bz_entry_group_query_installable (self, entry))
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_INSTALLABLE_AND_AVAILABLE]);
+  if (bz_entry_group_query_updatable (self, entry))
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UPDATABLE_AND_AVAILABLE]);
+  if (bz_entry_group_query_removable (self, entry))
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REMOVABLE_AND_AVAILABLE]);
 }

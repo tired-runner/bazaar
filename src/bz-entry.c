@@ -37,6 +37,7 @@ G_DEFINE_FLAGS_TYPE (
 
 typedef struct
 {
+  gint        hold;
   gboolean    installed;
   guint       kinds;
   BzEntry    *runtime;
@@ -83,6 +84,7 @@ enum
 {
   PROP_0,
 
+  PROP_HOLDING,
   PROP_INSTALLED,
   PROP_KINDS,
   PROP_RUNTIME,
@@ -198,6 +200,9 @@ bz_entry_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_HOLDING:
+      g_value_set_boolean (value, bz_entry_is_holding (self));
+      break;
     case PROP_INSTALLED:
       g_value_set_boolean (value, priv->installed);
       break;
@@ -473,6 +478,7 @@ bz_entry_set_property (GObject      *object,
     case PROP_RECENT_DOWNLOADS:
       priv->recent_downloads = g_value_get_int (value);
       break;
+    case PROP_HOLDING:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -486,6 +492,12 @@ bz_entry_class_init (BzEntryClass *klass)
   object_class->set_property = bz_entry_set_property;
   object_class->get_property = bz_entry_get_property;
   object_class->dispose      = bz_entry_dispose;
+
+  props[PROP_HOLDING] =
+      g_param_spec_boolean (
+          "holding",
+          NULL, NULL, FALSE,
+          G_PARAM_READABLE);
 
   props[PROP_INSTALLED] =
       g_param_spec_boolean (
@@ -712,6 +724,46 @@ bz_entry_class_init (BzEntryClass *klass)
 static void
 bz_entry_init (BzEntry *self)
 {
+  BzEntryPrivate *priv = bz_entry_get_instance_private (self);
+
+  priv->hold = 0;
+}
+
+void
+bz_entry_hold (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_if_fail (BZ_IS_ENTRY (self));
+
+  priv = bz_entry_get_instance_private (self);
+
+  if (++priv->hold == 1)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HOLDING]);
+}
+
+void
+bz_entry_release (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_if_fail (BZ_IS_ENTRY (self));
+
+  priv = bz_entry_get_instance_private (self);
+
+  if (--priv->hold == 0)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_HOLDING]);
+}
+
+gboolean
+bz_entry_is_holding (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), FALSE);
+
+  priv = bz_entry_get_instance_private (self);
+  return priv->hold > 0;
 }
 
 gboolean

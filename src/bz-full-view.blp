@@ -183,6 +183,7 @@ template $BzFullView: Adw.Bin {
                         has-tooltip: true;
                         tooltip-text: _("Download and install this application");
                         visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable) as <bool>) as <bool>;
+                        sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable-and-available) as <bool>) as <bool>;
 
                         child: Box {
                           orientation: horizontal;
@@ -211,10 +212,11 @@ template $BzFullView: Adw.Bin {
                           "pill",
                         ]
 
-                        visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
-                        vexpand: false;
                         has-tooltip: true;
                         tooltip-text: _("Uninstall this application");
+                        visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
+                        sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
+                        
                         icon-name: "user-trash-symbolic";
                         clicked => $remove_cb(template);
                       }

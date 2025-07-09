@@ -36,6 +36,24 @@ bz_entry_group_get_model (BzEntryGroup *self);
 BzEntry *
 bz_entry_group_get_ui_entry (BzEntryGroup *self);
 
+int
+bz_entry_group_get_installable (BzEntryGroup *self);
+
+int
+bz_entry_group_get_updatable (BzEntryGroup *self);
+
+int
+bz_entry_group_get_removable (BzEntryGroup *self);
+
+int
+bz_entry_group_get_installable_and_available (BzEntryGroup *self);
+
+int
+bz_entry_group_get_updatable_and_available (BzEntryGroup *self);
+
+int
+bz_entry_group_get_removable_and_available (BzEntryGroup *self);
+
 void
 bz_entry_group_add (BzEntryGroup *self,
                     BzEntry      *entry,
