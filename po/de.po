@@ -66,7 +66,7 @@ msgstr "Diese Anwendung wurde von den ursprünglichen Entwicklern der Software v
 
 #: src/bz-application.c:1050
 msgid "translator-credits"
-msgstr "renner,mandarinoo"
+msgstr "renner, Mandarinoo"
 
 #: src/bz-browse-widget.blp:11 src/bz-full-view.blp:11
 #: src/bz-installed-page.blp:11 src/bz-window.blp:32
@@ -167,7 +167,7 @@ msgstr "Unterstützung"
 
 #: src/bz-full-view.blp:366
 msgid "Remote repo name"
-msgstr "Repository-Namen"
+msgstr "Namen des Repository"
 
 #: src/bz-full-view.blp:379
 msgid "Project URL"
