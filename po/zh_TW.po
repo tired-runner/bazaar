@@ -1,8 +1,9 @@
-# Chinese translations for bazaar package
+# Traditional Chinese translations for bazaar package
 # Copyright (C) 2025 THE bazaar'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the bazaar package.
 # Automatically generated, 2025.
 #
+# SPDX-FileCopyrightText: 2025 Shihfu Juan <xlion@xlion.tw>
 msgid ""
 msgstr ""
 "Project-Id-Version: bazaar\n"
