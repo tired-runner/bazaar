@@ -27,6 +27,7 @@
 #include "bz-browse-widget.h"
 #include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
+#include "bz-error.h"
 #include "bz-flathub-page.h"
 #include "bz-full-view.h"
 #include "bz-global-progress.h"
@@ -340,11 +341,7 @@ browser_group_selected_cb (BzWindow     *self,
                            BzEntryGroup *group,
                            gpointer      browser)
 {
-  bz_full_view_set_entry_group (self->full_view, group);
-  adw_view_stack_set_visible_child_name (self->main_stack, "view");
-  gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
-  gtk_widget_set_visible (GTK_WIDGET (self->search), FALSE);
-  gtk_revealer_set_reveal_child (self->title_revealer, FALSE);
+  bz_window_show_group (self, group);
 }
 
 static void
@@ -789,6 +786,33 @@ bz_window_push_update_dialog (BzWindow   *self,
   g_signal_connect (update_dialog, "response", G_CALLBACK (update_dialog_response), self);
 
   adw_dialog_present (update_dialog, GTK_WIDGET (self));
+}
+
+void
+bz_window_show_entry (BzWindow *self,
+                      BzEntry  *entry)
+{
+  /* TODO: IMPLEMENT ME! */
+  bz_show_error_for_widget (
+      GTK_WIDGET (self),
+      _ ("The ability to inspect and install local .flatpak bundle files is coming soon! "
+         "In the meantime, try running\n\n"
+         "flatpak install --bundle your-bundle.flatpak\n\n"
+         "on the command line."));
+}
+
+void
+bz_window_show_group (BzWindow     *self,
+                      BzEntryGroup *group)
+{
+  g_return_if_fail (BZ_IS_WINDOW (self));
+  g_return_if_fail (BZ_IS_ENTRY_GROUP (group));
+
+  bz_full_view_set_entry_group (self->full_view, group);
+  adw_view_stack_set_visible_child_name (self->main_stack, "view");
+  gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
+  gtk_widget_set_visible (GTK_WIDGET (self->search), FALSE);
+  gtk_revealer_set_reveal_child (self->title_revealer, FALSE);
 }
 
 static void

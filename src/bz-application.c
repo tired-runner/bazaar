@@ -58,6 +58,7 @@ struct _BzApplication
   BzGnomeShellSearchProvider *gs_search;
 
   BzFlatpakInstance       *flatpak;
+  GFile                   *waiting_to_open;
   BzFlathubState          *flathub;
   BzApplicationMapFactory *map_factory;
 
@@ -90,6 +91,10 @@ enum
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+static DexFuture *
+open_flatpakref_finally (DexFuture     *future,
+                         BzApplication *self);
 
 static void
 gather_entries_progress (BzEntry       *entry,
@@ -143,6 +148,10 @@ cli_transact_then (DexFuture     *future,
 static GtkWindow *
 new_window (BzApplication *self);
 
+static void
+open_flatpakref_take (BzApplication *self,
+                      GFile         *file);
+
 static inline char *
 format_flatpak_name (const char *flatpak_id,
                      const char *remote_name,
@@ -163,6 +172,7 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->search_engine);
   g_clear_object (&self->gs_search);
   g_clear_object (&self->flatpak);
+  g_clear_object (&self->waiting_to_open);
   g_clear_object (&self->map_factory);
   g_clear_object (&self->flathub);
   g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
@@ -259,27 +269,33 @@ static int
 bz_application_command_line (GApplication            *app,
                              GApplicationCommandLine *cmdline)
 {
-  BzApplication *self                = BZ_APPLICATION (app);
-  gint           argc                = 0;
-  g_auto (GStrv) argv                = NULL;
-  g_autoptr (GOptionContext) context = NULL;
-  g_autoptr (GError) local_error     = NULL;
-  gboolean window_autostart          = FALSE;
+  BzApplication *self               = BZ_APPLICATION (app);
+  g_autoptr (GError) local_error    = NULL;
+  gint argc                         = 0;
+  g_auto (GStrv) argv               = NULL;
+  g_autofree GStrv argv_shallow     = NULL;
+  const char      *command          = NULL;
+  gboolean         window_autostart = FALSE;
 
   argv = g_application_command_line_get_arguments (cmdline, &argc);
-  if (argv == NULL || argc <= 1 || g_strcmp0 (argv[1], "--help") == 0)
+
+  if (argv == NULL || argc < 2 || g_strcmp0 (argv[1], "--help") == 0)
     {
       if (self->running)
         g_application_command_line_printerr (
             cmdline,
             "The Bazaar service is running. The available commands are:\n\n"
-            "  window|status|query|transact|quit\n\n"
+            "  window|refresh|open|status|query|transact|quit\n\n"
             "Add \"--help\" to a command to get information specific to that command.\n");
       else
         g_application_command_line_printerr (
             cmdline,
             "The Bazaar service is not running.\n"
-            "Invoke \"bazaar service\" to initialize the daemon.\n");
+            "The following commands will start the daemon:\n"
+            "  bazaar service\n"
+            "  bazaar window --auto-service\n"
+            "  bazaar open ...\n"
+            "Exiting...\n");
 
       if (g_strcmp0 (argv[1], "--help") == 0)
         return EXIT_SUCCESS;
@@ -287,7 +303,13 @@ bz_application_command_line (GApplication            *app,
         return EXIT_FAILURE;
     }
 
-  if (g_strcmp0 (argv[1], "window") == 0)
+  command = argv[1];
+  argc--;
+  argv_shallow = g_memdup2 (argv + 1, sizeof (*argv) * argc);
+
+  if (g_strcmp0 (command, "open") == 0)
+    window_autostart = TRUE;
+  else if (g_strcmp0 (command, "window") == 0)
     {
       g_autoptr (GOptionContext) pre_context = NULL;
 
@@ -300,14 +322,12 @@ bz_application_command_line (GApplication            *app,
       g_option_context_set_help_enabled (pre_context, FALSE);
       g_option_context_set_ignore_unknown_options (pre_context, TRUE);
       g_option_context_add_main_entries (pre_context, entries, NULL);
-      g_option_context_parse (pre_context, &argc, &argv, NULL);
+      g_option_context_parse (pre_context, &argc, &argv_shallow, NULL);
     }
 
-  context = g_option_context_new ("- an app center for GNOME");
-  g_option_context_set_help_enabled (context, FALSE);
-
-  if (window_autostart || g_strcmp0 (argv[1], "service") == 0)
+  if (window_autostart || g_strcmp0 (command, "service") == 0)
     {
+      g_autoptr (GOptionContext) context        = NULL;
       gboolean help                             = FALSE;
       gboolean is_running                       = FALSE;
       g_auto (GStrv) blocklists_strv            = NULL;
@@ -323,9 +343,11 @@ bz_application_command_line (GApplication            *app,
         { NULL }
       };
 
+      context = g_option_context_new ("- an app center for GNOME");
+      g_option_context_set_help_enabled (context, FALSE);
       g_option_context_add_main_entries (context, main_entries, NULL);
       g_option_context_set_ignore_unknown_options (context, window_autostart);
-      if (!g_option_context_parse (context, &argc, &argv, &local_error))
+      if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
         {
           g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
           return EXIT_FAILURE;
@@ -423,9 +445,14 @@ bz_application_command_line (GApplication            *app,
       return EXIT_FAILURE;
     }
 
-  if (g_strcmp0 (argv[1], "service") != 0)
+  if (g_strcmp0 (command, "service") != 0)
     {
-      if (g_strcmp0 (argv[1], "window") == 0)
+      g_autoptr (GOptionContext) context = NULL;
+
+      context = g_option_context_new ("- an app center for GNOME");
+      g_option_context_set_help_enabled (context, FALSE);
+
+      if (g_strcmp0 (command, "window") == 0)
         {
           gboolean         help         = FALSE;
           gboolean         search       = FALSE;
@@ -442,7 +469,7 @@ bz_application_command_line (GApplication            *app,
           };
 
           g_option_context_add_main_entries (context, main_entries, NULL);
-          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
             {
               g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
               return EXIT_FAILURE;
@@ -463,7 +490,89 @@ bz_application_command_line (GApplication            *app,
           if (search)
             bz_window_search (BZ_WINDOW (window), search_text);
         }
-      else if (g_strcmp0 (argv[1], "status") == 0)
+      else if (g_strcmp0 (command, "open") == 0)
+        {
+          gboolean help        = FALSE;
+          g_auto (GStrv) paths = NULL;
+
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &paths, "flatpakref file to open" },
+            { NULL }
+          };
+
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
+            {
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
+
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
+
+              g_option_context_set_summary (context, "Options for command \"open\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          if (paths == NULL || *paths == NULL)
+            {
+              g_application_command_line_printerr (cmdline, "Command \"open\" requires a file path argument\n");
+              return EXIT_FAILURE;
+            }
+
+          /* Ensure there is instant visual feedback for the user */
+          if (gtk_application_get_active_window (GTK_APPLICATION (self)) == NULL)
+            new_window (self);
+
+          /* Just take the first one for now */
+          if (g_path_is_absolute (*paths))
+            open_flatpakref_take (self, g_file_new_for_path (*paths));
+          else
+            {
+              const char *cwd = NULL;
+
+              cwd = g_application_command_line_get_cwd (cmdline);
+              if (cwd != NULL)
+                open_flatpakref_take (self, g_file_new_build_filename (cwd, *paths, NULL));
+              else
+                open_flatpakref_take (self, g_file_new_for_path (*paths));
+            }
+        }
+      else if (g_strcmp0 (command, "refresh") == 0)
+        {
+          gboolean help = FALSE;
+
+          GOptionEntry main_entries[] = {
+            { "help", 0, 0, G_OPTION_ARG_NONE, &help, "Print help" },
+            { NULL }
+          };
+
+          g_option_context_add_main_entries (context, main_entries, NULL);
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
+            {
+              g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
+              return EXIT_FAILURE;
+            }
+
+          if (help)
+            {
+              g_autofree char *help_text = NULL;
+
+              g_option_context_set_summary (context, "Options for command \"refresh\"");
+
+              help_text = g_option_context_get_help (context, TRUE, NULL);
+              g_application_command_line_printerr (cmdline, "%s\n", help_text);
+              return EXIT_SUCCESS;
+            }
+
+          refresh (self);
+        }
+      else if (g_strcmp0 (command, "status") == 0)
         {
           gboolean help                            = FALSE;
           gboolean current_only                    = FALSE;
@@ -478,7 +587,7 @@ bz_application_command_line (GApplication            *app,
           };
 
           g_option_context_add_main_entries (context, main_entries, NULL);
-          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
             {
               g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
               return EXIT_FAILURE;
@@ -562,7 +671,7 @@ bz_application_command_line (GApplication            *app,
           if (n_transactions == 0 || (current_only && !current_found_candidate))
             g_application_command_line_printerr (cmdline, "No active transactions\n");
         }
-      else if (g_strcmp0 (argv[1], "query") == 0)
+      else if (g_strcmp0 (command, "query") == 0)
         {
           gboolean         help  = FALSE;
           g_autofree char *match = NULL;
@@ -577,7 +686,7 @@ bz_application_command_line (GApplication            *app,
           };
 
           g_option_context_add_main_entries (context, main_entries, NULL);
-          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
             {
               g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
               return EXIT_FAILURE;
@@ -695,7 +804,7 @@ bz_application_command_line (GApplication            *app,
                 }
             }
         }
-      else if (g_strcmp0 (argv[1], "transact") == 0)
+      else if (g_strcmp0 (command, "transact") == 0)
         {
           gboolean help                    = FALSE;
           g_auto (GStrv) installs_strv     = NULL;
@@ -716,7 +825,7 @@ bz_application_command_line (GApplication            *app,
           };
 
           g_option_context_add_main_entries (context, main_entries, NULL);
-          if (!g_option_context_parse (context, &argc, &argv, &local_error))
+          if (!g_option_context_parse (context, &argc, &argv_shallow, &local_error))
             {
               g_application_command_line_printerr (cmdline, "%s\n", local_error->message);
               return EXIT_FAILURE;
@@ -794,7 +903,7 @@ bz_application_command_line (GApplication            *app,
               self, NULL);
           dex_future_disown (g_steal_pointer (&future));
         }
-      else if (g_strcmp0 (argv[1], "quit") == 0)
+      else if (g_strcmp0 (command, "quit") == 0)
         {
           g_application_quit (G_APPLICATION (self));
           self->running = FALSE;
@@ -805,7 +914,7 @@ bz_application_command_line (GApplication            *app,
               cmdline,
               "Unrecognized command \"%s\"\n"
               "Invoke \"bazaar --help\" to for available commands.\n",
-              argv[1]);
+              command);
           return EXIT_FAILURE;
         }
     }
@@ -1216,6 +1325,77 @@ bz_application_init (BzApplication *self)
       (const char *[]) { "<primary>d", NULL });
 }
 
+static DexFuture *
+open_flatpakref_finally (DexFuture     *future,
+                         BzApplication *self)
+{
+  GtkWindow *window              = NULL;
+  g_autoptr (GError) local_error = NULL;
+  const GValue *value            = NULL;
+
+  window = gtk_application_get_active_window (GTK_APPLICATION (self));
+  if (window == NULL)
+    window = new_window (self);
+
+  value = dex_future_get_value (future, &local_error);
+  if (value != NULL)
+    {
+      if (G_VALUE_HOLDS_OBJECT (value))
+        {
+          BzEntry    *entry      = NULL;
+          const char *unique_id  = NULL;
+          BzEntry    *equivalent = NULL;
+
+          entry      = g_value_get_object (value);
+          unique_id  = bz_entry_get_unique_id (entry);
+          equivalent = g_hash_table_lookup (self->unique_id_to_entry_hash, unique_id);
+
+          if (equivalent != NULL)
+            {
+              if (bz_entry_is_of_kinds (equivalent, BZ_ENTRY_KIND_APPLICATION))
+                {
+                  const char   *generic_id = NULL;
+                  BzEntryGroup *group      = NULL;
+
+                  generic_id = bz_entry_get_id (entry);
+                  group      = g_hash_table_lookup (self->generic_id_to_entry_group_hash, generic_id);
+
+                  if (group != NULL)
+                    bz_window_show_group (BZ_WINDOW (window), group);
+                  else
+                    bz_window_show_entry (BZ_WINDOW (window), equivalent);
+                }
+              else
+                bz_window_show_entry (BZ_WINDOW (window), equivalent);
+            }
+          else
+            bz_window_show_entry (BZ_WINDOW (window), entry);
+        }
+      else
+        {
+          const char   *generic_id = NULL;
+          BzEntryGroup *group      = NULL;
+
+          generic_id = g_value_get_string (value);
+          group      = g_hash_table_lookup (self->generic_id_to_entry_group_hash, generic_id);
+
+          if (group != NULL)
+            bz_window_show_group (BZ_WINDOW (window), group);
+          else
+            {
+              g_autofree char *message = NULL;
+
+              message = g_strdup_printf ("ID '%s' was not found", generic_id);
+              bz_show_error_for_widget (GTK_WIDGET (window), message);
+            }
+        }
+    }
+  else
+    bz_show_error_for_widget (GTK_WIDGET (window), local_error->message);
+
+  return NULL;
+}
+
 static void
 gather_entries_progress (BzEntry       *entry,
                          BzApplication *self)
@@ -1528,6 +1708,9 @@ refresh_finally (DexFuture     *future,
   bz_content_provider_unblock (self->content_provider);
   g_object_thaw_notify (G_OBJECT (self->flathub));
 
+  if (self->waiting_to_open != NULL)
+    open_flatpakref_take (self, g_object_ref (self->waiting_to_open));
+
   return NULL;
 }
 
@@ -1741,6 +1924,32 @@ new_window (BzApplication *self)
 
   gtk_window_present (window);
   return window;
+}
+
+static void
+open_flatpakref_take (BzApplication *self,
+                      GFile         *file)
+{
+  g_assert (file != NULL);
+
+  if (self->flatpak != NULL)
+    {
+      g_autoptr (DexFuture) future = NULL;
+
+      future = bz_backend_load_local_package (BZ_BACKEND (self->flatpak), file, NULL);
+      future = dex_future_finally (
+          future,
+          (DexFutureCallback) open_flatpakref_finally,
+          g_object_ref (self), g_object_unref);
+
+      dex_future_disown (g_steal_pointer (&future));
+      g_object_unref (file);
+    }
+  else
+    {
+      g_clear_object (&self->waiting_to_open);
+      self->waiting_to_open = file;
+    }
 }
 
 static inline char *

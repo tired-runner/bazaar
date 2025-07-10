@@ -44,15 +44,15 @@ bz_flatpak_ref_format_unique (FlatpakRef *ref,
 
 /* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
-bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
-                                     gboolean           user,
-                                     FlatpakRemote     *remote,
-                                     FlatpakRemoteRef  *rref,
-                                     AsComponent       *component,
-                                     const char        *appstream_dir,
-                                     const char        *output_dir,
-                                     GdkPaintable      *remote_icon,
-                                     GError           **error);
+bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
+                              gboolean           user,
+                              FlatpakRemote     *remote,
+                              FlatpakRef        *ref,
+                              AsComponent       *component,
+                              const char        *appstream_dir,
+                              const char        *output_dir,
+                              GdkPaintable      *remote_icon,
+                              GError           **error);
 
 FlatpakRef *
 bz_flatpak_entry_get_ref (BzFlatpakEntry *self);

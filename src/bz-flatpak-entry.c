@@ -61,7 +61,7 @@ struct _BzFlatpakEntry
   char    *addon_extension_of_ref;
 
   BzFlatpakInstance *flatpak;
-  FlatpakRemoteRef  *rref;
+  FlatpakRef        *ref;
 };
 
 G_DEFINE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ_TYPE_ENTRY)
@@ -111,7 +111,7 @@ bz_flatpak_entry_dispose (GObject *object)
   g_clear_pointer (&self->addon_extension_of_ref, g_free);
 
   g_clear_object (&self->flatpak);
-  g_clear_object (&self->rref);
+  g_clear_object (&self->ref);
 
   G_OBJECT_CLASS (bz_flatpak_entry_parent_class)->dispose (object);
 }
@@ -247,15 +247,15 @@ bz_flatpak_entry_init (BzFlatpakEntry *self)
 
 /* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
-bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
-                                     gboolean           user,
-                                     FlatpakRemote     *remote,
-                                     FlatpakRemoteRef  *rref,
-                                     AsComponent       *component,
-                                     const char        *appstream_dir,
-                                     const char        *output_dir,
-                                     GdkPaintable      *remote_icon,
-                                     GError           **error)
+bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
+                              gboolean           user,
+                              FlatpakRemote     *remote,
+                              FlatpakRef        *ref,
+                              AsComponent       *component,
+                              const char        *appstream_dir,
+                              const char        *output_dir,
+                              GdkPaintable      *remote_icon,
+                              GError           **error)
 {
   g_autoptr (BzFlatpakEntry) self         = NULL;
   GBytes *bytes                           = NULL;
@@ -290,17 +290,21 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   g_autoptr (GListStore) version_history  = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
-  g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (rref), NULL);
-  g_return_val_if_fail (appstream_dir != NULL, NULL);
-  g_return_val_if_fail (output_dir != NULL, NULL);
+  g_return_val_if_fail (FLATPAK_IS_REF (ref), NULL);
+  g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (ref) || FLATPAK_IS_BUNDLE_REF (ref), NULL);
+  g_return_val_if_fail (component == NULL || appstream_dir != NULL, NULL);
+  g_return_val_if_fail (component == NULL || output_dir != NULL, NULL);
 
   self          = g_object_new (BZ_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
   self->user    = user;
-  self->rref    = g_object_ref (rref);
+  self->ref     = g_object_ref (ref);
 
   key_file = g_key_file_new ();
-  bytes    = flatpak_remote_ref_get_metadata (rref);
+  if (FLATPAK_IS_REMOTE_REF (ref))
+    bytes = flatpak_remote_ref_get_metadata (FLATPAK_REMOTE_REF (ref));
+  else if (FLATPAK_IS_BUNDLE_REF (ref))
+    bytes = flatpak_bundle_ref_get_metadata (FLATPAK_BUNDLE_REF (ref));
 
   result = g_key_file_load_from_bytes (
       key_file, bytes, G_KEY_FILE_NONE, error);
@@ -345,11 +349,15 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   if (kinds == 0)
     return NULL;
 
-  self->flatpak_id = flatpak_ref_format_ref (FLATPAK_REF (rref));
+  self->flatpak_id = flatpak_ref_format_ref (ref);
 
-  id            = flatpak_ref_get_name (FLATPAK_REF (rref));
-  unique_id     = bz_flatpak_ref_format_unique (FLATPAK_REF (rref), user);
-  download_size = flatpak_remote_ref_get_download_size (rref);
+  id        = flatpak_ref_get_name (ref);
+  unique_id = bz_flatpak_ref_format_unique (ref, user);
+
+  if (FLATPAK_IS_REMOTE_REF (ref))
+    download_size = flatpak_remote_ref_get_download_size (FLATPAK_REMOTE_REF (ref));
+  else if (FLATPAK_IS_BUNDLE_REF (ref))
+    download_size = flatpak_bundle_ref_get_installed_size (FLATPAK_BUNDLE_REF (ref));
 
   if (component != NULL)
     {
@@ -428,65 +436,68 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       icons = as_component_get_icons (component);
       if (icons != NULL)
         {
-          g_autofree char *select        = NULL;
-          gboolean         local         = FALSE;
-          int              select_width  = 0;
-          int              select_height = 0;
+          g_autofree char *select          = NULL;
+          gboolean         select_is_local = FALSE;
+          int              select_width    = 0;
+          int              select_height   = 0;
 
           for (guint i = 0; i < icons->len; i++)
             {
-              AsIcon *icon   = NULL;
-              int     width  = 0;
-              int     height = 0;
+              AsIcon  *icon     = NULL;
+              int      width    = 0;
+              int      height   = 0;
+              gboolean is_local = FALSE;
 
-              icon   = g_ptr_array_index (icons, i);
-              width  = as_icon_get_width (icon);
-              height = as_icon_get_height (icon);
+              icon     = g_ptr_array_index (icons, i);
+              width    = as_icon_get_width (icon);
+              height   = as_icon_get_height (icon);
+              is_local = as_icon_get_kind (icon) != AS_ICON_KIND_REMOTE;
 
-              if (select != NULL &&
-                  (width < select_width || height < select_height))
-                continue;
-
-              if (as_icon_get_kind (icon) == AS_ICON_KIND_REMOTE)
+              if (select == NULL ||
+                  (is_local && !select_is_local) ||
+                  (width > select_width && height > select_height))
                 {
-                  const char *url = NULL;
+                  if (is_local)
+                    {
+                      const char      *filename   = NULL;
+                      g_autofree char *resolution = NULL;
+                      g_autofree char *path       = NULL;
 
-                  url = as_icon_get_url (icon);
-                  if (url == NULL)
-                    continue;
+                      filename = as_icon_get_filename (icon);
+                      if (filename == NULL)
+                        continue;
 
-                  g_clear_pointer (&select, g_free);
-                  select        = g_strdup (url);
-                  local         = FALSE;
-                  select_width  = width;
-                  select_height = height;
-                }
-              else
-                {
-                  const char      *filename   = NULL;
-                  g_autofree char *resolution = NULL;
-                  g_autofree char *path       = NULL;
+                      resolution = g_strdup_printf ("%dx%d", width, height);
+                      path       = g_build_filename (
+                          appstream_dir,
+                          "icons",
+                          "flatpak",
+                          resolution,
+                          filename,
+                          NULL);
+                      if (!g_file_test (path, G_FILE_TEST_EXISTS))
+                        continue;
 
-                  filename = as_icon_get_filename (icon);
-                  if (filename == NULL)
-                    continue;
+                      g_clear_pointer (&select, g_free);
+                      select          = g_steal_pointer (&path);
+                      select_is_local = TRUE;
+                      select_width    = width;
+                      select_height   = height;
+                    }
+                  else
+                    {
+                      const char *url = NULL;
 
-                  resolution = g_strdup_printf ("%dx%d", width, height);
-                  path       = g_build_filename (
-                      appstream_dir,
-                      "icons",
-                      "flatpak",
-                      resolution,
-                      filename,
-                      NULL);
-                  if (!g_file_test (path, G_FILE_TEST_EXISTS))
-                    continue;
+                      url = as_icon_get_url (icon);
+                      if (url == NULL)
+                        continue;
 
-                  g_clear_pointer (&select, g_free);
-                  select        = g_steal_pointer (&path);
-                  local         = TRUE;
-                  select_width  = width;
-                  select_height = height;
+                      g_clear_pointer (&select, g_free);
+                      select          = g_strdup (url);
+                      select_is_local = FALSE;
+                      select_width    = width;
+                      select_height   = height;
+                    }
                 }
             }
 
@@ -501,7 +512,7 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
               g_autofree char *mini_icon_path        = NULL;
               g_autoptr (GFile) mini_icon_file       = NULL;
 
-              if (local)
+              if (select_is_local)
                 {
                   g_autoptr (GFile) file = NULL;
 
@@ -755,6 +766,25 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
       //   }
     }
 
+  if (icon_paintable == NULL &&
+      FLATPAK_IS_BUNDLE_REF (ref))
+    {
+      for (int size = 128; size > 0; size -= 64)
+        {
+          g_autoptr (GBytes) icon_bytes = NULL;
+
+          icon_bytes = flatpak_bundle_ref_get_icon (FLATPAK_BUNDLE_REF (ref), size);
+          if (icon_bytes == NULL)
+            continue;
+
+          icon_paintable = gdk_texture_new_from_bytes (icon_bytes, NULL);
+          /* don't error out even if loading fails */
+
+          if (icon_paintable != NULL)
+            break;
+        }
+    }
+
   search_tokens = g_ptr_array_new_with_free_func (g_free);
   if (as_search_tokens != NULL)
     {
@@ -781,7 +811,8 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   else
     title = self->flatpak_id;
 
-  eol = flatpak_remote_ref_get_eol (rref);
+  if (FLATPAK_IS_REMOTE_REF (ref))
+    eol = flatpak_remote_ref_get_eol (FLATPAK_REMOTE_REF (ref));
   if (eol != NULL)
     g_ptr_array_add (search_tokens, g_strdup (eol));
 
@@ -790,7 +821,10 @@ bz_flatpak_entry_new_for_remote_ref (BzFlatpakInstance *instance,
   if (long_description != NULL)
     g_ptr_array_add (search_tokens, g_strdup (long_description));
 
-  remote_name = flatpak_remote_get_name (remote);
+  if (remote != NULL)
+    remote_name = flatpak_remote_get_name (remote);
+  else if (FLATPAK_IS_BUNDLE_REF (ref))
+    remote_name = flatpak_bundle_ref_get_origin (FLATPAK_BUNDLE_REF (ref));
   if (remote_name != NULL)
     g_ptr_array_add (search_tokens, g_strdup (remote_name));
 
@@ -854,6 +888,8 @@ bz_flatpak_ref_format_unique (FlatpakRef *ref,
 
   if (FLATPAK_IS_REMOTE_REF (ref))
     origin = flatpak_remote_ref_get_remote_name (FLATPAK_REMOTE_REF (ref));
+  else if (FLATPAK_IS_BUNDLE_REF (ref))
+    origin = flatpak_bundle_ref_get_origin (FLATPAK_BUNDLE_REF (ref));
   else if (FLATPAK_IS_INSTALLED_REF (ref))
     origin = flatpak_installed_ref_get_origin (FLATPAK_INSTALLED_REF (ref));
 
@@ -867,7 +903,7 @@ FlatpakRef *
 bz_flatpak_entry_get_ref (BzFlatpakEntry *self)
 {
   g_return_val_if_fail (BZ_IS_FLATPAK_ENTRY (self), NULL);
-  return FLATPAK_REF (self->rref);
+  return self->ref;
 }
 
 gboolean
@@ -921,10 +957,10 @@ bz_flatpak_entry_launch (BzFlatpakEntry *self,
   /* async? */
   return flatpak_installation_launch (
       installation,
-      flatpak_ref_get_name (FLATPAK_REF (self->rref)),
-      flatpak_ref_get_arch (FLATPAK_REF (self->rref)),
-      flatpak_ref_get_branch (FLATPAK_REF (self->rref)),
-      flatpak_ref_get_commit (FLATPAK_REF (self->rref)),
+      flatpak_ref_get_name (self->ref),
+      flatpak_ref_get_arch (self->ref),
+      flatpak_ref_get_branch (self->ref),
+      flatpak_ref_get_commit (self->ref),
       NULL, error);
 }
 

@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "bz-backend.h"
+#include "bz-transaction.h"
 #include "bz-util.h"
 
 G_DEFINE_INTERFACE (BzBackend, bz_backend, G_TYPE_OBJECT)
@@ -45,7 +46,9 @@ static DexFuture *
 retrieve_with_blocklists_fiber (RetrieveWithBlocklistsData *data);
 
 static DexFuture *
-bz_backend_real_refresh (BzBackend *self)
+bz_backend_real_load_local_package (BzBackend    *self,
+                                    GFile        *file,
+                                    GCancellable *cancellable)
 {
   return NULL;
 }
@@ -95,7 +98,7 @@ bz_backend_real_schedule_transaction (BzBackend                       *self,
 static void
 bz_backend_default_init (BzBackendInterface *iface)
 {
-  iface->refresh                 = bz_backend_real_refresh;
+  iface->load_local_package      = bz_backend_real_load_local_package;
   iface->retrieve_remote_entries = bz_backend_real_retrieve_remote_entries;
   iface->retrieve_install_ids    = bz_backend_real_retrieve_install_ids;
   iface->retrieve_update_ids     = bz_backend_real_retrieve_update_ids;
@@ -103,10 +106,15 @@ bz_backend_default_init (BzBackendInterface *iface)
 }
 
 DexFuture *
-bz_backend_refresh (BzBackend *self)
+bz_backend_load_local_package (BzBackend    *self,
+                               GFile        *file,
+                               GCancellable *cancellable)
 {
   dex_return_error_if_fail (BZ_IS_BACKEND (self));
-  return BZ_BACKEND_GET_IFACE (self)->refresh (self);
+  dex_return_error_if_fail (G_IS_FILE (file));
+  dex_return_error_if_fail (cancellable == NULL || G_IS_CANCELLABLE (self));
+
+  return BZ_BACKEND_GET_IFACE (self)->load_local_package (self, file, cancellable);
 }
 
 DexFuture *
@@ -253,7 +261,6 @@ bz_backend_merge_and_schedule_transactions (BzBackend                       *sel
   g_autoptr (GPtrArray) removals_pa = NULL;
 
   g_return_val_if_fail (G_IS_LIST_MODEL (transactions), NULL);
-  g_return_val_if_fail (g_list_model_get_item_type (transactions) == BZ_TYPE_TRANSACTION, NULL);
 
   n_items = g_list_model_get_n_items (transactions);
   g_return_val_if_fail (n_items > 0, NULL);

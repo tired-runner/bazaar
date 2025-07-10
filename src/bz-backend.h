@@ -23,7 +23,6 @@
 #include <libdex.h>
 
 #include "bz-entry.h"
-#include "bz-transaction.h"
 
 G_BEGIN_DECLS
 
@@ -47,8 +46,10 @@ struct _BzBackendInterface
 {
   GTypeInterface parent_iface;
 
-  /* DexFuture* -> gboolean */
-  DexFuture *(*refresh) (BzBackend *self);
+  /* DexFuture* -> char*|BzEntry* */
+  DexFuture *(*load_local_package) (BzBackend    *self,
+                                    GFile        *file,
+                                    GCancellable *cancellable);
 
   /* DexFuture* -> gboolean */
   DexFuture *(*retrieve_remote_entries) (BzBackend                 *self,
@@ -82,7 +83,9 @@ struct _BzBackendInterface
 };
 
 DexFuture *
-bz_backend_refresh (BzBackend *self);
+bz_backend_load_local_package (BzBackend    *self,
+                               GFile        *file,
+                               GCancellable *cancellable);
 
 DexFuture *
 bz_backend_retrieve_remote_entries (BzBackend                 *self,

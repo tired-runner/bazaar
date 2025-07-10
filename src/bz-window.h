@@ -22,6 +22,8 @@
 
 #include <adwaita.h>
 
+#include "bz-entry-group.h"
+
 G_BEGIN_DECLS
 
 #define BZ_TYPE_WINDOW (bz_window_get_type ())
@@ -37,5 +39,13 @@ bz_window_toggle_transactions (BzWindow *self);
 void
 bz_window_push_update_dialog (BzWindow   *self,
                               GListStore *updates);
+
+void
+bz_window_show_entry (BzWindow *self,
+                      BzEntry  *entry);
+
+void
+bz_window_show_group (BzWindow     *self,
+                      BzEntryGroup *group);
 
 G_END_DECLS

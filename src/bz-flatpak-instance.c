@@ -59,6 +59,19 @@ static DexFuture *
 init_fiber (InitData *data);
 
 BZ_DEFINE_DATA (
+    load_local_ref,
+    LoadLocalRef,
+    {
+      GCancellable      *cancellable;
+      BzFlatpakInstance *instance;
+      GFile             *file;
+    },
+    BZ_RELEASE_DATA (cancellable, g_object_unref);
+    BZ_RELEASE_DATA (file, g_object_unref));
+static DexFuture *
+load_local_ref_fiber (LoadLocalRefData *data);
+
+BZ_DEFINE_DATA (
     gather_entries,
     GatherEntries,
     {
@@ -262,10 +275,21 @@ bz_flatpak_instance_init (BzFlatpakInstance *self)
 }
 
 static DexFuture *
-bz_flatpak_instance_refresh (BzBackend *backend)
+bz_flatpak_instance_load_local_package (BzBackend    *backend,
+                                        GFile        *file,
+                                        GCancellable *cancellable)
 {
-  /* TODO: move appstream sync here */
-  return dex_future_new_true ();
+  BzFlatpakInstance *self           = BZ_FLATPAK_INSTANCE (backend);
+  g_autoptr (LoadLocalRefData) data = NULL;
+
+  data              = load_local_ref_data_new ();
+  data->cancellable = cancellable != NULL ? g_object_ref (cancellable) : NULL;
+  data->instance    = self;
+  data->file        = g_object_ref (file);
+
+  return dex_scheduler_spawn (
+      self->scheduler, 0, (DexFiberFunc) load_local_ref_fiber,
+      load_local_ref_data_ref (data), load_local_ref_data_unref);
 }
 
 static DexFuture *
@@ -280,7 +304,6 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   BzFlatpakInstance *self            = BZ_FLATPAK_INSTANCE (backend);
   g_autoptr (GatherEntriesData) data = NULL;
 
-  dex_return_error_if_fail (BZ_IS_FLATPAK_INSTANCE (self));
   dex_return_error_if_fail (progress_func != NULL);
 
   /* clear func removes asynchronously */
@@ -415,7 +438,7 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
 static void
 backend_iface_init (BzBackendInterface *iface)
 {
-  iface->refresh                 = bz_flatpak_instance_refresh;
+  iface->load_local_package      = bz_flatpak_instance_load_local_package;
   iface->retrieve_remote_entries = bz_flatpak_instance_retrieve_remote_entries;
   iface->retrieve_install_ids    = bz_flatpak_instance_retrieve_install_ids;
   iface->retrieve_update_ids     = bz_flatpak_instance_retrieve_update_ids;
@@ -472,6 +495,78 @@ init_fiber (InitData *data)
         local_error->message);
 
   return dex_future_new_for_object (instance);
+}
+
+static DexFuture *
+load_local_ref_fiber (LoadLocalRefData *data)
+{
+  // GCancellable      *cancellable    = data->cancellable;
+  BzFlatpakInstance *instance       = data->instance;
+  GFile             *file           = data->file;
+  g_autoptr (GError) local_error    = NULL;
+  g_autofree char *path             = NULL;
+  g_autoptr (FlatpakBundleRef) bref = NULL;
+  g_autoptr (BzFlatpakEntry) entry  = NULL;
+
+  path = g_file_get_path (file);
+
+  if (g_str_has_suffix (path, ".flatpakref"))
+    {
+      g_autoptr (GKeyFile) key_file = g_key_file_new ();
+      gboolean         result       = FALSE;
+      g_autofree char *name         = NULL;
+
+      key_file = g_key_file_new ();
+      result   = g_key_file_load_from_file (
+          key_file, path, G_KEY_FILE_NONE, &local_error);
+      if (!result)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+            "failed to load local flatpakref '%s' into a key file: %s",
+            path,
+            local_error->message);
+
+      name = g_key_file_get_string (key_file, "Flatpak Ref", "Name", &local_error);
+      if (name == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+            "failed to load locate \"Name\" key in flatpakref '%s': %s",
+            path,
+            local_error->message);
+
+      return dex_future_new_take_string (g_steal_pointer (&name));
+    }
+
+  bref = flatpak_bundle_ref_new (file, &local_error);
+  if (bref == NULL)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to load local flatpak bundle '%s': %s",
+        path,
+        local_error->message);
+
+  entry = bz_flatpak_entry_new_for_ref (
+      instance,
+      FALSE,
+      NULL,
+      FLATPAK_REF (bref),
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      &local_error);
+  if (entry == NULL)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to parse information from flatpak bundle '%s': %s",
+        path,
+        local_error->message);
+
+  return dex_future_new_for_object (entry);
 }
 
 static DexFuture *
@@ -853,7 +948,6 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     {
       FlatpakRemoteRef *rref                    = NULL;
       const char       *name                    = NULL;
-      FlatpakRefKind    kind                    = 0;
       AsComponent      *component               = NULL;
       g_autoptr (RefRemoteAppsJobData) job_data = NULL;
 
@@ -861,7 +955,6 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       name = flatpak_ref_get_name (FLATPAK_REF (rref));
       if (blocked_names_hash != NULL && g_hash_table_contains (blocked_names_hash, name))
         continue;
-      kind = flatpak_ref_get_kind (FLATPAK_REF (rref));
 
       component = g_hash_table_lookup (id_hash, name);
       if (component == NULL)
@@ -922,11 +1015,11 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   g_autoptr (GatherEntriesUpdateData) update_data = NULL;
   g_autoptr (DexFuture) update                    = NULL;
 
-  entry = bz_flatpak_entry_new_for_remote_ref (
+  entry = bz_flatpak_entry_new_for_ref (
       data->parent->parent->instance,
       data->parent->installation == data->parent->parent->instance->user,
       data->parent->remote,
-      data->rref,
+      FLATPAK_REF (data->rref),
       data->component,
       data->appstream_dir,
       data->output_dir,
