@@ -145,7 +145,24 @@ template $BzWindow: Adw.ApplicationWindow {
                     name: "loading";
                     title: _("Loading");
 
-                    child: Adw.Spinner spinner {};
+                    child: Box {
+                      halign: center;
+                      valign: center;
+                      orientation: vertical;
+                      spacing: 20;
+
+                      Adw.Spinner {
+                        width-request: 64;
+                        height-request: 64;
+                      }
+                      
+                      $BzGlobalProgress {
+                        height-request: 20;
+                        expand-size: 150;
+                        active: bind template.busy;
+                        fraction: bind template.busy-progress;
+                      }
+                    };
                   }
 
                   Adw.ViewStackPage {
@@ -332,6 +349,7 @@ template $BzWindow: Adw.ApplicationWindow {
             active: bind split_view.show-sidebar bidirectional;
 
             child: $BzGlobalProgress {
+              expand-size: 125;
               active: bind template.transaction-manager as <$BzTransactionManager>.active;
               fraction: bind template.transaction-manager as <$BzTransactionManager>.current-progress;
 

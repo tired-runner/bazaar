@@ -82,6 +82,7 @@ BZ_DEFINE_DATA (
       BzBackendGatherEntriesFunc progress_func;
       gpointer                   user_data;
       GDestroyNotify             destroy_user_data;
+      guint                      total;
     },
     BZ_RELEASE_DATA (cancellable, g_object_unref);
     BZ_RELEASE_DATA (blocked_names, g_ptr_array_unref);
@@ -102,6 +103,7 @@ BZ_DEFINE_DATA (
       FlatpakInstallation *installation;
       FlatpakRemote       *remote;
       GHashTable          *blocked_names_hash;
+      guint                add_to_total;
     },
     BZ_RELEASE_DATA (parent, gather_entries_data_unref);
     BZ_RELEASE_DATA (installation, g_object_unref);
@@ -140,10 +142,10 @@ BZ_DEFINE_DATA (
     gather_entries_update,
     GatherEntriesUpdate,
     {
-      GatherEntriesData *parent;
-      BzEntry           *entry;
+      RefRemoteAppsForRemoteData *parent;
+      BzEntry                    *entry;
     },
-    BZ_RELEASE_DATA (parent, gather_entries_data_unref);
+    BZ_RELEASE_DATA (parent, ref_remote_apps_for_remote_data_unref);
     BZ_RELEASE_DATA (entry, g_object_unref));
 static DexFuture *
 gather_entries_job_update (GatherEntriesUpdateData *data);
@@ -317,6 +319,7 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   data->progress_func     = progress_func;
   data->user_data         = user_data;
   data->destroy_user_data = destroy_user_data;
+  data->total             = 0;
 
   return dex_scheduler_spawn (
       self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
@@ -643,6 +646,7 @@ ref_remote_apps_fiber (GatherEntriesData *data)
       job_data->installation       = g_object_ref (installation);
       job_data->remote             = g_object_ref (remote);
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
+      job_data->add_to_total       = 0;
 
       jobs[n_jobs++] = dex_scheduler_spawn (
           instance->scheduler, 0,
@@ -698,7 +702,6 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   // g_autofree char *remote_icon_name       = NULL;
   g_autoptr (GdkPaintable) remote_icon   = NULL;
   g_autoptr (GPtrArray) refs             = NULL;
-  guint                  n_jobs          = 0;
   g_autofree char       *output_dir_path = NULL;
   g_autofree DexFuture **jobs            = NULL;
   g_autoptr (DexFuture) future           = NULL;
@@ -943,6 +946,24 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     }
   add_cache_dir (instance, output_dir_path, home_scheduler);
 
+  for (guint i = 0; i < refs->len;)
+    {
+      FlatpakRemoteRef *rref = NULL;
+      const char       *name = NULL;
+
+      rref = g_ptr_array_index (refs, i);
+      name = flatpak_ref_get_name (FLATPAK_REF (rref));
+
+      if (blocked_names_hash != NULL &&
+          g_hash_table_contains (blocked_names_hash, name))
+        g_ptr_array_remove_index_fast (refs, i);
+      else
+        i++;
+    }
+  if (refs->len == 0)
+    goto done;
+  data->add_to_total = refs->len;
+
   jobs = g_malloc0_n (refs->len, sizeof (*jobs));
   for (guint i = 0; i < refs->len; i++)
     {
@@ -951,11 +972,8 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       AsComponent      *component               = NULL;
       g_autoptr (RefRemoteAppsJobData) job_data = NULL;
 
-      rref = g_ptr_array_index (refs, i);
-      name = flatpak_ref_get_name (FLATPAK_REF (rref));
-      if (blocked_names_hash != NULL && g_hash_table_contains (blocked_names_hash, name))
-        continue;
-
+      rref      = g_ptr_array_index (refs, i);
+      name      = flatpak_ref_get_name (FLATPAK_REF (rref));
       component = g_hash_table_lookup (id_hash, name);
       if (component == NULL)
         {
@@ -975,18 +993,15 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       job_data->output_dir  = g_strdup (output_dir_path);
       job_data->remote_icon = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
-      jobs[n_jobs++] = dex_scheduler_spawn (
+      jobs[i] = dex_scheduler_spawn (
           instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_job_fiber,
           ref_remote_apps_job_data_ref (job_data),
           ref_remote_apps_job_data_unref);
     }
 
-  if (n_jobs == 0)
-    goto done;
-
-  future = dex_future_all_racev (jobs, n_jobs);
-  for (guint i = 0; i < n_jobs; i++)
+  future = dex_future_all_racev (jobs, refs->len);
+  for (guint i = 0; i < refs->len; i++)
     dex_unref (jobs[i]);
 
   result = dex_await (g_steal_pointer (&future), &local_error);
@@ -1032,7 +1047,7 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
     }
 
   update_data         = gather_entries_update_data_new ();
-  update_data->parent = gather_entries_data_ref (data->parent->parent);
+  update_data->parent = ref_remote_apps_for_remote_data_ref (data->parent);
   update_data->entry  = g_object_ref (BZ_ENTRY (entry));
 
   update = dex_scheduler_spawn (
@@ -1157,9 +1172,13 @@ ref_updates_fiber (GatherEntriesData *data)
 static DexFuture *
 gather_entries_job_update (GatherEntriesUpdateData *data)
 {
-  data->parent->progress_func (
+  data->parent->parent->total += data->parent->add_to_total;
+  data->parent->add_to_total = 0;
+
+  data->parent->parent->progress_func (
       data->entry,
-      data->parent->user_data);
+      data->parent->parent->total,
+      data->parent->parent->user_data);
 
   return dex_future_new_true ();
 }

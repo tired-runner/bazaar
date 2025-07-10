@@ -33,6 +33,7 @@ struct _BzGlobalProgress
   double     fraction;
   double     actual_fraction;
   double     transition_progress;
+  int        expand_size;
 
   AdwAnimation *transition_animation;
   AdwAnimation *fraction_animation;
@@ -53,7 +54,7 @@ enum
   PROP_FRACTION,
   PROP_ACTUAL_FRACTION,
   PROP_TRANSITION_PROGRESS,
-  PROP_ICON_NAME,
+  PROP_EXPAND_SIZE,
 
   LAST_PROP
 };
@@ -102,6 +103,9 @@ bz_global_progress_get_property (GObject *object,
     case PROP_TRANSITION_PROGRESS:
       g_value_set_double (value, bz_global_progress_get_transition_progress (self));
       break;
+    case PROP_EXPAND_SIZE:
+      g_value_set_int (value, bz_global_progress_get_expand_size (self));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -132,6 +136,9 @@ bz_global_progress_set_property (GObject      *object,
     case PROP_TRANSITION_PROGRESS:
       bz_global_progress_set_transition_progress (self, g_value_get_double (value));
       break;
+    case PROP_EXPAND_SIZE:
+      bz_global_progress_set_expand_size (self, g_value_get_int (value));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -158,7 +165,7 @@ bz_global_progress_measure (GtkWidget     *widget,
     {
       int add = 0;
 
-      add = round (self->transition_progress * 100.0);
+      add = round (self->transition_progress * self->expand_size);
 
       (*minimum) += add;
       (*natural) += add;
@@ -283,10 +290,11 @@ bz_global_progress_class_init (BzGlobalProgressClass *klass)
           -10.0, 10.0, 0.0,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
-  props[PROP_ICON_NAME] =
-      g_param_spec_string (
-          "icon-name",
-          NULL, NULL, NULL,
+  props[PROP_EXPAND_SIZE] =
+      g_param_spec_int (
+          "expand-size",
+          NULL, NULL,
+          0, G_MAXINT, 100,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -303,6 +311,8 @@ bz_global_progress_init (BzGlobalProgress *self)
   AdwSpringParams    *transition_spring = NULL;
   AdwAnimationTarget *fraction_target   = NULL;
   AdwSpringParams    *fraction_spring   = NULL;
+
+  self->expand_size = 100;
 
   transition_target          = adw_property_animation_target_new (G_OBJECT (self), "transition-progress");
   transition_spring          = adw_spring_params_new (0.75, 0.8, 200.0);
@@ -481,4 +491,23 @@ bz_global_progress_get_transition_progress (BzGlobalProgress *self)
 {
   g_return_val_if_fail (BZ_IS_GLOBAL_PROGRESS (self), FALSE);
   return self->transition_progress;
+}
+
+void
+bz_global_progress_set_expand_size (BzGlobalProgress *self,
+                                    int               expand_size)
+{
+  g_return_if_fail (BZ_IS_GLOBAL_PROGRESS (self));
+
+  self->expand_size = MAX (expand_size, 0);
+  gtk_widget_queue_resize (GTK_WIDGET (self));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_EXPAND_SIZE]);
+}
+
+int
+bz_global_progress_get_expand_size (BzGlobalProgress *self)
+{
+  g_return_val_if_fail (BZ_IS_GLOBAL_PROGRESS (self), FALSE);
+  return self->expand_size;
 }

@@ -50,6 +50,7 @@ struct _BzWindow
   GListModel           *installed;
   GListStore           *updates;
   gboolean              busy;
+  double                busy_progress;
   gboolean              online;
 
   GBinding *search_to_view_binding;
@@ -93,6 +94,7 @@ enum
   PROP_INSTALLED,
   PROP_UPDATES,
   PROP_BUSY,
+  PROP_BUSY_PROGRESS,
   PROP_ONLINE,
 
   LAST_PROP
@@ -225,6 +227,9 @@ bz_window_get_property (GObject    *object,
     case PROP_BUSY:
       g_value_set_boolean (value, self->busy);
       break;
+    case PROP_BUSY_PROGRESS:
+      g_value_set_double (value, self->busy_progress);
+      break;
     case PROP_ONLINE:
       g_value_set_boolean (value, self->online);
       break;
@@ -319,6 +324,9 @@ bz_window_set_property (GObject      *object,
     case PROP_BUSY:
       self->busy = g_value_get_boolean (value);
       set_page (self);
+      break;
+    case PROP_BUSY_PROGRESS:
+      self->busy_progress = g_value_get_double (value);
       break;
     case PROP_ONLINE:
       self->online = g_value_get_boolean (value);
@@ -556,6 +564,13 @@ bz_window_class_init (BzWindowClass *klass)
           "busy",
           NULL, NULL,
           FALSE,
+          G_PARAM_READWRITE);
+
+  props[PROP_BUSY_PROGRESS] =
+      g_param_spec_double (
+          "busy-progress",
+          NULL, NULL,
+          0.0, G_MAXDOUBLE, 0.0,
           G_PARAM_READWRITE);
 
   props[PROP_ONLINE] =

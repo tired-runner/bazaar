@@ -49,6 +49,7 @@ struct _BzApplication
 
   gboolean   running;
   DexFuture *refresh_task;
+  double     refresh_progress;
   gboolean   online;
 
   GtkCssProvider  *css;
@@ -86,6 +87,7 @@ enum
   PROP_TRANSACTION_MANAGER,
   PROP_CONTENT_PROVIDER,
   PROP_BUSY,
+  PROP_BUSY_PROGRESS,
   PROP_ONLINE,
 
   LAST_PROP
@@ -98,6 +100,7 @@ open_flatpakref_finally (DexFuture     *future,
 
 static void
 gather_entries_progress (BzEntry       *entry,
+                         guint          total,
                          BzApplication *self);
 
 static void
@@ -217,6 +220,9 @@ bz_application_get_property (GObject    *object,
     case PROP_BUSY:
       g_value_set_boolean (value, self->refresh_task != NULL);
       break;
+    case PROP_BUSY_PROGRESS:
+      g_value_set_double (value, self->refresh_progress);
+      break;
     case PROP_ONLINE:
       g_value_set_boolean (value, self->online);
       break;
@@ -254,6 +260,7 @@ bz_application_set_property (GObject      *object,
     case PROP_TRANSACTION_MANAGER:
     case PROP_CONTENT_PROVIDER:
     case PROP_BUSY:
+    case PROP_BUSY_PROGRESS:
     case PROP_ONLINE:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1001,6 +1008,13 @@ bz_application_class_init (BzApplicationClass *klass)
           FALSE,
           G_PARAM_READABLE);
 
+  props[PROP_BUSY_PROGRESS] =
+      g_param_spec_double (
+          "busy-progress",
+          NULL, NULL,
+          0.0, G_MAXDOUBLE, 0.0,
+          G_PARAM_READABLE);
+
   props[PROP_ONLINE] =
       g_param_spec_boolean (
           "online",
@@ -1398,19 +1412,16 @@ open_flatpakref_finally (DexFuture     *future,
 
 static void
 gather_entries_progress (BzEntry       *entry,
+                         guint          total,
                          BzApplication *self)
 {
+  guint n_entries = 0;
+
   const char *unique_id = NULL;
 
   unique_id = bz_entry_get_unique_id (entry);
   if (g_hash_table_contains (self->unique_id_to_entry_hash, unique_id))
     return;
-
-  g_list_store_append (self->all_entries, entry);
-  g_hash_table_replace (
-      self->unique_id_to_entry_hash,
-      g_strdup (unique_id),
-      g_object_ref (entry));
 
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
     {
@@ -1449,6 +1460,16 @@ gather_entries_progress (BzEntry       *entry,
     g_list_store_append (self->runtimes, entry);
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_ADDON))
     g_list_store_append (self->addons, entry);
+
+  g_list_store_append (self->all_entries, entry);
+  g_hash_table_replace (
+      self->unique_id_to_entry_hash,
+      g_strdup (unique_id),
+      g_object_ref (entry));
+
+  n_entries              = g_list_model_get_n_items (G_LIST_MODEL (self->all_entries));
+  self->refresh_progress = (double) n_entries / (double) total;
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY_PROGRESS]);
 }
 
 static void
@@ -1736,7 +1757,8 @@ refresh (BzApplication *self)
   g_list_store_remove_all (self->installed);
   g_list_store_remove_all (self->updates);
 
-  self->online = FALSE;
+  self->online           = FALSE;
+  self->refresh_progress = 0.0;
 
   if (self->flatpak == NULL)
     future = bz_flatpak_instance_new ();
@@ -1753,6 +1775,7 @@ refresh (BzApplication *self)
   bz_flathub_state_update_to_today (self->flathub);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY_PROGRESS]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 }
 
@@ -1916,6 +1939,10 @@ new_window (BzApplication *self)
   g_object_bind_property (
       self, "busy",
       window, "busy",
+      G_BINDING_SYNC_CREATE);
+  g_object_bind_property (
+      self, "busy-progress",
+      window, "busy-progress",
       G_BINDING_SYNC_CREATE);
   g_object_bind_property (
       self, "online",

@@ -65,4 +65,11 @@ bz_global_progress_set_transition_progress (BzGlobalProgress *self,
 double
 bz_global_progress_get_transition_progress (BzGlobalProgress *self);
 
+void
+bz_global_progress_set_expand_size (BzGlobalProgress *self,
+                                    int               expand_size);
+
+int
+bz_global_progress_get_expand_size (BzGlobalProgress *self);
+
 G_END_DECLS

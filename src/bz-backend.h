@@ -31,6 +31,7 @@ G_DECLARE_INTERFACE (BzBackend, bz_backend, BZ, BACKEND, GObject)
 
 typedef void (*BzBackendGatherEntriesFunc) (
     BzEntry *entry,
+    guint    total,
     gpointer user_data);
 
 typedef void (*BzBackendTransactionProgressFunc) (
