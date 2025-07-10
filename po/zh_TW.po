@@ -1,0 +1,559 @@
+# Traditional Chinese translations for bazaar package
+# Copyright (C) 2025 THE bazaar'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the bazaar package.
+# Automatically generated, 2025.
+#
+# SPDX-FileCopyrightText: 2025 Shihfu Juan <xlion@xlion.tw>
+msgid ""
+msgstr ""
+"Project-Id-Version: bazaar\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-10 09:33+0800\n"
+"PO-Revision-Date: 2025-07-10 20:21+0800\n"
+"Last-Translator: Shihfu Juan <xlion@xlion.tw>\n"
+"Language-Team: none\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.6\n"
+
+#: data/io.github.kolunmi.Bazaar.desktop.in:2
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:7 src/bz-window.blp:5
+msgid "Bazaar"
+msgstr "Bazaar"
+
+#: data/io.github.kolunmi.Bazaar.desktop.in:3
+msgid "Add, remove or update flatpak software on this computer"
+msgstr "新增、移除或更新此電腦上的 Flatpak 軟體"
+
+#: data/io.github.kolunmi.Bazaar.desktop.in:9
+msgid "GTK;System;PackageManager;Discover;Flatpak;Software;Store;"
+msgstr ""
+"GTK;System;PackageManager;Discover;Flatpak;Software;Store;套件管理;探索;軟體;"
+"商店;"
+
+#: data/io.github.kolunmi.Bazaar.gschema.xml:6
+msgid "Show Animated Background"
+msgstr "顯示動畫背景"
+
+#: data/io.github.kolunmi.Bazaar.gschema.xml:7
+msgid "Whether to show the animated icon background on the home page"
+msgstr "是否要在首頁顯示動畫的圖標背景"
+
+#. FIXME: add descriptions and summary
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:9
+msgid "Keep the summary shorter, between 10 and 35 characters"
+msgstr "保持摘要簡短，約在 10 到 35 個字元內"
+
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:11
+msgid "No description"
+msgstr "沒有描述"
+
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:15 src/bz-application.c:1069
+msgid "Adam Masciola"
+msgstr "Adam Masciola"
+
+#: data/io.github.kolunmi.Bazaar.metainfo.xml.in:41
+msgid "Main Bazaar window showing Blender"
+msgstr "顯示 Blender 的 Bazaar 視窗"
+
+#: src/bz-addons-dialog.blp:13 src/bz-installed-page.blp:162
+#: src/bz-installed-page.blp:174
+msgid "Manage Addons"
+msgstr "管理附加元件"
+
+#: src/bz-app-tile.blp:65 src/bz-full-view.blp:139
+msgid "This flatpak is verified by the original developers of the software."
+msgstr "這個 Flatpak 已經被軟體的原始開發者認證"
+
+#: src/bz-application.c:1041
+msgctxt "About Dialog Developer Credit"
+msgid "Adam Masciola <kolunmi@posteo.net>"
+msgstr "Adam Masciola <kolunmi@posteo.net>"
+
+#: src/bz-application.c:1046
+msgctxt "About Dialog Translator Credit"
+msgid "Ahmed Najmawi"
+msgstr "Ahmed Najmawi"
+
+#: src/bz-application.c:1047
+msgctxt "About Dialog Translator Credit"
+msgid "AtomHare"
+msgstr "AtomHare"
+
+#: src/bz-application.c:1048
+msgctxt "About Dialog Translator Credit"
+msgid "Jill Fiore"
+msgstr "Jill Fiore"
+
+#: src/bz-application.c:1049
+msgctxt "About Dialog Translator Credit"
+msgid "Lucosec"
+msgstr "Lucosec"
+
+#: src/bz-application.c:1050
+msgctxt "About Dialog Translator Credit"
+msgid "Vlastimil Dědek"
+msgstr "Vlastimil Dědek"
+
+#: src/bz-application.c:1051
+msgctxt "About Dialog Translator Credit"
+msgid "asen23"
+msgstr "asen23"
+
+#: src/bz-application.c:1052
+msgctxt "About Dialog Translator Credit"
+msgid "renner"
+msgstr "renner"
+
+#: src/bz-application.c:1053
+msgctxt "About Dialog Translator Credit"
+msgid "robotta"
+msgstr "robotta"
+
+#: src/bz-browse-widget.blp:11 src/bz-full-view.blp:11
+#: src/bz-installed-page.blp:11 src/bz-window.blp:32
+msgid "Empty"
+msgstr "空"
+
+#: src/bz-browse-widget.blp:15
+msgid "No Curated Applications"
+msgstr "沒有精選的應用程式"
+
+#: src/bz-browse-widget.blp:16
+msgid ""
+"Bazaar was not provided a curated content configuration. Contact your "
+"operating system's support channels for assistance."
+msgstr "Bazaar 未提供精選內容的設定。請聯絡您的作業系統支援頻道以獲得協助。"
+
+#: src/bz-browse-widget.blp:22 src/bz-flathub-page.blp:11
+msgid "Browser"
+msgstr "瀏覽器"
+
+#: src/bz-error.c:45
+msgid "An Error Occurred"
+msgstr "發生了一個錯誤"
+
+#: src/bz-error.c:51
+msgid "Close"
+msgstr "關閉"
+
+#: src/bz-error.c:52
+msgid "Copy and Close"
+msgstr "複製和關閉"
+
+#: src/bz-flathub-page.blp:41
+msgid "Apps Of The Week"
+msgstr "本週精選應用程式"
+
+#: src/bz-flathub-page.blp:85
+msgid "Trending"
+msgstr "熱門"
+
+#: src/bz-flathub-page.blp:117
+msgid "Recently Updated"
+msgstr "最近更新"
+
+#: src/bz-flathub-page.blp:149
+msgid "Recently Added"
+msgstr "最近新增"
+
+#: src/bz-flathub-page.blp:181
+msgid "Popular"
+msgstr "熱門"
+
+#: src/bz-full-view.blp:15
+msgid "No Results"
+msgstr "沒有結果"
+
+#: src/bz-full-view.blp:16
+msgid "Try a different search query"
+msgstr "請嘗試不同的搜尋關鍵字"
+
+#: src/bz-full-view.blp:22 src/bz-window.blp:42
+msgid "Content"
+msgstr "聯絡"
+
+#: src/bz-full-view.blp:180
+msgid "Run this application"
+msgstr "執行應用程式"
+
+#: src/bz-full-view.blp:204
+msgid "Download and install this application"
+msgstr "下載和安裝這個應用程式"
+
+#: src/bz-full-view.blp:222 src/bz-window.c:905
+msgid "Install"
+msgstr "安裝"
+
+#: src/bz-full-view.blp:236
+msgid "Uninstall this application"
+msgstr "移除這個應用程式"
+
+#: src/bz-full-view.blp:262
+msgid "Share this application"
+msgstr "分享這個應用程式"
+
+#: src/bz-full-view.blp:274
+msgid ""
+"The number of downloads in the last 30 days. Click to view this "
+"application's download statistics."
+msgstr "過去 30 天的下載次數。點擊以查看此應用程式的下載統計資料。"
+
+#: src/bz-full-view.blp:316
+msgid "Support this developer"
+msgstr "支持這個開發者"
+
+#: src/bz-full-view.blp:329
+msgid "Support"
+msgstr "支持"
+
+#: src/bz-full-view.blp:387
+msgid "Remote repo name"
+msgstr "遠端儲存庫名稱"
+
+#: src/bz-full-view.blp:400
+msgid "Project URL"
+msgstr "專案網址"
+
+#: src/bz-full-view.blp:412
+msgid "Download size"
+msgstr "下載大小"
+
+#: src/bz-full-view.c:213
+#, c-format
+msgid "Released %x"
+msgstr "發布於 %x"
+
+#: src/bz-full-view.c:224
+msgid "No URL"
+msgstr "沒有網址"
+
+#: src/bz-full-view.c:232
+msgid ""
+"This application has a FLOSS license, meaning the source code can be audited "
+"for safety."
+msgstr "此應用程式具有 FLOSS 授權，這意味著其原始碼可供審查以確保安全性。"
+
+#: src/bz-full-view.c:233
+msgid ""
+"This application has a proprietary license, meaning the source code is "
+"developed privately and cannot be audited by an independent third party."
+msgstr ""
+"此應用程式採用專有授權，表示其原始碼由開發者私下開發且無法由第三方獨立審查。"
+
+#: src/bz-installed-page.blp:15
+msgid "No Flatpaks Installed"
+msgstr "沒有已安裝的 Flatpak"
+
+#: src/bz-installed-page.blp:21 src/bz-window.blp:184 src/bz-window.blp:306
+msgid "Installed"
+msgstr "已安裝"
+
+#: src/bz-installed-page.blp:143
+msgid "More actions"
+msgstr "更多操作"
+
+#: src/bz-installed-page.blp:187 src/bz-installed-page.blp:198
+msgid "Edit Permissions"
+msgstr "編輯權限"
+
+#: src/bz-preferences-dialog.blp:9
+msgid "Preferences"
+msgstr "偏好設定"
+
+#: src/bz-preferences-dialog.blp:13
+msgid "How the application looks"
+msgstr "這個應用程式看起來怎麼樣"
+
+#: src/bz-preferences-dialog.blp:14
+msgid "Appearance"
+msgstr "外觀"
+
+#: src/bz-preferences-dialog.blp:17
+msgid "Show animated background"
+msgstr "顯示動畫背景"
+
+#: src/bz-search-widget.blp:69
+msgid "Type to filter"
+msgstr "輸入以篩選"
+
+#: src/bz-search-widget.blp:98 src/bz-search-widget.blp:115
+msgid "Search Options"
+msgstr "搜尋選項"
+
+#: src/bz-search-widget.blp:119
+msgid "Exclude results with proprietary licenses"
+msgstr "排除具有專有授權的結果"
+
+#: src/bz-search-widget.blp:124
+msgid "Exclude results not originating from Flathub"
+msgstr "排除來源並非 Flathub 的結果"
+
+#: src/bz-search-widget.blp:139
+msgid "Advanced"
+msgstr "進階"
+
+#: src/bz-search-widget.blp:143
+msgid "Match using regular expressions"
+msgstr "使用正則表達式匹配"
+
+#: src/bz-search-widget.blp:148
+msgid "Hide filtering and sorting behind a crossfade effect"
+msgstr "將篩選與排序的效果以交錯淡出方式隱藏"
+
+#: src/bz-search-widget.blp:153
+msgid "Debounce input to prevent instant replies"
+msgstr "對輸入進行防抖處理以避免立即回應"
+
+#: src/bz-share-dialog.blp:13
+msgid "Share"
+msgstr "分享"
+
+#: src/bz-share-dialog.blp:64
+msgid "Copy this link"
+msgstr "複製這個連結"
+
+#: src/bz-share-dialog.blp:71
+msgid "Open this link externally"
+msgstr "在外部打開連結"
+
+#: src/bz-stats-dialog.blp:15
+msgid "Downloads Over Time"
+msgstr "下載趨勢"
+
+#: src/bz-stats-dialog.blp:31
+msgid "Minimize Lower Bound"
+msgstr "調低下界"
+
+#: src/bz-stats-dialog.blp:36
+msgid "Maximize Upper Bound"
+msgstr "調低下界"
+
+#: src/bz-transaction-manager.c:451
+#, c-format
+msgid "Finished in %.02f seconds"
+msgstr "於 %.02f 秒完成"
+
+#: src/bz-transaction-view.blp:34
+msgid "Installing"
+msgstr "正在安裝"
+
+#: src/bz-transaction-view.blp:63
+msgid "Updating"
+msgstr "正在更新"
+
+#: src/bz-transaction-view.blp:92
+msgid "Removing"
+msgstr "移除中"
+
+#: src/bz-transaction.c:268
+msgid "Pending"
+msgstr "等待中"
+
+#: src/bz-update-dialog.blp:6
+msgid "Later"
+msgstr "稍後"
+
+#: src/bz-update-dialog.blp:7
+msgid "Install Now"
+msgstr "現在安裝"
+
+#: src/bz-update-dialog.blp:10
+msgid "Updates Are Available"
+msgstr "更新可用"
+
+#: src/bz-update-dialog.blp:11
+msgid ""
+"The following applications are eligible for updates. Would you like to "
+"install them?"
+msgstr "下列應用程式可進行更新。您想要安裝它們嗎？"
+
+#: src/bz-update-dialog.c:135
+#, c-format
+msgid ""
+"%d runtimes and/or addons are eligible for updates. Would you like to "
+"install them?"
+msgstr "%d 個執行時期與/或附加元件可進行更新。您想要安裝它們嗎？"
+
+#: src/bz-update-dialog.c:143
+#, c-format
+msgid "Additionally, %d runtimes and/or addons will be updated."
+msgstr "此外，還有 %d 個執行時期與/或附加元件將會更新。"
+
+#: src/bz-window.blp:36
+msgid "Transactions Will Appear Here"
+msgstr "安裝作業將顯示在這裡"
+
+#: src/bz-window.blp:97
+msgid "Halt the execution of transactions"
+msgstr "停止執行安裝作業"
+
+#: src/bz-window.blp:105
+msgid "Clear all finished transactions"
+msgstr "清除所有已完成的安裝作業"
+
+#: src/bz-window.blp:136 src/bz-window.blp:140
+msgid "Offline"
+msgstr "離線"
+
+#: src/bz-window.blp:146
+msgid "Loading"
+msgstr "載入中"
+
+#: src/bz-window.blp:153
+msgid "Browse"
+msgstr "瀏覽"
+
+#: src/bz-window.blp:163
+msgid "App View"
+msgstr "App View"
+
+#: src/bz-window.blp:174 src/bz-window.blp:285
+msgid "Flathub"
+msgstr "Flathub"
+
+#: src/bz-window.blp:203
+msgid "Go Back"
+msgstr "返回"
+
+#: src/bz-window.blp:211
+msgid "Refresh"
+msgstr "刷新"
+
+#: src/bz-window.blp:220
+msgid "Search"
+msgstr "搜尋"
+
+#: src/bz-window.blp:232
+msgid "Update"
+msgstr "更新"
+
+#: src/bz-window.blp:249
+msgid "View curated applications"
+msgstr "查看精選的應用程式"
+
+#: src/bz-window.blp:264
+msgid "Curated"
+msgstr "精選"
+
+#: src/bz-window.blp:270
+msgid "View the latest on Flathub"
+msgstr "在 Flathub 查看最新的"
+
+#: src/bz-window.blp:291
+msgid "View installed applications"
+msgstr "檢視已安裝的應用程式"
+
+#: src/bz-window.blp:320
+msgid "Main Menu"
+msgstr "主選單"
+
+#: src/bz-window.blp:331
+msgid "Toggle transaction sidebar"
+msgstr "切換安裝作業側面板"
+
+#: src/bz-window.blp:374
+msgid "_Keyboard Shortcuts"
+msgstr "_鍵盤快捷建"
+
+#: src/bz-window.blp:379
+msgid "_About Bazaar"
+msgstr "_關於 Bazaar"
+
+#: src/bz-window.blp:384
+msgid "_Donate to Bazaar ❤️"
+msgstr "_捐款給 Bazaar ❤️"
+
+#: src/bz-window.c:845
+msgid "Can't do that right now!"
+msgstr "現在不可以這麼做！"
+
+#: src/bz-window.c:858
+msgid "Confirm Action"
+msgstr "確認操作"
+
+#: src/bz-window.c:876
+#, c-format
+msgid ""
+"You are about to remove the following Flatpak:\n"
+"\n"
+"<b>%s</b>\n"
+"<tt>%s</tt>\n"
+"\n"
+"Are you sure?"
+msgstr ""
+"您將要移除下列的 Flatpak：\r\n"
+"\r\n"
+"<b>%s</b>\r\n"
+"<tt>%s</tt>\r\n"
+"\r\n"
+"您確定嗎？"
+
+#: src/bz-window.c:884 src/bz-window.c:904
+msgid "Cancel"
+msgstr "取消"
+
+#: src/bz-window.c:885
+msgid "Remove"
+msgstr "移除"
+
+#: src/bz-window.c:896
+#, c-format
+msgid ""
+"You are about to install the following Flatpak:\n"
+"\n"
+"<b>%s</b>\n"
+"<tt>%s</tt>\n"
+"\n"
+"Are you sure?"
+msgstr ""
+"您將要安裝下列的 Flatpak：\r\n"
+"\r\n"
+"<b>%s</b>\r\n"
+"<tt>%s</tt>\r\n"
+"\r\n"
+"您確定嗎？"
+
+#: src/bz-window.c:930
+msgid "More details"
+msgstr "更多資訊"
+
+#: src/bz-window.c:1056
+msgid "Resume the execution of transactions"
+msgstr "恢復執行中的安裝作業"
+
+#: src/bz-window.c:1062
+msgid "Pause the execution of transactions"
+msgstr "暫停執行中的安裝作業"
+
+#: src/gtk/help-overlay.blp:11
+msgctxt "shortcut window"
+msgid "General"
+msgstr "一般"
+
+#: src/gtk/help-overlay.blp:14
+msgctxt "shortcut window"
+msgid "Open Search Dialog"
+msgstr "開啟搜尋對話框"
+
+#: src/gtk/help-overlay.blp:19
+msgctxt "shortcut window"
+msgid "Refresh"
+msgstr "刷新"
+
+#: src/gtk/help-overlay.blp:24
+msgctxt "shortcut window"
+msgid "Toggle Transaction Manager"
+msgstr "切換安裝作業管理器"
+
+#: src/gtk/help-overlay.blp:29
+msgctxt "shortcut window"
+msgid "Show Shortcuts"
+msgstr "顯示快捷建"
+
+#: src/gtk/help-overlay.blp:34
+msgctxt "shortcut window"
+msgid "Quit"
+msgstr "離開"
