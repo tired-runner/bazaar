@@ -30,9 +30,9 @@ translators_helper() {
     printf "Temporary file: %s\n" "${temp_file}"
 
     printf "Setting im_a_translator to true\n"
-    meson setup build -Dim_a_translator=true
+    meson setup build -Dim_a_translator=true || return 1
 
-    pushd "${po_d}" >/dev/null || return
+    pushd "${po_d}" >/dev/null || return 1
 
     langs_in_file="$(wc --lines "${lang_f}" | grep --only-matching --extended-regex "[0-9]{1,}")"
     printf "\nNumber of languages currently in file %s\n" "${langs_in_file}"
@@ -40,7 +40,7 @@ translators_helper() {
 
     printf "Language codes currently in %s file.\n" "${lang_f}"
     cat --squeeze-blank "${lang_f}"
-    read -r -n 1 -p "Proceed? " YN
+    read -r -n 1 -p "Proceed? (Type y or Y to confirm)" YN
     case "$YN" in
     [Yy])
         printf "\n%s\n" "Proceeding..."
@@ -85,9 +85,9 @@ translators_helper() {
     cat --squeeze-blank "${temp_file}"
     cat --squeeze-blank "${lang_f}"
     # $EDITOR LINGUAS
-    popd || return
+    popd || return 1
 
-    pushd "${build_d}" || return
+    pushd "${build_d}" || return 1
 
     printf "Generating the main pot (Portable Object Template) file for lang %s...\n" "${lang_input}"
     meson compile bazaar-pot
@@ -95,10 +95,14 @@ translators_helper() {
     printf "Update and/or create the po (Portable Object) files for %s.\n" "${lang_input}"
     meson compile bazaar-update-po
 
+    echo "--------------------------------"
     printf "\nConfiguration done. Now ready for you to open your \"po\" file in your text editor and begin translating.\n"
-    printf "When you are done, commit your changes form your fork and submit a pull request on \n%s also, refer to TRANSLATORS.md if needed\e]8;;\e\\ \n" "https://github.com/kolunmi/bazaar/blob/master/TRANSLATORS.md"
+    printf "When you are done, commit your changes form your fork and submit a pull request on \n%s also, refer to TRANSLATORS.md if needed\e]8;;\e\\ \n\n" "https://github.com/kolunmi/bazaar/blob/master/TRANSLATORS.md"
+    echo "--------------------------------"
 
-    popd || return
+    popd || return 1
 
+    return 0
 }
-translators_helper
+
+translators_helper || echo 'An error occurred; review the above output' 2>&1
