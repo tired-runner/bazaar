@@ -654,8 +654,6 @@ ref_remote_apps_fiber (GatherEntriesData *data)
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
       job_data->add_to_total       = 0;
 
-      g_print ("%s\n", flatpak_remote_get_name (remote));
-
       jobs[n_jobs++] = dex_scheduler_spawn (
           instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
