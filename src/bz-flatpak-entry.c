@@ -28,6 +28,7 @@
 #include "bz-paintable-model.h"
 #include "bz-release.h"
 #include "bz-url.h"
+#include "bz-util.h"
 // #include "bz-review.h"
 
 typedef struct
@@ -62,6 +63,10 @@ struct _BzFlatpakEntry
 
   BzFlatpakInstance *flatpak;
   FlatpakRef        *ref;
+
+  DexFuture  *icon_task;
+  GdkTexture *icon_paintable;
+  GIcon      *mini_icon;
 };
 
 G_DEFINE_FINAL_TYPE (BzFlatpakEntry, bz_flatpak_entry, BZ_TYPE_ENTRY)
@@ -82,6 +87,29 @@ enum
   LAST_PROP
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
+
+BZ_DEFINE_DATA (
+    load_icon,
+    LoadIcon,
+    {
+      BzFlatpakEntry *self;
+      char           *location;
+      gboolean        is_local;
+      int             width;
+      int             height;
+      char           *unique_id;
+      char           *output_dir;
+      DexScheduler   *home_scheduler;
+    },
+    BZ_RELEASE_DATA (self, g_object_unref);
+    BZ_RELEASE_DATA (location, g_free);
+    BZ_RELEASE_DATA (unique_id, g_free);
+    BZ_RELEASE_DATA (output_dir, g_free);
+    BZ_RELEASE_DATA (home_scheduler, dex_unref));
+static DexFuture *
+load_icon_fiber (LoadIconData *data);
+static DexFuture *
+load_icon_notify_fiber (BzFlatpakEntry *self);
 
 static cairo_status_t
 read_cairo_stream_data (void          *closure,
@@ -112,6 +140,10 @@ bz_flatpak_entry_dispose (GObject *object)
 
   g_clear_object (&self->flatpak);
   g_clear_object (&self->ref);
+
+  dex_clear (&self->icon_task);
+  g_clear_object (&self->icon_paintable);
+  g_clear_object (&self->mini_icon);
 
   G_OBJECT_CLASS (bz_flatpak_entry_parent_class)->dispose (object);
 }
@@ -245,7 +277,6 @@ bz_flatpak_entry_init (BzFlatpakEntry *self)
 {
 }
 
-/* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
                               gboolean           user,
@@ -255,6 +286,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
                               const char        *appstream_dir,
                               const char        *output_dir,
                               GdkPaintable      *remote_icon,
+                              DexScheduler      *home_scheduler,
                               GError           **error)
 {
   g_autoptr (BzFlatpakEntry) self         = NULL;
@@ -280,7 +312,6 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   g_autoptr (GPtrArray) as_search_tokens  = NULL;
   g_autoptr (GPtrArray) search_tokens     = NULL;
   g_autoptr (GdkTexture) icon_paintable   = NULL;
-  g_autoptr (GIcon) mini_icon             = NULL;
   g_autoptr (BzPaintableModel) paintables = NULL;
   g_autoptr (GListStore) share_urls       = NULL;
   g_autofree char *donation_url           = NULL;
@@ -294,6 +325,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   g_return_val_if_fail (FLATPAK_IS_REMOTE_REF (ref) || FLATPAK_IS_BUNDLE_REF (ref), NULL);
   g_return_val_if_fail (component == NULL || appstream_dir != NULL, NULL);
   g_return_val_if_fail (component == NULL || output_dir != NULL, NULL);
+  g_return_val_if_fail (home_scheduler == NULL || DEX_IS_SCHEDULER (home_scheduler), NULL);
 
   self          = g_object_new (BZ_TYPE_FLATPAK_ENTRY, NULL);
   self->flatpak = g_object_ref (instance);
@@ -362,7 +394,6 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   if (component != NULL)
     {
       const char    *long_description_raw = NULL;
-      GPtrArray     *icons                = NULL;
       AsDeveloper   *developer_obj        = NULL;
       GPtrArray     *screenshots          = NULL;
       AsReleaseList *releases             = NULL;
@@ -431,149 +462,6 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
           long_description = g_regex_replace (
               cleanup_regex, string->str, -1, 0,
               "", G_REGEX_MATCH_DEFAULT, NULL);
-        }
-
-      icons = as_component_get_icons (component);
-      if (icons != NULL)
-        {
-          g_autofree char *select          = NULL;
-          gboolean         select_is_local = FALSE;
-          int              select_width    = 0;
-          int              select_height   = 0;
-
-          for (guint i = 0; i < icons->len; i++)
-            {
-              AsIcon  *icon     = NULL;
-              int      width    = 0;
-              int      height   = 0;
-              gboolean is_local = FALSE;
-
-              icon     = g_ptr_array_index (icons, i);
-              width    = as_icon_get_width (icon);
-              height   = as_icon_get_height (icon);
-              is_local = as_icon_get_kind (icon) != AS_ICON_KIND_REMOTE;
-
-              if (select == NULL ||
-                  (is_local && !select_is_local) ||
-                  (width > select_width && height > select_height))
-                {
-                  if (is_local)
-                    {
-                      const char      *filename   = NULL;
-                      g_autofree char *resolution = NULL;
-                      g_autofree char *path       = NULL;
-
-                      filename = as_icon_get_filename (icon);
-                      if (filename == NULL)
-                        continue;
-
-                      resolution = g_strdup_printf ("%dx%d", width, height);
-                      path       = g_build_filename (
-                          appstream_dir,
-                          "icons",
-                          "flatpak",
-                          resolution,
-                          filename,
-                          NULL);
-                      if (!g_file_test (path, G_FILE_TEST_EXISTS))
-                        continue;
-
-                      g_clear_pointer (&select, g_free);
-                      select          = g_steal_pointer (&path);
-                      select_is_local = TRUE;
-                      select_width    = width;
-                      select_height   = height;
-                    }
-                  else
-                    {
-                      const char *url = NULL;
-
-                      url = as_icon_get_url (icon);
-                      if (url == NULL)
-                        continue;
-
-                      g_clear_pointer (&select, g_free);
-                      select          = g_strdup (url);
-                      select_is_local = FALSE;
-                      select_width    = width;
-                      select_height   = height;
-                    }
-                }
-            }
-
-          if (select != NULL)
-            {
-              g_autoptr (GBytes) icon_bytes          = NULL;
-              CairoStreamReader closure              = { 0 };
-              cairo_surface_t  *surface_in           = NULL;
-              cairo_surface_t  *surface_out          = NULL;
-              cairo_t          *cairo                = NULL;
-              g_autoptr (GString) mini_icon_basename = NULL;
-              g_autofree char *mini_icon_path        = NULL;
-              g_autoptr (GFile) mini_icon_file       = NULL;
-
-              if (select_is_local)
-                {
-                  g_autoptr (GFile) file = NULL;
-
-                  file       = g_file_new_for_path (select);
-                  icon_bytes = g_file_load_bytes (file, NULL, NULL, NULL);
-                }
-              else
-                {
-                  g_autoptr (SoupMessage) message  = NULL;
-                  g_autoptr (GOutputStream) output = NULL;
-                  guint64 bytes_written            = 0;
-
-                  message       = soup_message_new (SOUP_METHOD_GET, select);
-                  output        = g_memory_output_stream_new_resizable ();
-                  bytes_written = dex_await_uint64 (
-                      bz_send_with_global_http_session_then_splice_into (message, output),
-                      NULL);
-                  result = g_output_stream_close (output, NULL, NULL);
-
-                  if (result && bytes_written >= 0)
-                    icon_bytes = g_memory_output_stream_steal_as_bytes (
-                        G_MEMORY_OUTPUT_STREAM (output));
-                }
-
-              if (icon_bytes != NULL)
-                {
-                  /* Using glycin here is extremely slow for
-                   * some reason so we'll opt for the old method.
-                   */
-                  icon_paintable = gdk_texture_new_from_bytes (icon_bytes, error);
-                  if (icon_paintable == NULL)
-                    return NULL;
-
-                  closure.data     = g_bytes_get_data (icon_bytes, &closure.size);
-                  closure.position = 0;
-                  surface_in       = cairo_image_surface_create_from_png_stream (read_cairo_stream_data, &closure);
-
-                  /* 24x24 for the gnome-shell search provider */
-                  surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
-                  cairo       = cairo_create (surface_out);
-
-                  cairo_scale (cairo, 24.0 / (double) select_width, 24.0 / (double) select_height);
-                  cairo_set_source_surface (cairo, surface_in, 0, 0);
-                  cairo_paint (cairo);
-                  cairo_restore (cairo);
-
-                  mini_icon_basename = g_string_new (unique_id);
-                  g_string_replace (mini_icon_basename, "/", "::", 0);
-                  g_string_append (mini_icon_basename, "-24x24.png");
-                  mini_icon_path = g_build_filename (output_dir, mini_icon_basename->str, NULL);
-
-                  cairo_surface_flush (surface_out);
-                  cairo_surface_write_to_png (surface_out, mini_icon_path);
-                  cairo_destroy (cairo);
-                  cairo_surface_destroy (surface_in);
-                  cairo_surface_destroy (surface_out);
-
-                  mini_icon_file = g_file_new_for_path (mini_icon_path);
-                  mini_icon      = g_file_icon_new (mini_icon_file);
-                }
-            }
         }
 
       screenshots = as_component_get_screenshots_all (component);
@@ -766,8 +654,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       //   }
     }
 
-  if (icon_paintable == NULL &&
-      FLATPAK_IS_BUNDLE_REF (ref))
+  if (FLATPAK_IS_BUNDLE_REF (ref))
     {
       for (int size = 128; size > 0; size -= 64)
         {
@@ -855,8 +742,6 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       "remote-repo-name", remote_name,
       "url", project_url,
       "size", download_size,
-      "icon-paintable", icon_paintable,
-      "mini-icon", mini_icon,
       "search-tokens", search_tokens,
       "remote-repo-icon", remote_icon,
       "metadata-license", metadata_license,
@@ -873,6 +758,100 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       "ratings-summary", ratings_summary,
       "version-history", version_history,
       NULL);
+
+  if (home_scheduler != NULL && component != NULL)
+    {
+      GPtrArray *icons = NULL;
+
+      icons = as_component_get_icons (component);
+      if (icons != NULL)
+        {
+          g_autofree char *select          = NULL;
+          gboolean         select_is_local = FALSE;
+          int              select_width    = 0;
+          int              select_height   = 0;
+
+          for (guint i = 0; i < icons->len; i++)
+            {
+              AsIcon  *icon     = NULL;
+              int      width    = 0;
+              int      height   = 0;
+              gboolean is_local = FALSE;
+
+              icon     = g_ptr_array_index (icons, i);
+              width    = as_icon_get_width (icon);
+              height   = as_icon_get_height (icon);
+              is_local = as_icon_get_kind (icon) != AS_ICON_KIND_REMOTE;
+
+              if (select == NULL ||
+                  (is_local && !select_is_local) ||
+                  (width > select_width && height > select_height))
+                {
+                  if (is_local)
+                    {
+                      const char      *filename   = NULL;
+                      g_autofree char *resolution = NULL;
+                      g_autofree char *path       = NULL;
+
+                      filename = as_icon_get_filename (icon);
+                      if (filename == NULL)
+                        continue;
+
+                      resolution = g_strdup_printf ("%dx%d", width, height);
+                      path       = g_build_filename (
+                          appstream_dir,
+                          "icons",
+                          "flatpak",
+                          resolution,
+                          filename,
+                          NULL);
+                      if (!g_file_test (path, G_FILE_TEST_EXISTS))
+                        continue;
+
+                      g_clear_pointer (&select, g_free);
+                      select          = g_steal_pointer (&path);
+                      select_is_local = TRUE;
+                      select_width    = width;
+                      select_height   = height;
+                    }
+                  else
+                    {
+                      const char *url = NULL;
+
+                      url = as_icon_get_url (icon);
+                      if (url == NULL)
+                        continue;
+
+                      g_clear_pointer (&select, g_free);
+                      select          = g_strdup (url);
+                      select_is_local = FALSE;
+                      select_width    = width;
+                      select_height   = height;
+                    }
+                }
+            }
+
+          if (select != NULL)
+            {
+              g_autoptr (LoadIconData) data = NULL;
+
+              data                 = load_icon_data_new ();
+              data->self           = g_object_ref (self);
+              data->location       = g_steal_pointer (&select);
+              data->is_local       = select_is_local;
+              data->width          = select_width;
+              data->height         = select_height;
+              data->output_dir     = g_strdup (output_dir);
+              data->unique_id      = g_steal_pointer (&unique_id);
+              data->home_scheduler = dex_ref (home_scheduler);
+
+              self->icon_task = dex_scheduler_spawn (
+                  dex_thread_pool_scheduler_get_default (),
+                  0, (DexFiberFunc) load_icon_fiber,
+                  load_icon_data_ref (data), load_icon_data_unref);
+            }
+        }
+    }
 
   return g_steal_pointer (&self);
 }
@@ -1072,4 +1051,108 @@ append_markup_escaped (GString    *string,
 
   escaped = g_markup_escape_text (append, -1);
   g_string_append (string, escaped);
+}
+
+static DexFuture *
+load_icon_fiber (LoadIconData *data)
+{
+  BzFlatpakEntry *self                   = data->self;
+  char           *location               = data->location;
+  gboolean        is_local               = data->is_local;
+  int             width                  = data->width;
+  int             height                 = data->height;
+  char           *unique_id              = data->unique_id;
+  char           *output_dir             = data->output_dir;
+  DexScheduler   *home_scheduler         = data->home_scheduler;
+  gboolean        result                 = FALSE;
+  g_autoptr (GBytes) icon_bytes          = NULL;
+  CairoStreamReader closure              = { 0 };
+  cairo_surface_t  *surface_in           = NULL;
+  cairo_surface_t  *surface_out          = NULL;
+  cairo_t          *cairo                = NULL;
+  g_autoptr (GString) mini_icon_basename = NULL;
+  g_autofree char *mini_icon_path        = NULL;
+  g_autoptr (GFile) mini_icon_file       = NULL;
+
+  if (is_local)
+    {
+      g_autoptr (GFile) file = NULL;
+
+      file       = g_file_new_for_path (location);
+      icon_bytes = g_file_load_bytes (file, NULL, NULL, NULL);
+    }
+  else
+    {
+      g_autoptr (SoupMessage) message  = NULL;
+      g_autoptr (GOutputStream) output = NULL;
+      guint64 bytes_written            = 0;
+
+      message       = soup_message_new (SOUP_METHOD_GET, location);
+      output        = g_memory_output_stream_new_resizable ();
+      bytes_written = dex_await_uint64 (
+          bz_send_with_global_http_session_then_splice_into (message, output),
+          NULL);
+      result = g_output_stream_close (output, NULL, NULL);
+
+      if (result && bytes_written >= 0)
+        icon_bytes = g_memory_output_stream_steal_as_bytes (
+            G_MEMORY_OUTPUT_STREAM (output));
+    }
+
+  if (icon_bytes != NULL)
+    {
+      /* Using glycin here is extremely slow for
+       * some reason so we'll opt for the old method.
+       */
+      self->icon_paintable = gdk_texture_new_from_bytes (icon_bytes, NULL);
+
+      closure.data     = g_bytes_get_data (icon_bytes, &closure.size);
+      closure.position = 0;
+      surface_in       = cairo_image_surface_create_from_png_stream (read_cairo_stream_data, &closure);
+
+      /* 24x24 for the gnome-shell search provider */
+      surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
+      cairo       = cairo_create (surface_out);
+
+      cairo_scale (cairo, 24.0 / (double) width, 24.0 / (double) height);
+      cairo_set_source_surface (cairo, surface_in, 0, 0);
+      cairo_paint (cairo);
+      cairo_restore (cairo);
+
+      mini_icon_basename = g_string_new (unique_id);
+      g_string_replace (mini_icon_basename, "/", "::", 0);
+      g_string_append (mini_icon_basename, "-24x24.png");
+      mini_icon_path = g_build_filename (output_dir, mini_icon_basename->str, NULL);
+
+      cairo_surface_flush (surface_out);
+      cairo_surface_write_to_png (surface_out, mini_icon_path);
+      cairo_destroy (cairo);
+      cairo_surface_destroy (surface_in);
+      cairo_surface_destroy (surface_out);
+
+      mini_icon_file  = g_file_new_for_path (mini_icon_path);
+      self->mini_icon = g_file_icon_new (mini_icon_file);
+
+      return dex_scheduler_spawn (
+          home_scheduler, 0,
+          (DexFiberFunc) load_icon_notify_fiber,
+          g_object_ref (self), g_object_unref);
+    }
+  else
+    return NULL;
+}
+
+static DexFuture *
+load_icon_notify_fiber (BzFlatpakEntry *self)
+{
+  g_object_set (
+      self,
+      "icon-paintable", self->icon_paintable,
+      "mini-icon", self->mini_icon,
+      NULL);
+  g_clear_object (&self->icon_paintable);
+  g_clear_object (&self->mini_icon);
+
+  self->icon_task = NULL;
+  return NULL;
 }

@@ -42,7 +42,6 @@ char *
 bz_flatpak_ref_format_unique (FlatpakRef *ref,
                               gboolean    user);
 
-/* MUST BE RUN INSIDE OF A FIBER */
 BzFlatpakEntry *
 bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
                               gboolean           user,
@@ -52,6 +51,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
                               const char        *appstream_dir,
                               const char        *output_dir,
                               GdkPaintable      *remote_icon,
+                              DexScheduler      *home_scheduler,
                               GError           **error);
 
 FlatpakRef *

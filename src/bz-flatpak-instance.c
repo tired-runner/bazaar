@@ -239,6 +239,11 @@ add_cache_dir (BzFlatpakInstance *self,
 
 static void
 destroy_cache_dir (gpointer ptr);
+
+static void
+destroy_cache_dir_future_cb (DexFuture *future,
+                             char      *cache_dir);
+
 static DexFuture *
 remove_cache_dir_fiber (const char *cache_dir);
 
@@ -560,6 +565,7 @@ load_local_ref_fiber (LoadLocalRefData *data)
       NULL,
       NULL,
       NULL,
+      NULL,
       &local_error);
   if (entry == NULL)
     return dex_future_new_reject (
@@ -648,6 +654,8 @@ ref_remote_apps_fiber (GatherEntriesData *data)
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
       job_data->add_to_total       = 0;
 
+      g_print ("%s\n", flatpak_remote_get_name (remote));
+
       jobs[n_jobs++] = dex_scheduler_spawn (
           instance->scheduler, 0,
           (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
@@ -714,15 +722,12 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       cancellable,
       &local_error);
   if (!result)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-          "failed to synchronize remote '%s': %s",
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to synchronize remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   result = flatpak_installation_update_appstream_full_sync (
       installation,
@@ -734,40 +739,31 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       cancellable,
       &local_error);
   if (!result)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-          "failed to synchronize appstream data for remote '%s': %s",
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to synchronize appstream data for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   appstream_dir = flatpak_remote_get_appstream_dir (remote, NULL);
   if (appstream_dir == NULL)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-          "failed to locate appstream directory for remote '%s': %s",
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to locate appstream directory for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   appstream_dir_path = g_file_get_path (appstream_dir);
   appstream_xml_path = g_build_filename (appstream_dir_path, "appstream.xml.gz", NULL);
   if (!g_file_test (appstream_xml_path, G_FILE_TEST_EXISTS))
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-          "failed to verify existence of appstream bundle download at path %s for remote '%s'",
-          appstream_xml_path,
-          remote_name);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to verify existence of appstream bundle download at path %s for remote '%s'",
+        appstream_xml_path,
+        remote_name);
 
   appstream_xml = g_file_new_for_path (appstream_xml_path);
 
@@ -780,16 +776,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       cancellable,
       &local_error);
   if (!result)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-          "failed to load binary xml from appstream bundle download at path %s for remote '%s': %s",
-          appstream_xml_path,
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to load binary xml from appstream bundle download at path %s for remote '%s': %s",
+        appstream_xml_path,
+        remote_name,
+        local_error->message);
 
   builder = xb_builder_new ();
   locales = g_get_language_names ();
@@ -803,16 +796,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       cancellable,
       &local_error);
   if (silo == NULL)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-          "failed to compile binary xml silo from appstream bundle download at path %s for remote '%s': %s",
-          appstream_xml_path,
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to compile binary xml silo from appstream bundle download at path %s for remote '%s': %s",
+        appstream_xml_path,
+        remote_name,
+        local_error->message);
 
   root     = xb_silo_get_root (silo);
   children = xb_node_get_children (root);
@@ -828,31 +818,25 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       component_xml = xb_node_export (
           component_node, XB_NODE_EXPORT_FLAG_NONE, &local_error);
       if (component_xml == NULL)
-        {
-          error_future = dex_future_new_reject (
-              BZ_FLATPAK_ERROR,
-              BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-              "failed to export plain xml from appstream bundle silo originating from download at path %s for remote '%s': %s",
-              appstream_xml_path,
-              remote_name,
-              local_error->message);
-          goto done;
-        }
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+            "failed to export plain xml from appstream bundle silo originating from download at path %s for remote '%s': %s",
+            appstream_xml_path,
+            remote_name,
+            local_error->message);
 
       result = as_metadata_parse_data (
           metadata, component_xml, -1,
           AS_FORMAT_KIND_XML, &local_error);
       if (!result)
-        {
-          error_future = dex_future_new_reject (
-              BZ_FLATPAK_ERROR,
-              BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
-              "failed to create appstream metadata from appstream bundle silo originating from download at path %s for remote '%s': %s",
-              appstream_xml_path,
-              remote_name,
-              local_error->message);
-          goto done;
-        }
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_APPSTREAM_FAILURE,
+            "failed to create appstream metadata from appstream bundle silo originating from download at path %s for remote '%s': %s",
+            appstream_xml_path,
+            remote_name,
+            local_error->message);
     }
 
   components = as_metadata_get_components (metadata);
@@ -923,27 +907,21 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   refs = flatpak_installation_list_remote_refs_sync (
       installation, remote_name, cancellable, &local_error);
   if (refs == NULL)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
-          "failed to enumerate refs for remote '%s': %s",
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "failed to enumerate refs for remote '%s': %s",
+        remote_name,
+        local_error->message);
 
   output_dir_path = g_dir_make_tmp (NULL, &local_error);
   if (output_dir_path == NULL)
-    {
-      error_future = dex_future_new_reject (
-          BZ_FLATPAK_ERROR,
-          BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-          "failed to ensure utility directory in /tmp for remote '%s': %s",
-          remote_name,
-          local_error->message);
-      goto done;
-    }
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "failed to ensure utility directory in /tmp for remote '%s': %s",
+        remote_name,
+        local_error->message);
   add_cache_dir (instance, output_dir_path, home_scheduler);
 
   for (guint i = 0; i < refs->len;)
@@ -961,7 +939,10 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
         i++;
     }
   if (refs->len == 0)
-    goto done;
+    {
+      destroy_cache_dir (g_steal_pointer (&output_dir_path));
+      return dex_future_new_true ();
+    }
 
   data->appstream_dir = g_strdup (appstream_dir_path);
   data->output_dir    = g_strdup (output_dir_path);
@@ -1003,22 +984,12 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   for (guint i = 0; i < refs->len; i++)
     dex_unref (jobs[i]);
 
-  result = dex_await (g_steal_pointer (&future), &local_error);
-  if (!result)
-    {
-      error_future = dex_future_new_for_error (g_steal_pointer (&local_error));
-      goto done;
-    }
+  future = dex_future_catch (
+      future,
+      (DexFutureCallback) destroy_cache_dir_future_cb,
+      g_steal_pointer (&output_dir_path), g_free);
 
-done:
-  if (error_future != NULL)
-    {
-      if (output_dir_path != NULL)
-        reap_cache_dir_path (output_dir_path);
-      return g_steal_pointer (&error_future);
-    }
-  else
-    return dex_future_new_true ();
+  return g_steal_pointer (&future);
 }
 
 static DexFuture *
@@ -1038,6 +1009,7 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
       data->parent->appstream_dir,
       data->parent->output_dir,
       data->remote_icon,
+      data->parent->parent->home_scheduler,
       &local_error);
   if (entry == NULL)
     {
@@ -1540,6 +1512,13 @@ destroy_cache_dir (gpointer ptr)
       dex_thread_pool_scheduler_get_default (),
       0, (DexFiberFunc) remove_cache_dir_fiber,
       cache_dir, g_free));
+}
+
+static void
+destroy_cache_dir_future_cb (DexFuture *future,
+                             char      *cache_dir)
+{
+  destroy_cache_dir (cache_dir);
 }
 
 static DexFuture *

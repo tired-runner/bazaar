@@ -50,6 +50,8 @@ struct _BzApplication
   gboolean   running;
   DexFuture *refresh_task;
   double     refresh_progress;
+  gboolean   busy;
+  gboolean   checking_updates;
   gboolean   online;
 
   GtkCssProvider  *css;
@@ -88,6 +90,7 @@ enum
   PROP_CONTENT_PROVIDER,
   PROP_BUSY,
   PROP_BUSY_PROGRESS,
+  PROP_CHECKING_UPDATES,
   PROP_ONLINE,
 
   LAST_PROP
@@ -218,10 +221,13 @@ bz_application_get_property (GObject    *object,
       g_value_set_object (value, self->content_provider);
       break;
     case PROP_BUSY:
-      g_value_set_boolean (value, self->refresh_task != NULL);
+      g_value_set_boolean (value, self->busy);
       break;
     case PROP_BUSY_PROGRESS:
       g_value_set_double (value, self->refresh_progress);
+      break;
+    case PROP_CHECKING_UPDATES:
+      g_value_set_boolean (value, self->checking_updates);
       break;
     case PROP_ONLINE:
       g_value_set_boolean (value, self->online);
@@ -261,6 +267,7 @@ bz_application_set_property (GObject      *object,
     case PROP_CONTENT_PROVIDER:
     case PROP_BUSY:
     case PROP_BUSY_PROGRESS:
+    case PROP_CHECKING_UPDATES:
     case PROP_ONLINE:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1015,6 +1022,13 @@ bz_application_class_init (BzApplicationClass *klass)
           0.0, G_MAXDOUBLE, 0.0,
           G_PARAM_READABLE);
 
+  props[PROP_CHECKING_UPDATES] =
+      g_param_spec_boolean (
+          "checking-updates",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READABLE);
+
   props[PROP_ONLINE] =
       g_param_spec_boolean (
           "online",
@@ -1652,6 +1666,17 @@ fetch_installs_then (DexFuture     *future,
         }
     }
 
+  self->busy             = FALSE;
+  self->checking_updates = TRUE;
+  self->online           = TRUE;
+
+  bz_content_provider_unblock (self->content_provider);
+  g_object_thaw_notify (G_OBJECT (self->flathub));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
+
   return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak), NULL);
 }
 
@@ -1692,6 +1717,9 @@ fetch_updates_then (DexFuture     *future,
         }
     }
 
+  self->checking_updates = FALSE;
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
+
   return dex_future_new_true ();
 }
 
@@ -1702,6 +1730,9 @@ refresh_finally (DexFuture     *future,
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
 
+  self->refresh_task = NULL;
+  self->busy         = FALSE;
+
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
     self->online = TRUE;
@@ -1709,7 +1740,12 @@ refresh_finally (DexFuture     *future,
     {
       GtkWindow *window = NULL;
 
-      self->online = FALSE;
+      self->online           = FALSE;
+      self->checking_updates = FALSE;
+
+      bz_content_provider_unblock (self->content_provider);
+      g_object_thaw_notify (G_OBJECT (self->flathub));
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
 
       window = gtk_application_get_active_window (GTK_APPLICATION (self));
       if (window != NULL)
@@ -1723,12 +1759,8 @@ refresh_finally (DexFuture     *future,
         }
     }
 
-  self->refresh_task = NULL;
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
-
-  bz_content_provider_unblock (self->content_provider);
-  g_object_thaw_notify (G_OBJECT (self->flathub));
 
   if (self->waiting_to_open != NULL)
     open_flatpakref_take (self, g_object_ref (self->waiting_to_open));
@@ -1758,8 +1790,13 @@ refresh (BzApplication *self)
   g_list_store_remove_all (self->installed);
   g_list_store_remove_all (self->updates);
 
-  self->online           = FALSE;
+  self->busy             = TRUE;
   self->refresh_progress = 0.0;
+  self->online           = FALSE;
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY_PROGRESS]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   if (self->flatpak == NULL)
     future = bz_flatpak_instance_new ();
@@ -1774,10 +1811,6 @@ refresh (BzApplication *self)
   self->refresh_task = g_steal_pointer (&future);
 
   bz_flathub_state_update_to_today (self->flathub);
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY_PROGRESS]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 }
 
 static DexFuture *
@@ -1944,6 +1977,10 @@ new_window (BzApplication *self)
   g_object_bind_property (
       self, "busy-progress",
       window, "busy-progress",
+      G_BINDING_SYNC_CREATE);
+  g_object_bind_property (
+      self, "checking-updates",
+      window, "checking-updates",
       G_BINDING_SYNC_CREATE);
   g_object_bind_property (
       self, "online",
