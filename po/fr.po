@@ -3,13 +3,14 @@
 # This file is distributed under the same license as the bazaar package.
 # Automatically generated, 2025.
 # Atom <29772841+AtomHare@users.noreply.github.com>, 2025.
+# Léane GRASSER <leane.grasser@proton.me>, 2025.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: bazaar\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-11 10:22+0200\n"
-"PO-Revision-Date: 2025-07-11 10:29+0200\n"
+"PO-Revision-Date: 2025-07-11 10:35+0200\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French\n"
 "Language: fr\n"
