@@ -55,8 +55,10 @@ BZ_DEFINE_DATA (
     {
       BzGnomeShellSearchProvider *self;
       GDBusMethodInvocation      *invocation;
+      GApplication               *application;
     },
-    BZ_RELEASE_DATA (invocation, g_object_unref))
+    BZ_RELEASE_DATA (invocation, g_object_unref);
+    BZ_RELEASE_DATA (application, g_application_release);)
 static DexFuture *
 request_finally (DexFuture   *future,
                  RequestData *data);
@@ -405,7 +407,6 @@ request_finally (DexFuture   *future,
       g_dbus_method_invocation_return_value (invocation, g_variant_new ("(as)", NULL));
     }
 
-  g_application_release (g_application_get_default ());
   return NULL;
 }
 
@@ -419,8 +420,6 @@ start_request (BzGnomeShellSearchProvider *self,
 
   dex_clear (&self->task);
   g_hash_table_remove_all (self->last_results);
-
-  g_application_hold (g_application_get_default ());
 
   if (g_strv_length ((gchar **) terms) == 1 &&
       g_utf8_strlen (terms[0], -1) == 1)
@@ -441,9 +440,11 @@ start_request (BzGnomeShellSearchProvider *self,
       return;
     }
 
-  data             = request_data_new ();
-  data->self       = self;
-  data->invocation = g_object_ref (invocation);
+  data              = request_data_new ();
+  data->self        = self;
+  data->invocation  = g_object_ref (invocation);
+  data->application = g_application_get_default ();
+  g_application_hold (data->application);
 
   future = bz_search_engine_query (self->engine, terms);
   future = dex_future_finally (
