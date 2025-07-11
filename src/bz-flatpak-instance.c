@@ -103,12 +103,16 @@ BZ_DEFINE_DATA (
       FlatpakInstallation *installation;
       FlatpakRemote       *remote;
       GHashTable          *blocked_names_hash;
+      char                *appstream_dir;
+      char                *output_dir;
       guint                add_to_total;
     },
     BZ_RELEASE_DATA (parent, gather_entries_data_unref);
     BZ_RELEASE_DATA (installation, g_object_unref);
     BZ_RELEASE_DATA (remote, g_object_unref);
-    BZ_RELEASE_DATA (blocked_names_hash, g_hash_table_unref));
+    BZ_RELEASE_DATA (blocked_names_hash, g_hash_table_unref);
+    BZ_RELEASE_DATA (appstream_dir, g_free);
+    BZ_RELEASE_DATA (output_dir, g_free));
 static DexFuture *
 ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data);
 
@@ -119,15 +123,11 @@ BZ_DEFINE_DATA (
       RefRemoteAppsForRemoteData *parent;
       FlatpakRemoteRef           *rref;
       AsComponent                *component;
-      char                       *appstream_dir;
-      char                       *output_dir;
       GdkPaintable               *remote_icon;
     },
     BZ_RELEASE_DATA (parent, ref_remote_apps_for_remote_data_unref);
     BZ_RELEASE_DATA (rref, g_object_unref);
     BZ_RELEASE_DATA (component, g_object_unref);
-    BZ_RELEASE_DATA (appstream_dir, g_free);
-    BZ_RELEASE_DATA (output_dir, g_free);
     BZ_RELEASE_DATA (remote_icon, g_object_unref));
 static DexFuture *
 ref_remote_apps_job_fiber (RefRemoteAppsJobData *data);
@@ -962,7 +962,10 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
     }
   if (refs->len == 0)
     goto done;
-  data->add_to_total = refs->len;
+
+  data->appstream_dir = g_strdup (appstream_dir_path);
+  data->output_dir    = g_strdup (output_dir_path);
+  data->add_to_total  = refs->len;
 
   jobs = g_malloc0_n (refs->len, sizeof (*jobs));
   for (guint i = 0; i < refs->len; i++)
@@ -983,14 +986,10 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
           component  = g_hash_table_lookup (id_hash, desktop_id);
         }
 
-      job_data            = ref_remote_apps_job_data_new ();
-      job_data->parent    = ref_remote_apps_for_remote_data_ref (data);
-      job_data->rref      = g_object_ref (rref);
-      job_data->component = component != NULL ? g_object_ref (component) : NULL;
-      /* TODO: this is bad, should just steal once */
-      job_data->appstream_dir = g_strdup (appstream_dir_path);
-      /* TODO: this is bad, should just steal once */
-      job_data->output_dir  = g_strdup (output_dir_path);
+      job_data              = ref_remote_apps_job_data_new ();
+      job_data->parent      = ref_remote_apps_for_remote_data_ref (data);
+      job_data->rref        = g_object_ref (rref);
+      job_data->component   = component != NULL ? g_object_ref (component) : NULL;
       job_data->remote_icon = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
       jobs[i] = dex_scheduler_spawn (
@@ -1036,8 +1035,8 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
       data->parent->remote,
       FLATPAK_REF (data->rref),
       data->component,
-      data->appstream_dir,
-      data->output_dir,
+      data->parent->appstream_dir,
+      data->parent->output_dir,
       data->remote_icon,
       &local_error);
   if (entry == NULL)
@@ -1055,10 +1054,7 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
       (DexFiberFunc) gather_entries_job_update,
       gather_entries_update_data_ref (update_data),
       gather_entries_update_data_unref);
-  if (!dex_await (g_steal_pointer (&update), &local_error))
-    return dex_future_new_for_error (g_steal_pointer (&local_error));
-
-  return dex_future_new_true ();
+  return g_steal_pointer (&update);
 }
 
 static DexFuture *
