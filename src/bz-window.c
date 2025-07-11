@@ -51,10 +51,12 @@ struct _BzWindow
   GListStore           *updates;
   gboolean              busy;
   double                busy_progress;
+  gboolean              checking_updates;
   gboolean              online;
 
   GBinding *search_to_view_binding;
   gboolean  breakpoint_applied;
+  guint     after_update_check_timeout;
 
   /* Template widgets */
   BzCometOverlay      *comet_overlay;
@@ -70,6 +72,7 @@ struct _BzWindow
   BzSearchWidget      *search_widget;
   GtkButton           *update_button;
   GtkRevealer         *title_revealer;
+  GtkRevealer         *up_to_date_revealer;
   AdwToggleGroup      *title_toggle_group;
   GtkToggleButton     *transactions_pause;
   GtkButton           *transactions_stop;
@@ -95,6 +98,7 @@ enum
   PROP_UPDATES,
   PROP_BUSY,
   PROP_BUSY_PROGRESS,
+  PROP_CHECKING_UPDATES,
   PROP_ONLINE,
 
   LAST_PROP
@@ -162,6 +166,9 @@ static void
 set_bottom_bar (BzWindow *self);
 
 static void
+hide_up_to_date_notif (BzWindow *self);
+
+static void
 bz_window_dispose (GObject *object)
 {
   BzWindow *self = BZ_WINDOW (object);
@@ -189,6 +196,7 @@ bz_window_dispose (GObject *object)
   g_clear_object (&self->updates);
 
   g_clear_object (&self->search_to_view_binding);
+  g_clear_handle_id (&self->after_update_check_timeout, g_source_remove);
 
   G_OBJECT_CLASS (bz_window_parent_class)->dispose (object);
 }
@@ -229,6 +237,9 @@ bz_window_get_property (GObject    *object,
       break;
     case PROP_BUSY_PROGRESS:
       g_value_set_double (value, self->busy_progress);
+      break;
+    case PROP_CHECKING_UPDATES:
+      g_value_set_boolean (value, self->checking_updates);
       break;
     case PROP_ONLINE:
       g_value_set_boolean (value, self->online);
@@ -327,6 +338,24 @@ bz_window_set_property (GObject      *object,
       break;
     case PROP_BUSY_PROGRESS:
       self->busy_progress = g_value_get_double (value);
+      break;
+    case PROP_CHECKING_UPDATES:
+      {
+        gboolean last_value = FALSE;
+
+        g_clear_handle_id (&self->after_update_check_timeout, g_source_remove);
+        last_value             = self->checking_updates;
+        self->checking_updates = g_value_get_boolean (value);
+        if (last_value && !self->checking_updates &&
+            g_list_model_get_n_items (G_LIST_MODEL (self->updates)) == 0)
+          {
+            gtk_revealer_set_reveal_child (self->up_to_date_revealer, TRUE);
+            self->after_update_check_timeout =
+                g_timeout_add_once (4000 /* 5 seconds */,
+                                    (GSourceOnceFunc) hide_up_to_date_notif, self);
+          }
+        set_bottom_bar (self);
+      }
       break;
     case PROP_ONLINE:
       self->online = g_value_get_boolean (value);
@@ -435,6 +464,9 @@ breakpoint_apply_cb (BzWindow      *self,
   self->breakpoint_applied = TRUE;
 
   adw_header_bar_set_title_widget (self->top_header_bar, NULL);
+  adw_header_bar_set_title_widget (self->bottom_header_bar, NULL);
+
+  adw_header_bar_set_title_widget (self->top_header_bar, GTK_WIDGET (self->up_to_date_revealer));
   adw_header_bar_set_title_widget (self->bottom_header_bar, GTK_WIDGET (self->title_revealer));
 
   set_bottom_bar (self);
@@ -446,8 +478,11 @@ breakpoint_unapply_cb (BzWindow      *self,
 {
   self->breakpoint_applied = FALSE;
 
+  adw_header_bar_set_title_widget (self->top_header_bar, NULL);
   adw_header_bar_set_title_widget (self->bottom_header_bar, NULL);
+
   adw_header_bar_set_title_widget (self->top_header_bar, GTK_WIDGET (self->title_revealer));
+  adw_header_bar_set_title_widget (self->bottom_header_bar, GTK_WIDGET (self->up_to_date_revealer));
 
   set_bottom_bar (self);
 }
@@ -573,6 +608,13 @@ bz_window_class_init (BzWindowClass *klass)
           0.0, G_MAXDOUBLE, 0.0,
           G_PARAM_READWRITE);
 
+  props[PROP_CHECKING_UPDATES] =
+      g_param_spec_boolean (
+          "checking_updates",
+          NULL, NULL,
+          FALSE,
+          G_PARAM_READWRITE);
+
   props[PROP_ONLINE] =
       g_param_spec_boolean (
           "online",
@@ -606,6 +648,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search_widget);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_revealer);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, up_to_date_revealer);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, title_toggle_group);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_pause);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, transactions_stop);
@@ -1150,7 +1193,16 @@ set_bottom_bar (BzWindow *self)
   gboolean show_bottom_bar = FALSE;
 
   show_search     = adw_overlay_split_view_get_show_sidebar (self->search_split);
-  show_bottom_bar = self->breakpoint_applied && !show_search;
+  show_bottom_bar = (self->breakpoint_applied && !show_search) ||
+                    (!self->breakpoint_applied && self->after_update_check_timeout > 0);
 
   adw_toolbar_view_set_reveal_bottom_bars (self->toolbar_view, show_bottom_bar);
+}
+
+static void
+hide_up_to_date_notif (BzWindow *self)
+{
+  self->after_update_check_timeout = 0;
+  gtk_revealer_set_reveal_child (self->up_to_date_revealer, FALSE);
+  set_bottom_bar (self);
 }

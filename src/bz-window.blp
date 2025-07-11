@@ -251,6 +251,19 @@ template $BzWindow: Adw.ApplicationWindow {
             clicked => $update_cb(template);
           }
 
+          [start]
+          Box {
+            orientation: horizontal;
+            spacing: 10;
+            visible: bind template.checking-updates;
+
+            Adw.Spinner {}
+
+            Label {
+              label: _("Checking for updates");
+            }
+          }
+          
           title-widget: Revealer title_revealer {
             transition-type: crossfade;
             transition-duration: 200;
@@ -365,7 +378,33 @@ template $BzWindow: Adw.ApplicationWindow {
         Adw.HeaderBar bottom_header_bar {
           show-start-title-buttons: false;
           show-end-title-buttons: false;
-          show-title: false;
+
+          title-widget: Revealer up_to_date_revealer {
+            transition-type: crossfade;
+            transition-duration: 200;
+
+            child: Box {
+              orientation: horizontal;
+              spacing: 10;
+
+              Image {
+                styles [
+                  "success"
+                ]
+                
+                icon-size: large;
+                icon-name: "check-plain-symbolic";
+              }
+
+              Label {
+                styles [
+                  "heading"
+                ]
+                
+                label: _("Up to date!");
+              }
+            };
+          };
         }
       };
 
@@ -375,8 +414,6 @@ template $BzWindow: Adw.ApplicationWindow {
         setters {
           split_view.collapsed: true;
           transactions.width-request: 250;
-          top_header_bar.show-title: false;
-          bottom_header_bar.show-title: true;
         }
 
         apply => $breakpoint_apply_cb(template);
