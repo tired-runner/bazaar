@@ -31,7 +31,8 @@ BzApplicationMapFactory *
 bz_application_map_factory_new (GtkMapListModelMapFunc func,
                                 gpointer               user_data,
                                 GDestroyNotify         ref_user_data,
-                                GDestroyNotify         unref_user_data);
+                                GDestroyNotify         unref_user_data,
+                                GtkFilter             *filter);
 
 GListModel *
 bz_application_map_factory_generate (BzApplicationMapFactory *self,

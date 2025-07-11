@@ -28,6 +28,7 @@ struct _BzApplicationMapFactory
   gpointer               user_data;
   GDestroyNotify         ref_user_data;
   GDestroyNotify         unref_user_data;
+  GtkFilter             *filter;
 };
 
 G_DEFINE_FINAL_TYPE (BzApplicationMapFactory, bz_application_map_factory, G_TYPE_OBJECT);
@@ -36,6 +37,8 @@ static void
 bz_application_map_factory_dispose (GObject *object)
 {
   BzApplicationMapFactory *self = BZ_APPLICATION_MAP_FACTORY (object);
+
+  g_clear_object (&self->filter);
 
   if (self->unref_user_data != NULL)
     g_clear_pointer (&self->user_data, self->unref_user_data);
@@ -60,17 +63,20 @@ BzApplicationMapFactory *
 bz_application_map_factory_new (GtkMapListModelMapFunc func,
                                 gpointer               user_data,
                                 GDestroyNotify         ref_user_data,
-                                GDestroyNotify         unref_user_data)
+                                GDestroyNotify         unref_user_data,
+                                GtkFilter             *filter)
 {
   BzApplicationMapFactory *self = NULL;
 
   g_return_val_if_fail (func != NULL, NULL);
+  g_return_val_if_fail (filter == NULL || GTK_IS_FILTER (filter), NULL);
 
   self                  = g_object_new (BZ_TYPE_APPLICATION_MAP_FACTORY, NULL);
   self->func            = func;
   self->user_data       = user_data;
   self->ref_user_data   = ref_user_data;
   self->unref_user_data = unref_user_data;
+  self->filter          = filter != NULL ? g_object_ref_sink (filter) : NULL;
 
   return self;
 }
@@ -79,16 +85,28 @@ GListModel *
 bz_application_map_factory_generate (BzApplicationMapFactory *self,
                                      GListModel              *model)
 {
-  GtkMapListModel *map_model = NULL;
+  g_autoptr (GListModel) backing = NULL;
+  GtkMapListModel *map_model     = NULL;
 
   g_return_val_if_fail (BZ_IS_APPLICATION_MAP_FACTORY (self), NULL);
   g_return_val_if_fail (G_IS_LIST_MODEL (model), NULL);
+
+  if (self->filter != NULL)
+    {
+      GtkFilterListModel *filter_model = NULL;
+
+      filter_model = gtk_filter_list_model_new (
+          g_object_ref (model), g_object_ref (self->filter));
+      backing = G_LIST_MODEL (filter_model);
+    }
+  else
+    backing = g_object_ref (model);
 
   if (self->ref_user_data != NULL && self->unref_user_data != NULL)
     self->ref_user_data (self->user_data);
 
   map_model = gtk_map_list_model_new (
-      g_object_ref (model), self->func,
+      g_steal_pointer (&backing), self->func,
       self->user_data, self->unref_user_data);
 
   return G_LIST_MODEL (map_model);

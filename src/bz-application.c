@@ -1280,14 +1280,34 @@ map_ids_to_groups (GtkStringObject *string,
 
   id    = gtk_string_object_get_string (string);
   group = g_hash_table_lookup (self->generic_id_to_entry_group_hash, id);
+  /* We previously validated in `filter_valid_ids` */
+  g_assert (group != NULL);
 
   g_object_unref (string);
-  return group != NULL ? g_object_ref (group) : NULL;
+  return g_object_ref (group);
+}
+
+static gboolean
+filter_valid_ids (GtkStringObject *string,
+                  BzApplication   *self)
+{
+  const char *id     = NULL;
+  gboolean    result = FALSE;
+
+  id     = gtk_string_object_get_string (string);
+  result = g_hash_table_contains (self->generic_id_to_entry_group_hash, id);
+
+  if (!result)
+    g_critical ("ID '%s' from flathub was not found!", id);
+
+  return result;
 }
 
 static void
 bz_application_init (BzApplication *self)
 {
+  GtkCustomFilter *filter = NULL;
+
   self->running = FALSE;
 
   self->transactions = bz_transaction_manager_new ();
@@ -1325,10 +1345,13 @@ bz_application_init (BzApplication *self)
   self->gs_search = bz_gnome_shell_search_provider_new ();
   bz_gnome_shell_search_provider_set_engine (self->gs_search, self->search_engine);
 
-  self->flathub     = bz_flathub_state_new (NULL);
+  self->flathub = bz_flathub_state_new (NULL);
+
+  filter = gtk_custom_filter_new (
+      (GtkCustomFilterFunc) filter_valid_ids, self, NULL);
   self->map_factory = bz_application_map_factory_new (
       (GtkMapListModelMapFunc) map_ids_to_groups,
-      self, NULL, NULL);
+      self, NULL, NULL, GTK_FILTER (filter));
   bz_flathub_state_set_map_factory (self->flathub, self->map_factory);
 
   g_action_map_add_action_entries (
