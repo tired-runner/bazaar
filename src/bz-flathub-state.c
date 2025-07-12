@@ -20,6 +20,7 @@
 
 #include <libdex.h>
 
+#include "bz-env.h"
 #include "bz-flathub-category.h"
 #include "bz-flathub-state.h"
 #include "bz-global-state.h"
@@ -419,7 +420,8 @@ bz_flathub_state_set_for_day (BzFlathubState *self,
       self->trending         = gtk_string_list_new (NULL);
 
       future = dex_scheduler_spawn (
-          dex_thread_pool_scheduler_get_default (), 0,
+          dex_thread_pool_scheduler_get_default (),
+          bz_get_dex_stack_size (),
           (DexFiberFunc) initialize_fiber,
           self, NULL);
       future = dex_future_finally (

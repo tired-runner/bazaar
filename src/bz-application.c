@@ -26,6 +26,7 @@
 #include "bz-application.h"
 #include "bz-content-provider.h"
 #include "bz-entry-group.h"
+#include "bz-env.h"
 #include "bz-error.h"
 #include "bz-flathub-state.h"
 #include "bz-flatpak-entry.h"
@@ -909,7 +910,8 @@ bz_application_command_line (GApplication            *app,
 
           future = dex_scheduler_spawn (
               dex_thread_pool_scheduler_get_default (),
-              0, (DexFiberFunc) cli_transact_fiber,
+              bz_get_dex_stack_size (),
+              (DexFiberFunc) cli_transact_fiber,
               cli_transact_data_ref (data),
               cli_transact_data_unref);
           future = dex_future_then (

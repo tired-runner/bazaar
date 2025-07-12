@@ -27,6 +27,7 @@
 #include "bz-content-provider.h"
 #include "bz-content-section.h"
 #include "bz-entry-group.h"
+#include "bz-env.h"
 #include "bz-util.h"
 #include "bz-yaml-parser.h"
 
@@ -501,7 +502,8 @@ input_files_changed (GListModel        *input_files,
 
       future = dex_scheduler_spawn (
           dex_thread_pool_scheduler_get_default (),
-          0, (DexFiberFunc) input_init_fiber,
+          bz_get_dex_stack_size (),
+          (DexFiberFunc) input_init_fiber,
           input_init_data_ref (init_data),
           input_init_data_unref);
 
@@ -881,7 +883,8 @@ commence_reload (InputTrackingData *data)
 
   future = dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),
-      0, (DexFiberFunc) input_load_fiber,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) input_load_fiber,
       input_load_data_ref (load_data),
       input_load_data_unref);
   future = dex_future_finally (

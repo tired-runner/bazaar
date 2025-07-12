@@ -24,6 +24,7 @@
 #include <xmlb.h>
 
 #include "bz-backend.h"
+#include "bz-env.h"
 #include "bz-flatpak-private.h"
 #include "bz-util.h"
 
@@ -295,7 +296,9 @@ bz_flatpak_instance_load_local_package (BzBackend    *backend,
   data->file        = g_object_ref (file);
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) load_local_ref_fiber,
+      self->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) load_local_ref_fiber,
       load_local_ref_data_ref (data), load_local_ref_data_unref);
 }
 
@@ -327,7 +330,9 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   data->total             = 0;
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_remote_apps_fiber,
+      self->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) ref_remote_apps_fiber,
       gather_entries_data_ref (data), gather_entries_data_unref);
 }
 
@@ -347,7 +352,9 @@ bz_flatpak_instance_retrieve_install_ids (BzBackend    *backend,
   data->destroy_user_data = NULL;
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_installs_fiber,
+      self->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) ref_installs_fiber,
       gather_entries_data_ref (data), gather_entries_data_unref);
 }
 
@@ -367,7 +374,9 @@ bz_flatpak_instance_retrieve_update_ids (BzBackend    *backend,
   data->destroy_user_data = NULL;
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) ref_updates_fiber,
+      self->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) ref_updates_fiber,
       gather_entries_data_ref (data), gather_entries_data_unref);
 }
 
@@ -439,7 +448,9 @@ bz_flatpak_instance_schedule_transaction (BzBackend                       *backe
   data->n_finished_operations = -1;
 
   return dex_scheduler_spawn (
-      self->scheduler, 0, (DexFiberFunc) transaction_fiber,
+      self->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) transaction_fiber,
       transaction_data_ref (data), transaction_data_unref);
 }
 
@@ -476,7 +487,9 @@ bz_flatpak_instance_new (void)
   data->instance = g_object_new (BZ_TYPE_FLATPAK_INSTANCE, NULL);
 
   return dex_scheduler_spawn (
-      data->instance->scheduler, 0, (DexFiberFunc) init_fiber,
+      data->instance->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) init_fiber,
       init_data_ref (data), init_data_unref);
 }
 
@@ -655,7 +668,8 @@ ref_remote_apps_fiber (GatherEntriesData *data)
       job_data->add_to_total       = 0;
 
       jobs[n_jobs++] = dex_scheduler_spawn (
-          instance->scheduler, 0,
+          instance->scheduler,
+          bz_get_dex_stack_size (),
           (DexFiberFunc) ref_remote_apps_for_single_remote_fiber,
           ref_remote_apps_for_remote_data_ref (job_data),
           ref_remote_apps_for_remote_data_unref);
@@ -972,7 +986,8 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
       job_data->remote_icon = remote_icon != NULL ? g_object_ref (remote_icon) : NULL;
 
       jobs[i] = dex_scheduler_spawn (
-          instance->scheduler, 0,
+          instance->scheduler,
+          bz_get_dex_stack_size (),
           (DexFiberFunc) ref_remote_apps_job_fiber,
           ref_remote_apps_job_data_ref (job_data),
           ref_remote_apps_job_data_unref);
@@ -1020,7 +1035,8 @@ ref_remote_apps_job_fiber (RefRemoteAppsJobData *data)
   update_data->entry  = g_object_ref (BZ_ENTRY (entry));
 
   update = dex_scheduler_spawn (
-      data->parent->parent->home_scheduler, 0,
+      data->parent->parent->home_scheduler,
+      bz_get_dex_stack_size (),
       (DexFiberFunc) gather_entries_job_update,
       gather_entries_update_data_ref (update_data),
       gather_entries_update_data_unref);
@@ -1487,7 +1503,9 @@ add_cache_dir (BzFlatpakInstance *self,
 
   dex_await (
       dex_scheduler_spawn (
-          scheduler, 0, (DexFiberFunc) add_cache_dir_fiber,
+          scheduler,
+          bz_get_dex_stack_size (),
+          (DexFiberFunc) add_cache_dir_fiber,
           add_cache_dir_data_ref (data), add_cache_dir_data_unref),
       NULL);
 }
@@ -1508,7 +1526,8 @@ destroy_cache_dir (gpointer ptr)
 
   dex_future_disown (dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),
-      0, (DexFiberFunc) remove_cache_dir_fiber,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) remove_cache_dir_fiber,
       cache_dir, g_free));
 }
 

@@ -19,6 +19,7 @@
  */
 
 #include "bz-global-state.h"
+#include "bz-env.h"
 #include "bz-util.h"
 
 BZ_DEFINE_DATA (
@@ -76,7 +77,8 @@ bz_send_with_global_http_session (SoupMessage *message)
   data->content_type = NULL;
 
   return dex_scheduler_spawn (
-      dex_scheduler_get_default (), 0,
+      dex_scheduler_get_default (),
+      bz_get_dex_stack_size (),
       (DexFiberFunc) http_send_fiber,
       g_steal_pointer (&data), http_send_data_unref);
 }
@@ -97,7 +99,8 @@ bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
   data->content_type = NULL;
 
   return dex_scheduler_spawn (
-      dex_scheduler_get_default (), 0,
+      dex_scheduler_get_default (),
+      bz_get_dex_stack_size (),
       (DexFiberFunc) http_send_fiber,
       g_steal_pointer (&data), http_send_data_unref);
 }
@@ -125,7 +128,8 @@ bz_query_flathub_v2_json (const char *request)
   data->content_type = g_strdup ("application/json");
 
   future = dex_scheduler_spawn (
-      dex_scheduler_get_default (), 0,
+      dex_scheduler_get_default (),
+      bz_get_dex_stack_size (),
       (DexFiberFunc) http_send_fiber,
       http_send_data_ref (data), http_send_data_unref);
   future = dex_future_then (
