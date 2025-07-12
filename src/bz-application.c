@@ -1299,8 +1299,8 @@ filter_valid_ids (GtkStringObject *string,
   id     = gtk_string_object_get_string (string);
   result = g_hash_table_contains (self->generic_id_to_entry_group_hash, id);
 
-  if (!result)
-    g_critical ("ID '%s' from flathub was not found!", id);
+  // if (!result)
+  //   g_critical ("ID '%s' from flathub was not found!", id);
 
   return result;
 }

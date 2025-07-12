@@ -275,7 +275,8 @@ const char *
 bz_flathub_state_get_app_of_the_day (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
   return self->app_of_the_day;
 }
 
@@ -285,7 +286,8 @@ bz_flathub_state_dup_app_of_the_day_group (BzFlathubState *self)
   g_autoptr (GtkStringObject) string = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
   g_return_val_if_fail (self->map_factory != NULL, NULL);
 
   string = gtk_string_object_new (self->app_of_the_day);
@@ -296,7 +298,8 @@ GListModel *
 bz_flathub_state_dup_apps_of_the_week (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
 
   if (self->apps_of_the_week != NULL)
     {
@@ -314,7 +317,8 @@ GListModel *
 bz_flathub_state_get_categories (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
   return G_LIST_MODEL (self->categories);
 }
 
@@ -322,7 +326,8 @@ GListModel *
 bz_flathub_state_dup_recently_updated (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
 
   if (self->recently_updated != NULL)
     {
@@ -340,7 +345,8 @@ GListModel *
 bz_flathub_state_dup_recently_added (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
 
   if (self->recently_added != NULL)
     {
@@ -358,7 +364,8 @@ GListModel *
 bz_flathub_state_dup_popular (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
 
   if (self->popular != NULL)
     {
@@ -376,7 +383,8 @@ GListModel *
 bz_flathub_state_dup_trending (BzFlathubState *self)
 {
   g_return_val_if_fail (BZ_IS_FLATHUB_STATE (self), NULL);
-  g_return_val_if_fail (self->initializing == NULL, NULL);
+  if (self->initializing != NULL)
+    return NULL;
 
   if (self->trending != NULL)
     {
