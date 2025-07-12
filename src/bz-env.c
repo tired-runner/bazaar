@@ -34,7 +34,7 @@ bz_get_dex_stack_size (void)
 
       value = MAX (4096 * 32, dex_get_min_stack_size ());
 
-      envvar = g_getenv ("BAZAAR_DEX_MIN_STACK_SIZE");
+      envvar = g_getenv ("BAZAAR_DEX_STACK_SIZE");
       if (envvar != NULL)
         {
           g_autoptr (GError) local_error = NULL;
