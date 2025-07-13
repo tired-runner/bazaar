@@ -1650,7 +1650,13 @@ static inline char *
 get_main_cache_dir (void)
 {
   const char *user_cache = NULL;
+  const char *id         = NULL;
 
   user_cache = g_get_user_cache_dir ();
-  return g_build_filename (user_cache, "flatpak", NULL);
+
+  id = g_application_get_application_id (g_application_get_default ());
+  if (id == NULL)
+    id = "Bazaar";
+
+  return g_build_filename (user_cache, id, "flatpak", NULL);
 }
