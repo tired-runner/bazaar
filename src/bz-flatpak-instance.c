@@ -254,6 +254,9 @@ reap_cache_dir (GFile *file);
 static inline void
 reap_cache_dir_path (const char *path);
 
+static inline char *
+get_main_cache_dir (void);
+
 static void
 bz_flatpak_instance_dispose (GObject *object)
 {
@@ -315,9 +318,6 @@ bz_flatpak_instance_retrieve_remote_entries (BzBackend                 *backend,
   g_autoptr (GatherEntriesData) data = NULL;
 
   dex_return_error_if_fail (progress_func != NULL);
-
-  /* clear func removes asynchronously */
-  g_ptr_array_set_size (self->cache_dirs, 0);
 
   data                    = gather_entries_data_new ();
   data->cancellable       = cancellable != NULL ? g_object_ref (cancellable) : NULL;
@@ -498,6 +498,18 @@ init_fiber (InitData *data)
 {
   BzFlatpakInstance *instance    = data->instance;
   g_autoptr (GError) local_error = NULL;
+  g_autofree char *main_cache    = NULL;
+
+  main_cache = get_main_cache_dir ();
+  if (g_file_test (main_cache, G_FILE_TEST_IS_DIR))
+    reap_cache_dir_path (main_cache);
+  else if (g_file_test (main_cache, G_FILE_TEST_EXISTS))
+    {
+      g_autoptr (GFile) file = NULL;
+
+      file = g_file_new_for_path (main_cache);
+      g_file_delete (file, NULL, NULL);
+    }
 
   instance->system = flatpak_installation_new_system (NULL, &local_error);
   if (instance->system == NULL)
@@ -604,6 +616,15 @@ ref_remote_apps_fiber (GatherEntriesData *data)
   guint                  n_jobs             = 0;
   g_autofree DexFuture **jobs               = NULL;
   DexFuture             *future             = NULL;
+
+  while (instance->cache_dirs->len > 0)
+    {
+      char *cache_dir = NULL;
+
+      cache_dir = g_ptr_array_steal_index_fast (instance->cache_dirs, 0);
+      reap_cache_dir_path (cache_dir);
+      g_free (cache_dir);
+    }
 
   system_remotes = flatpak_installation_list_remotes (
       instance->system, cancellable, &local_error);
@@ -720,11 +741,13 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
   AsComponentBox *components              = NULL;
   g_autoptr (GHashTable) id_hash          = NULL;
   // g_autofree char *remote_icon_name       = NULL;
-  g_autoptr (GdkPaintable) remote_icon   = NULL;
-  g_autoptr (GPtrArray) refs             = NULL;
-  g_autofree char       *output_dir_path = NULL;
-  g_autofree DexFuture **jobs            = NULL;
-  g_autoptr (DexFuture) future           = NULL;
+  g_autoptr (GdkPaintable) remote_icon = NULL;
+  g_autoptr (GPtrArray) refs           = NULL;
+  g_autofree char *main_cache          = NULL;
+  g_autofree char *output_dir_path     = NULL;
+  g_autoptr (GFile) output_dir_file    = NULL;
+  g_autofree DexFuture **jobs          = NULL;
+  g_autoptr (DexFuture) future         = NULL;
 
   remote_name = flatpak_remote_get_name (remote);
 
@@ -926,14 +949,23 @@ ref_remote_apps_for_single_remote_fiber (RefRemoteAppsForRemoteData *data)
         remote_name,
         local_error->message);
 
-  output_dir_path = g_dir_make_tmp (NULL, &local_error);
-  if (output_dir_path == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-        "failed to ensure utility directory in /tmp for remote '%s': %s",
-        remote_name,
-        local_error->message);
+  main_cache      = get_main_cache_dir ();
+  output_dir_path = g_build_filename (main_cache, remote_name, NULL);
+  output_dir_file = g_file_new_for_path (output_dir_path);
+
+  result = g_file_make_directory_with_parents (output_dir_file, cancellable, &local_error);
+  if (!result)
+    {
+      if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+        g_clear_pointer (&local_error, g_error_free);
+      else
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+            "failed to create cache dir for remote '%s': %s",
+            remote_name,
+            local_error->message);
+    }
   add_cache_dir (instance, output_dir_path, home_scheduler);
 
   for (guint i = 0; i < refs->len;)
@@ -1566,7 +1598,7 @@ reap_cache_dir (GFile *file)
   if (enumerator == NULL)
     {
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-        g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+        g_warning ("failed to reap cache directory '%s': %s", uri, local_error->message);
       g_clear_pointer (&local_error, g_error_free);
       return;
     }
@@ -1581,7 +1613,7 @@ reap_cache_dir (GFile *file)
       if (info == NULL)
         {
           if (local_error != NULL)
-            g_critical ("failed to enumerate cache directory '%s': %s", uri, local_error->message);
+            g_warning ("failed to enumerate cache directory '%s': %s", uri, local_error->message);
           g_clear_pointer (&local_error, g_error_free);
           break;
         }
@@ -1595,14 +1627,14 @@ reap_cache_dir (GFile *file)
       result = g_file_delete (child, NULL, &local_error);
       if (!result)
         {
-          g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+          g_warning ("failed to reap cache directory '%s': %s", uri, local_error->message);
           g_clear_pointer (&local_error, g_error_free);
         }
     }
 
   result = g_file_enumerator_close (enumerator, NULL, &local_error);
   if (!result)
-    g_critical ("failed to reap cache directory '%s': %s", uri, local_error->message);
+    g_warning ("failed to reap cache directory '%s': %s", uri, local_error->message);
 }
 
 static inline void
@@ -1612,4 +1644,13 @@ reap_cache_dir_path (const char *path)
 
   file = g_file_new_for_path (path);
   reap_cache_dir (file);
+}
+
+static inline char *
+get_main_cache_dir (void)
+{
+  const char *user_cache = NULL;
+
+  user_cache = g_get_user_cache_dir ();
+  return g_build_filename (user_cache, "flatpak", NULL);
 }
