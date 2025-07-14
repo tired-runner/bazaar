@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#define G_LOG_DOMAIN "BAZAAR::CORE"
+
 #include "config.h"
 
 #include <glib/gi18n.h>
@@ -285,6 +287,7 @@ bz_application_command_line (GApplication            *app,
   gboolean         window_autostart = FALSE;
 
   argv = g_application_command_line_get_arguments (cmdline, &argc);
+  g_debug ("Handling gapplication command line; argc=%d", argc);
 
   if (argv == NULL || argc < 2 || g_strcmp0 (argv[1], "--help") == 0)
     {
@@ -388,6 +391,10 @@ bz_application_command_line (GApplication            *app,
               return EXIT_FAILURE;
             }
 
+          g_debug ("Initializing libdex...");
+          dex_init ();
+
+          g_debug ("Starting daemon!");
           g_application_hold (G_APPLICATION (self));
           self->running = TRUE;
 
@@ -397,12 +404,17 @@ bz_application_command_line (GApplication            *app,
 
               app_id = g_application_get_application_id (G_APPLICATION (self));
               g_assert (app_id != NULL);
+              g_debug ("Constructing gsettings for %s ...", app_id);
+
               self->settings = g_settings_new (app_id);
               g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SETTINGS]);
             }
 
           if (self->css == NULL)
             {
+              g_debug ("Loading css provider from resource path %s",
+                       "/io/github/kolunmi/Bazaar/gtk/styles.css");
+
               self->css = gtk_css_provider_new ();
               gtk_css_provider_load_from_resource (
                   self->css, "/io/github/kolunmi/Bazaar/gtk/styles.css");
@@ -414,6 +426,8 @@ bz_application_command_line (GApplication            *app,
 
           blocklists = gtk_string_list_new (NULL);
 #ifdef HARDCODED_BLOCKLIST
+          g_debug ("Bazaar was configured with a hardcoded blocklist at %s, adding that now...",
+                   HARDCODED_BLOCKLIST);
           gtk_string_list_append (blocklists, HARDCODED_BLOCKLIST);
 #endif
           if (blocklists_strv != NULL)
@@ -425,6 +439,8 @@ bz_application_command_line (GApplication            *app,
 
           content_configs = gtk_string_list_new (NULL);
 #ifdef HARDCODED_CONTENT_CONFIG
+          g_debug ("Bazaar was configured with a hardcoded curated content config at %s, adding that now...",
+                   HARDCODED_CONTENT_CONFIG);
           gtk_string_list_append (content_configs, HARDCODED_CONTENT_CONFIG);
 #endif
           if (content_configs_strv != NULL)
@@ -1475,6 +1491,8 @@ gather_entries_progress (BzEntry       *entry,
 
       if (group == NULL)
         {
+          g_debug ("Creating new application group for id %s", id);
+
           group = bz_entry_group_new ();
           g_hash_table_replace (
               self->generic_id_to_entry_group_hash,
@@ -1483,6 +1501,8 @@ gather_entries_progress (BzEntry       *entry,
           g_list_store_append (
               self->applications, group);
         }
+
+      g_debug ("Adding application %s to group %s", unique_id, id);
       bz_entry_group_add (group, entry, TRUE, FALSE, FALSE);
 
       flatpak_name = bz_flatpak_entry_get_flatpak_id (BZ_FLATPAK_ENTRY (entry));
@@ -1496,9 +1516,15 @@ gather_entries_progress (BzEntry       *entry,
     }
 
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_RUNTIME))
-    g_list_store_append (self->runtimes, entry);
+    {
+      g_debug ("Adding runtime %s to list of runtimes", unique_id);
+      g_list_store_append (self->runtimes, entry);
+    }
   if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_ADDON))
-    g_list_store_append (self->addons, entry);
+    {
+      g_debug ("Adding addon %s to list of addons", unique_id);
+      g_list_store_append (self->addons, entry);
+    }
 
   g_list_store_append (self->all_entries, entry);
   g_hash_table_replace (
@@ -1539,6 +1565,8 @@ transaction_success (BzApplication        *self,
       unique_id = bz_entry_get_unique_id (entry);
       g_hash_table_add (self->installed_unique_ids_set, g_strdup (unique_id));
 
+      g_debug ("Successfully installed %s !", unique_id);
+
       if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
         {
           const char   *id    = NULL;
@@ -1562,6 +1590,8 @@ transaction_success (BzApplication        *self,
       g_object_set (entry, "installed", FALSE, NULL);
       unique_id = bz_entry_get_unique_id (entry);
       g_hash_table_remove (self->installed_unique_ids_set, unique_id);
+
+      g_debug ("Successfully removed %s !", unique_id);
 
       if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
         {
@@ -1625,6 +1655,8 @@ fetch_refs_then (DexFuture     *future,
   guint n_addons = 0;
 
   n_addons = g_list_model_get_n_items (G_LIST_MODEL (self->addons));
+  g_debug ("%d addons received, beginning application -> addon associations...", n_addons);
+
   for (guint i = 0; i < n_addons; i++)
     {
       g_autoptr (BzEntry) addon          = NULL;
@@ -1644,7 +1676,16 @@ fetch_refs_then (DexFuture     *future,
       candidate      = g_hash_table_lookup (self->flatpak_name_to_app_hash, formatted_name);
 
       if (candidate != NULL)
-        bz_entry_add_addon (candidate, addon);
+        {
+          g_debug ("Associating addon %s to entry %s ...",
+                   bz_entry_get_unique_id (addon),
+                   bz_entry_get_unique_id (candidate));
+          bz_entry_add_addon (candidate, addon);
+        }
+      else
+        g_debug ("Could not associate addon %s to another entry, tried %s to no avail",
+                 bz_entry_get_unique_id (addon),
+                 formatted_name);
     }
 
   return bz_backend_retrieve_install_ids (BZ_BACKEND (self->flatpak), NULL);
@@ -1672,6 +1713,7 @@ fetch_installs_then (DexFuture     *future,
 
       if (g_hash_table_contains (self->installed_unique_ids_set, unique_id))
         {
+          g_debug ("%s was found to be installed, marking it as such...", unique_id);
           g_object_set (entry, "installed", TRUE, NULL);
 
           if (bz_entry_is_of_kinds (entry, BZ_ENTRY_KIND_APPLICATION))
@@ -1694,12 +1736,15 @@ fetch_installs_then (DexFuture     *future,
   self->checking_updates = TRUE;
   self->online           = TRUE;
 
+  g_debug ("Finished synchronizing with remotes, notifying UI...");
+
   gtk_filter_changed (GTK_FILTER (self->appid_filter), GTK_FILTER_CHANGE_DIFFERENT);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
+  g_debug ("Checking for updates...");
   return bz_backend_retrieve_update_ids (BZ_BACKEND (self->flatpak), NULL);
 }
 
@@ -1713,6 +1758,8 @@ fetch_updates_then (DexFuture     *future,
 
   value = dex_future_get_value (future, NULL);
   names = g_value_dup_boxed (value);
+
+  g_debug ("Successfully checked for updates, found %d", names->len);
 
   if (names->len > 0)
     {
@@ -1758,7 +1805,10 @@ refresh_finally (DexFuture     *future,
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
-    self->online = TRUE;
+    {
+      self->online = TRUE;
+      g_debug ("We are online!");
+    }
   else
     {
       GtkWindow *window = NULL;
@@ -1767,6 +1817,8 @@ refresh_finally (DexFuture     *future,
       self->checking_updates = FALSE;
 
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
+
+      g_debug ("Failed to achieve online status, reason: %s", local_error->message);
 
       window = gtk_application_get_active_window (GTK_APPLICATION (self));
       if (window != NULL)
@@ -1780,11 +1832,16 @@ refresh_finally (DexFuture     *future,
         }
     }
 
+  g_debug ("Completely done with the refresh process, notifying UI");
+
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   if (self->waiting_to_open != NULL)
-    open_flatpakref_take (self, g_object_ref (self->waiting_to_open));
+    {
+      g_debug ("A flatpakref was requested to be opened during refresh. Doing that now...");
+      open_flatpakref_take (self, g_object_ref (self->waiting_to_open));
+    }
 
   return NULL;
 }
@@ -1795,7 +1852,12 @@ refresh (BzApplication *self)
   g_autoptr (DexFuture) future = NULL;
 
   if (self->refresh_task != NULL)
-    return;
+    {
+      g_warning ("Bazaar is currently refreshing, so it cannot refresh right now");
+      return;
+    }
+
+  g_debug ("Refreshing complete application state...");
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
@@ -1817,9 +1879,15 @@ refresh (BzApplication *self)
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ONLINE]);
 
   if (self->flatpak == NULL)
-    future = bz_flatpak_instance_new ();
+    {
+      g_debug ("Constructing flatpak instance for the first time...");
+      future = bz_flatpak_instance_new ();
+    }
   else
-    future = dex_future_new_for_object (self->flatpak);
+    {
+      g_debug ("Reusing previous flatpak instance...");
+      future = dex_future_new_for_object (self->flatpak);
+    }
   future = dex_future_then (
       future, (DexFutureCallback) refresh_then,
       self, NULL);
@@ -2013,11 +2081,16 @@ static void
 open_flatpakref_take (BzApplication *self,
                       GFile         *file)
 {
+  g_autofree char *path = NULL;
+
   g_assert (file != NULL);
+  path = g_file_get_path (file);
 
   if (self->flatpak != NULL)
     {
       g_autoptr (DexFuture) future = NULL;
+
+      g_debug ("Loading local flatpakref at %s now...", path);
 
       future = bz_backend_load_local_package (BZ_BACKEND (self->flatpak), file, NULL);
       future = dex_future_finally (
@@ -2030,6 +2103,10 @@ open_flatpakref_take (BzApplication *self,
     }
   else
     {
+      g_debug ("Bazaar is currently refreshing, so we will load "
+               "the local flatpakref at %s when that is done",
+               path);
+
       g_clear_object (&self->waiting_to_open);
       self->waiting_to_open = file;
     }

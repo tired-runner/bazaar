@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#define G_LOG_DOMAIN "BAZAAR::MAIN"
+
 #include "config.h"
 
 #include <glib/gi18n.h>
@@ -38,18 +40,20 @@ main (int   argc,
       return 0;
     }
 
-  dex_init ();
-
+  g_debug ("Configuring textdomain...");
   bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
   textdomain (GETTEXT_PACKAGE);
 
+  g_debug ("Constructing main application object...");
   app = g_object_new (
       BZ_TYPE_APPLICATION,
       "application-id", "io.github.kolunmi.Bazaar",
       "flags", G_APPLICATION_HANDLES_COMMAND_LINE,
       "resource-base-path", "/io/github/kolunmi/Bazaar",
       NULL);
+
+  g_debug ("Running!");
   ret = g_application_run (G_APPLICATION (app), argc, argv);
 
   return ret;

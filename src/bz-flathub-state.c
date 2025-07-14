@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#define G_LOG_DOMAIN "BAZAAR::FLATHUB"
+
 #include <libdex.h>
 
 #include "bz-env.h"
@@ -453,6 +455,7 @@ bz_flathub_state_update_to_today (BzFlathubState *self)
   datetime = g_date_time_new_now_utc ();
   for_day  = g_date_time_format (datetime, "%F");
 
+  g_debug ("Syncing with flathub for day: %s", for_day);
   bz_flathub_state_set_for_day (self, for_day);
 }
 
@@ -711,6 +714,7 @@ initialize_finally (DexFuture      *future,
     }
 
   self->initializing = NULL;
+  g_debug ("Done syncing flathub state; notifying property listeners...");
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_APP_OF_THE_DAY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_APP_OF_THE_DAY_GROUP]);
