@@ -391,11 +391,6 @@ bz_application_command_line (GApplication            *app,
               return EXIT_FAILURE;
             }
 
-          g_debug ("Initializing libdex...");
-          dex_init ();
-          /* Workaround */
-          (void) dex_thread_pool_scheduler_get_default ();
-
           g_debug ("Starting daemon!");
           g_application_hold (G_APPLICATION (self));
           self->running = TRUE;
