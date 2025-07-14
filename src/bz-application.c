@@ -46,7 +46,6 @@ struct _BzApplication
   GListModel *content_configs;
 
   BzTransactionManager *transactions;
-  BzContentProvider    *content_provider;
 
   gboolean   running;
   DexFuture *refresh_task;
@@ -61,10 +60,12 @@ struct _BzApplication
   BzSearchEngine             *search_engine;
   BzGnomeShellSearchProvider *gs_search;
 
+  GtkCustomFilter         *appid_filter;
+  BzApplicationMapFactory *map_factory;
+  BzContentProvider       *content_provider;
   BzFlatpakInstance       *flatpak;
   GFile                   *waiting_to_open;
   BzFlathubState          *flathub;
-  BzApplicationMapFactory *map_factory;
 
   GListStore *all_entries;
   GListStore *applications;
@@ -180,6 +181,7 @@ bz_application_dispose (GObject *object)
   g_clear_object (&self->gs_search);
   g_clear_object (&self->flatpak);
   g_clear_object (&self->waiting_to_open);
+  g_clear_object (&self->appid_filter);
   g_clear_object (&self->map_factory);
   g_clear_object (&self->flathub);
   g_clear_pointer (&self->generic_id_to_entry_group_hash, g_hash_table_unref);
@@ -253,17 +255,7 @@ bz_application_set_property (GObject      *object,
       self->settings = g_value_dup_object (value);
       break;
     case PROP_BLOCKLISTS:
-      // TODO: this shouldn't be writable
-      g_clear_object (&self->blocklists);
-      self->blocklists = g_value_dup_object (value);
-      break;
     case PROP_CONTENT_CONFIGS:
-      // TODO: this shouldn't be writable
-      g_clear_object (&self->content_configs);
-      self->content_configs = g_value_dup_object (value);
-      gtk_map_list_model_set_model (
-          self->content_configs_to_files, self->content_configs);
-      break;
     case PROP_TRANSACTION_MANAGER:
     case PROP_CONTENT_PROVIDER:
     case PROP_BUSY:
@@ -442,13 +434,17 @@ bz_application_command_line (GApplication            *app,
                 0,
                 (const char *const *) content_configs_strv);
 
-          g_object_set (
-              self,
-              "blocklists", blocklists,
-              "content-configs", content_configs,
-              NULL);
+          g_clear_object (&self->blocklists);
+          g_clear_object (&self->content_configs);
+          self->blocklists      = G_LIST_MODEL (g_steal_pointer (&blocklists));
+          self->content_configs = G_LIST_MODEL (g_steal_pointer (&content_configs));
 
           refresh (self);
+
+          gtk_map_list_model_set_model (
+              self->content_configs_to_files, self->content_configs);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BLOCKLISTS]);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CONTENT_CONFIGS]);
         }
     }
   else if (!self->running)
@@ -1296,6 +1292,9 @@ filter_valid_ids (GtkStringObject *string,
   const char *id     = NULL;
   gboolean    result = FALSE;
 
+  if (self->busy)
+    return FALSE;
+
   id     = gtk_string_object_get_string (string);
   result = g_hash_table_contains (self->generic_id_to_entry_group_hash, id);
 
@@ -1332,10 +1331,7 @@ bz_application_init (BzApplication *self)
   self->installed_unique_ids_set = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, NULL);
 
-  self->content_provider = bz_content_provider_new ();
-  bz_content_provider_set_group_hash (
-      self->content_provider, self->generic_id_to_entry_group_hash);
-
+  self->content_provider         = bz_content_provider_new ();
   self->content_configs_to_files = gtk_map_list_model_new (
       NULL, (GtkMapListModelMapFunc) map_strings_to_files, NULL, NULL);
   bz_content_provider_set_input_files (
@@ -1351,9 +1347,12 @@ bz_application_init (BzApplication *self)
 
   filter = gtk_custom_filter_new (
       (GtkCustomFilterFunc) filter_valid_ids, self, NULL);
-  self->map_factory = bz_application_map_factory_new (
+  self->appid_filter = g_object_ref_sink (filter);
+  self->map_factory  = bz_application_map_factory_new (
       (GtkMapListModelMapFunc) map_ids_to_groups,
       self, NULL, NULL, GTK_FILTER (filter));
+
+  bz_content_provider_set_factory (self->content_provider, self->map_factory);
   bz_flathub_state_set_map_factory (self->flathub, self->map_factory);
 
   g_action_map_add_action_entries (
@@ -1695,8 +1694,7 @@ fetch_installs_then (DexFuture     *future,
   self->checking_updates = TRUE;
   self->online           = TRUE;
 
-  bz_content_provider_unblock (self->content_provider);
-  g_object_thaw_notify (G_OBJECT (self->flathub));
+  gtk_filter_changed (GTK_FILTER (self->appid_filter), GTK_FILTER_CHANGE_DIFFERENT);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_BUSY]);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
@@ -1768,8 +1766,6 @@ refresh_finally (DexFuture     *future,
       self->online           = FALSE;
       self->checking_updates = FALSE;
 
-      bz_content_provider_unblock (self->content_provider);
-      g_object_thaw_notify (G_OBJECT (self->flathub));
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHECKING_UPDATES]);
 
       window = gtk_application_get_active_window (GTK_APPLICATION (self));
@@ -1800,9 +1796,6 @@ refresh (BzApplication *self)
 
   if (self->refresh_task != NULL)
     return;
-
-  bz_content_provider_block (self->content_provider);
-  g_object_freeze_notify (G_OBJECT (self->flathub));
 
   g_clear_pointer (&self->installed_unique_ids_set, g_hash_table_unref);
   g_hash_table_remove_all (self->generic_id_to_entry_group_hash);
