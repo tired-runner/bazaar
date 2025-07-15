@@ -362,7 +362,7 @@ screenshot_activate_cb (BzFullView  *self,
 
   for (guint i = 0; i < n_items; i++)
     {
-      g_autoptr (BzAsyncTexture) async_tex;
+      g_autoptr (BzAsyncTexture) async_tex = NULL;
 
       async_tex = g_list_model_get_item (G_LIST_MODEL (model), i);
       if (bz_async_texture_get_loaded (async_tex))
