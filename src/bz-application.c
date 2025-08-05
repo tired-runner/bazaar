@@ -765,14 +765,20 @@ bz_application_about_action (GSimpleAction *action,
   const char *translators[] = {
     C_ ("About Dialog Translator Credit", "Ahmed Najmawi"),
     C_ ("About Dialog Translator Credit", "AtomHare"),
+    C_ ("About Dialog Translator Credit", "Azenyr"),
+    C_ ("About Dialog Translator Credit", "Goudarz Jafari"),
     C_ ("About Dialog Translator Credit", "Jill Fiore"),
+    C_ ("About Dialog Translator Credit", "KiKaraage"),
     C_ ("About Dialog Translator Credit", "Lucosec"),
+    C_ ("About Dialog Translator Credit", "Léane GRASSER"),
+    C_ ("About Dialog Translator Credit", "Microwave"),
+    C_ ("About Dialog Translator Credit", "Pietro F."),
     C_ ("About Dialog Translator Credit", "Shihfu Juan"),
+    C_ ("About Dialog Translator Credit", "Shinsei"),
     C_ ("About Dialog Translator Credit", "Vlastimil Dědek"),
     C_ ("About Dialog Translator Credit", "asen23"),
     C_ ("About Dialog Translator Credit", "renner"),
     C_ ("About Dialog Translator Credit", "robotta"),
-    C_ ("About Dialog Translator Credit", "Léane GRASSER"),
     /* This array MUST be NULL terminated */
     NULL
   };
