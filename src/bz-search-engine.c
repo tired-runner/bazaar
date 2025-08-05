@@ -28,8 +28,6 @@ struct _BzSearchEngine
   GObject parent_instance;
 
   GListModel *model;
-
-  DexScheduler *scheduler;
 };
 
 G_DEFINE_FINAL_TYPE (BzSearchEngine, bz_search_engine, G_TYPE_OBJECT);
@@ -77,7 +75,6 @@ bz_search_engine_dispose (GObject *object)
   BzSearchEngine *self = BZ_SEARCH_ENGINE (object);
 
   g_clear_object (&self->model);
-  dex_clear (&self->scheduler);
 
   G_OBJECT_CLASS (bz_search_engine_parent_class)->dispose (object);
 }
@@ -140,7 +137,6 @@ bz_search_engine_class_init (BzSearchEngineClass *klass)
 static void
 bz_search_engine_init (BzSearchEngine *self)
 {
-  // self->scheduler = dex_thread_pool_scheduler_new ();
 }
 
 BzSearchEngine *
@@ -193,17 +189,14 @@ bz_search_engine_query (BzSearchEngine    *self,
   g_array_set_size (entries, n_entries);
   for (guint i = 0; i < n_entries; i++)
     {
-      EntryData *addr     = NULL;
-      BzEntry   *ui_entry = NULL;
-      GPtrArray *tokens   = NULL;
+      EntryData *addr   = NULL;
+      GPtrArray *tokens = NULL;
 
       addr = &g_array_index (entries, EntryData, i);
 
       addr->group = g_list_model_get_item (self->model, i);
-      ui_entry    = bz_entry_group_get_ui_entry (addr->group);
-
-      /* We understand BzEntry -> search-tokens to be immutable */
-      tokens       = bz_entry_get_search_tokens (ui_entry);
+      /* We understand the "search-tokens" prop to be immutable */
+      tokens       = bz_entry_group_get_search_tokens (addr->group);
       addr->tokens = g_ptr_array_ref (tokens);
 
       addr->score = 0;

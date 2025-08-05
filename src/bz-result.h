@@ -1,4 +1,4 @@
-/* bz-global-state.h
+/* bz-result.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -21,21 +21,33 @@
 #pragma once
 
 #include <libdex.h>
-#include <libsoup/soup.h>
 
 G_BEGIN_DECLS
 
-DexFuture *
-bz_send_with_global_http_session (SoupMessage *message);
+#define BZ_TYPE_RESULT (bz_result_get_type ())
+G_DECLARE_FINAL_TYPE (BzResult, bz_result, BZ, RESULT, GObject)
+
+BzResult *
+bz_result_new (DexFuture *future);
+
+gboolean
+bz_result_get_pending (BzResult *self);
+
+gboolean
+bz_result_get_resolved (BzResult *self);
+
+gboolean
+bz_result_get_rejected (BzResult *self);
+
+gpointer
+bz_result_get_object (BzResult *self);
+
+const char *
+bz_result_get_message (BzResult *self);
 
 DexFuture *
-bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
-                                                   GOutputStream *output);
-
-DexFuture *
-bz_query_flathub_v2_json (const char *request);
-
-DexFuture *
-bz_query_flathub_v2_json_take (char *request);
+bz_result_dup_future (BzResult *self);
 
 G_END_DECLS
+
+/* End of bz-result.h */

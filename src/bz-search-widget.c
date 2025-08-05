@@ -404,9 +404,7 @@ bz_search_widget_set_model (BzSearchWidget *self,
   GtkFilterListModel *filter_list_model = NULL;
 
   g_return_if_fail (BZ_IS_SEARCH_WIDGET (self));
-  g_return_if_fail (model == NULL ||
-                    (G_IS_LIST_MODEL (model) &&
-                     g_list_model_get_item_type (model) == BZ_TYPE_ENTRY_GROUP));
+  g_return_if_fail (model == NULL || G_IS_LIST_MODEL (model));
 
   g_clear_object (&self->model);
   self->model = model != NULL ? g_object_ref (model) : NULL;
@@ -496,30 +494,19 @@ cmp_item (BzEntryGroup   *a,
           BzEntryGroup   *b,
           BzSearchWidget *self)
 {
-  int      a_score = 0;
-  int      b_score = 0;
-  BzEntry *a_entry = NULL;
-  BzEntry *b_entry = NULL;
+  int a_score = 0;
+  int b_score = 0;
 
   a_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, a));
   b_score = GPOINTER_TO_INT (g_hash_table_lookup (self->match_scores, b));
 
-  a_entry = bz_entry_group_get_ui_entry (a);
-  b_entry = bz_entry_group_get_ui_entry (b);
-
   if (a_score == b_score)
     {
       /* slightly favor entries with a description */
-      if (bz_entry_get_description (a_entry) != NULL)
+      if (bz_entry_group_get_description (a) != NULL)
         a_score += 1;
-      if (bz_entry_get_description (b_entry) != NULL)
+      if (bz_entry_group_get_description (b) != NULL)
         b_score += 1;
-
-      /* greatly favor entries with an icon */
-      if (bz_entry_get_icon_paintable (a_entry) != NULL)
-        a_score += 2;
-      if (bz_entry_get_icon_paintable (b_entry) != NULL)
-        b_score += 2;
     }
   /* fallback */
   if (a_score == b_score)
@@ -528,8 +515,8 @@ cmp_item (BzEntryGroup   *a,
       const char *b_title = NULL;
       int         cmp_res = 0;
 
-      a_title = bz_entry_get_title (a_entry);
-      b_title = bz_entry_get_title (b_entry);
+      a_title = bz_entry_group_get_title (a);
+      b_title = bz_entry_group_get_title (b);
       cmp_res = g_strcmp0 (a_title, b_title);
 
       if (cmp_res < 0)
@@ -547,23 +534,18 @@ static gboolean
 match (BzEntryGroup   *item,
        BzSearchWidget *self)
 {
-  BzEntry   *entry         = NULL;
   GPtrArray *search_tokens = NULL;
   int        score         = 0;
 
-  entry = bz_entry_group_get_ui_entry (item);
-  if (entry == NULL)
-    return FALSE;
-
   if (gtk_check_button_get_active (self->foss_check) &&
-      !bz_entry_get_is_foss (entry))
+      !bz_entry_group_get_is_floss (item))
     goto done;
 
   if (gtk_check_button_get_active (self->flathub_check) &&
-      !bz_entry_get_is_flathub (entry))
+      !bz_entry_group_get_is_flathub (item))
     goto done;
 
-  search_tokens = bz_entry_get_search_tokens (entry);
+  search_tokens = bz_entry_group_get_search_tokens (item);
 
   if (self->match_regex != NULL)
     {

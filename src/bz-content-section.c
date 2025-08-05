@@ -70,6 +70,8 @@ bz_content_section_dispose (GObject *object)
   BzContentSection        *self = BZ_CONTENT_SECTION (object);
   BzContentSectionPrivate *priv = bz_content_section_get_instance_private (self);
 
+  bz_content_section_get_instance_private;
+
   g_clear_pointer (&priv->error, g_free);
   g_clear_object (&priv->classes);
   g_clear_pointer (&priv->title, g_free);

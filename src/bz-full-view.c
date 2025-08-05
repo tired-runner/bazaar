@@ -18,8 +18,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
 #include <glib/gi18n.h>
 
 #include "bz-async-texture.h"
@@ -28,10 +26,11 @@
 #include "bz-error.h"
 #include "bz-flatpak-entry.h"
 #include "bz-full-view.h"
-#include "bz-paintable-model.h"
+#include "bz-io.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
 #include "bz-share-dialog.h"
+#include "bz-state-info.h"
 #include "bz-stats-dialog.h"
 #include "bz-util.h"
 
@@ -39,12 +38,17 @@ struct _BzFullView
 {
   AdwBin parent_instance;
 
+  BzStateInfo          *state;
   BzTransactionManager *transactions;
   BzEntryGroup         *group;
-  BzEntryGroup         *debounced_group;
+  BzResult             *ui_entry;
+  BzResult             *debounced_ui_entry;
+  BzResult             *group_model;
+
+  guint      debounce_timeout;
+  DexFuture *ui_entry_resolve_task;
 
   DexFuture *loading_image_viewer;
-  guint      debounce_timeout;
 
   /* Template widgets */
   AdwViewStack *stack;
@@ -56,9 +60,11 @@ enum
 {
   PROP_0,
 
+  PROP_STATE,
   PROP_TRANSACTION_MANAGER,
   PROP_ENTRY_GROUP,
-  PROP_DEBOUNCED_GROUP,
+  PROP_UI_ENTRY,
+  PROP_DEBOUNCED_UI_ENTRY,
 
   LAST_PROP
 };
@@ -90,6 +96,10 @@ static DexFuture *
 open_screenshots_external_finally (DexFuture  *future,
                                    BzFullView *self);
 
+static DexFuture *
+ui_entry_resolved_then (DexFuture  *future,
+                        BzFullView *self);
+
 BZ_DEFINE_DATA (
     save_single_screenshot,
     SaveSingleScreenshot,
@@ -109,8 +119,11 @@ bz_full_view_dispose (GObject *object)
 
   g_clear_object (&self->transactions);
   g_clear_object (&self->group);
-  g_clear_object (&self->debounced_group);
+  g_clear_object (&self->ui_entry);
+  g_clear_object (&self->debounced_ui_entry);
+  g_clear_object (&self->group_model);
 
+  dex_clear (&self->ui_entry_resolve_task);
   dex_clear (&self->loading_image_viewer);
   g_clear_handle_id (&self->debounce_timeout, g_source_remove);
 
@@ -127,14 +140,20 @@ bz_full_view_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_STATE:
+      g_value_set_object (value, self->state);
+      break;
     case PROP_TRANSACTION_MANAGER:
       g_value_set_object (value, bz_full_view_get_transaction_manager (self));
       break;
     case PROP_ENTRY_GROUP:
       g_value_set_object (value, bz_full_view_get_entry_group (self));
       break;
-    case PROP_DEBOUNCED_GROUP:
-      g_value_set_object (value, self->debounced_group);
+    case PROP_UI_ENTRY:
+      g_value_set_object (value, self->ui_entry);
+      break;
+    case PROP_DEBOUNCED_UI_ENTRY:
+      g_value_set_object (value, self->debounced_ui_entry);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -151,13 +170,18 @@ bz_full_view_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_STATE:
+      g_clear_object (&self->state);
+      self->state = g_value_dup_object (value);
+      break;
     case PROP_TRANSACTION_MANAGER:
       bz_full_view_set_transaction_manager (self, g_value_get_object (value));
       break;
     case PROP_ENTRY_GROUP:
       bz_full_view_set_entry_group (self, g_value_get_object (value));
       break;
-    case PROP_DEBOUNCED_GROUP:
+    case PROP_UI_ENTRY:
+    case PROP_DEBOUNCED_UI_ENTRY:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -243,7 +267,7 @@ share_cb (BzFullView *self,
   if (self->group == NULL)
     return;
 
-  share_dialog = bz_share_dialog_new (bz_entry_group_get_ui_entry (self->group));
+  share_dialog = bz_share_dialog_new (bz_result_get_object (self->ui_entry));
   gtk_widget_set_size_request (GTK_WIDGET (share_dialog), 400, -1);
 
   adw_dialog_present (share_dialog, GTK_WIDGET (self));
@@ -253,16 +277,17 @@ static void
 dl_stats_cb (BzFullView *self,
              GtkButton  *button)
 {
-  BzEntry   *ui_entry = NULL;
   AdwDialog *dialog   = NULL;
+  BzEntry   *ui_entry = NULL;
 
   if (self->group == NULL)
     return;
 
-  ui_entry = bz_entry_group_get_ui_entry (self->group);
-  dialog   = bz_stats_dialog_new (NULL);
+  dialog = bz_stats_dialog_new (NULL);
   adw_dialog_set_content_width (dialog, 2000);
   adw_dialog_set_content_height (dialog, 1500);
+
+  ui_entry = bz_result_get_object (self->ui_entry);
   g_object_bind_property (ui_entry, "download-stats", dialog, "model", G_BINDING_SYNC_CREATE);
 
   adw_dialog_present (dialog, GTK_WIDGET (self));
@@ -276,10 +301,10 @@ run_cb (BzFullView *self,
   GListModel *model   = NULL;
   guint       n_items = 0;
 
-  if (self->group == NULL)
+  if (self->group == NULL || !bz_result_get_resolved (self->group_model))
     return;
 
-  model   = bz_entry_group_get_model (self->group);
+  model   = bz_result_get_object (self->group_model);
   n_items = g_list_model_get_n_items (model);
 
   for (guint i = 0; i < n_items; i++)
@@ -288,13 +313,15 @@ run_cb (BzFullView *self,
 
       entry = g_list_model_get_item (model, i);
 
-      if (BZ_IS_FLATPAK_ENTRY (entry) &&
-          bz_entry_group_query_removable (self->group, entry))
+      if (BZ_IS_FLATPAK_ENTRY (entry) && bz_entry_is_installed (entry))
         {
           g_autoptr (GError) local_error = NULL;
           gboolean result                = FALSE;
 
-          result = bz_flatpak_entry_launch (BZ_FLATPAK_ENTRY (entry), &local_error);
+          result = bz_flatpak_entry_launch (
+              BZ_FLATPAK_ENTRY (entry),
+              BZ_FLATPAK_INSTANCE (bz_state_info_get_backend (self->state)),
+              &local_error);
           if (!result)
             {
               GtkWidget *window = NULL;
@@ -326,16 +353,32 @@ static void
 support_cb (BzFullView *self,
             GtkButton  *button)
 {
-  BzEntry *ui_entry = NULL;
+  BzEntry *entry = NULL;
 
-  ui_entry = bz_entry_group_get_ui_entry (self->group);
-  if (ui_entry != NULL)
+  entry = bz_result_get_object (self->ui_entry);
+  if (entry != NULL)
     {
       const char *url = NULL;
 
-      url = bz_entry_get_donation_url (ui_entry);
+      url = bz_entry_get_donation_url (entry);
       g_app_info_launch_default_for_uri (url, NULL, NULL);
     }
+}
+
+static void
+screenshots_bind_widget_cb (BzFullView        *self,
+                            BzScreenshot      *screenshot,
+                            GdkPaintable      *paintable,
+                            BzDynamicListView *view)
+{
+}
+
+static void
+screenshots_unbind_widget_cb (BzFullView        *self,
+                              BzScreenshot      *screenshot,
+                              GdkPaintable      *paintable,
+                              BzDynamicListView *view)
+{
 }
 
 static void
@@ -352,7 +395,7 @@ screenshot_activate_cb (BzFullView  *self,
   if (self->loading_image_viewer != NULL)
     return;
 
-  scheduler = dex_thread_pool_scheduler_get_default ();
+  scheduler = bz_get_io_scheduler ();
   model     = gtk_list_view_get_model (list_view);
   n_items   = g_list_model_get_n_items (G_LIST_MODEL (model));
 
@@ -366,13 +409,8 @@ screenshot_activate_cb (BzFullView  *self,
 
       async_tex = g_list_model_get_item (G_LIST_MODEL (model), i);
       if (bz_async_texture_get_loaded (async_tex))
-        {
-          GdkTexture *texture = NULL;
-
-          texture = bz_async_texture_get_texture (async_tex);
-          if (texture != NULL)
-            g_ptr_array_add (data->textures, g_object_ref (texture));
-        }
+        g_ptr_array_add (data->textures,
+                         bz_async_texture_dup_texture (async_tex));
     }
   if (data->textures->len == 0)
     return;
@@ -402,6 +440,13 @@ bz_full_view_class_init (BzFullViewClass *klass)
   object_class->get_property = bz_full_view_get_property;
   object_class->set_property = bz_full_view_set_property;
 
+  props[PROP_STATE] =
+      g_param_spec_object (
+          "state",
+          NULL, NULL,
+          BZ_TYPE_STATE_INFO,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
   props[PROP_TRANSACTION_MANAGER] =
       g_param_spec_object (
           "transaction-manager",
@@ -416,11 +461,18 @@ bz_full_view_class_init (BzFullViewClass *klass)
           BZ_TYPE_ENTRY_GROUP,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
-  props[PROP_DEBOUNCED_GROUP] =
+  props[PROP_UI_ENTRY] =
       g_param_spec_object (
-          "debounced-group",
+          "ui-entry",
           NULL, NULL,
-          BZ_TYPE_ENTRY_GROUP,
+          BZ_TYPE_RESULT,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_DEBOUNCED_UI_ENTRY] =
+      g_param_spec_object (
+          "debounced-ui-entry",
+          NULL, NULL,
+          BZ_TYPE_RESULT,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
   g_object_class_install_properties (object_class, LAST_PROP, props);
@@ -453,6 +505,8 @@ bz_full_view_class_init (BzFullViewClass *klass)
       G_TYPE_FROM_CLASS (klass),
       g_cclosure_marshal_VOID__VOIDv);
 
+  g_type_ensure (BZ_TYPE_ENTRY);
+  g_type_ensure (BZ_TYPE_ENTRY_GROUP);
   g_type_ensure (BZ_TYPE_SCREENSHOT);
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
   g_type_ensure (BZ_TYPE_DYNAMIC_LIST_VIEW);
@@ -472,6 +526,8 @@ bz_full_view_class_init (BzFullViewClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, install_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);
+  gtk_widget_class_bind_template_callback (widget_class, screenshots_bind_widget_cb);
+  gtk_widget_class_bind_template_callback (widget_class, screenshots_unbind_widget_cb);
   gtk_widget_class_bind_template_callback (widget_class, screenshot_activate_cb);
   gtk_widget_class_bind_template_callback (widget_class, pick_license_warning);
 }
@@ -518,34 +574,42 @@ bz_full_view_set_entry_group (BzFullView   *self,
   g_return_if_fail (group == NULL ||
                     BZ_IS_ENTRY_GROUP (group));
 
+  dex_clear (&self->ui_entry_resolve_task);
   g_clear_object (&self->group);
+  g_clear_object (&self->ui_entry);
   g_clear_handle_id (&self->debounce_timeout, g_source_remove);
-  g_clear_object (&self->debounced_group);
+  g_clear_object (&self->debounced_ui_entry);
+  g_clear_object (&self->group_model);
 
   if (group != NULL)
     {
-      BzEntry    *ui_entry    = NULL;
-      GListModel *screenshots = NULL;
+      g_autoptr (DexFuture) future = NULL;
 
-      self->group = g_object_ref (group);
+      self->group            = g_object_ref (group);
+      self->ui_entry         = bz_entry_group_dup_ui_entry (group);
+      self->debounce_timeout = g_timeout_add_once (
+          300, (GSourceOnceFunc) debounce_timeout, self);
 
-      ui_entry    = bz_entry_group_get_ui_entry (group);
-      screenshots = bz_entry_get_screenshot_paintables (ui_entry);
+      future            = bz_entry_group_dup_all_into_model (group);
+      self->group_model = bz_result_new (future);
 
-      if (BZ_IS_PAINTABLE_MODEL (screenshots) &&
-          bz_paintable_model_is_fully_loaded (BZ_PAINTABLE_MODEL (screenshots)))
-        self->debounced_group = g_object_ref (group);
-      else
-        self->debounce_timeout = g_timeout_add_once (
-            500, (GSourceOnceFunc) debounce_timeout, self);
-
+      // if (bz_result_get_resolved (self->ui_entry))
       adw_view_stack_set_visible_child_name (self->stack, "content");
+      // else
+      //   {
+      //     adw_view_stack_set_visible_child_name (self->stack, "pending");
+      //     self->ui_entry_resolve_task = dex_future_then (
+      //         bz_result_dup_future (self->ui_entry),
+      //         (DexFutureCallback) ui_entry_resolved_then,
+      //         self, NULL);
+      //   }
     }
   else
     adw_view_stack_set_visible_child_name (self->stack, "empty");
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ENTRY_GROUP]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_GROUP]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UI_ENTRY]);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_UI_ENTRY]);
 }
 
 BzEntryGroup *
@@ -562,9 +626,9 @@ debounce_timeout (BzFullView *self)
   if (self->group == NULL)
     return;
 
-  g_clear_object (&self->debounced_group);
-  self->debounced_group = g_object_ref (self->group);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_GROUP]);
+  g_clear_object (&self->debounced_ui_entry);
+  self->debounced_ui_entry = g_object_ref (self->ui_entry);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_UI_ENTRY]);
 }
 
 static DexFuture *
@@ -685,5 +749,13 @@ open_screenshots_external_finally (DexFuture  *future,
   // gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
 
   self->loading_image_viewer = NULL;
+  return NULL;
+}
+
+static DexFuture *
+ui_entry_resolved_then (DexFuture  *future,
+                        BzFullView *self)
+{
+  // adw_view_stack_set_visible_child_name (self->stack, "content");
   return NULL;
 }

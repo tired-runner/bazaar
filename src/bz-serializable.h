@@ -1,4 +1,4 @@
-/* bz-global-state.h
+/* bz-serializable.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,22 +20,32 @@
 
 #pragma once
 
-#include <libdex.h>
-#include <libsoup/soup.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
-DexFuture *
-bz_send_with_global_http_session (SoupMessage *message);
+#define BZ_TYPE_SERIALIZABLE (bz_serializable_get_type ())
+G_DECLARE_INTERFACE (BzSerializable, bz_serializable, BZ, SERIALIZABLE, GObject)
 
-DexFuture *
-bz_send_with_global_http_session_then_splice_into (SoupMessage   *message,
-                                                   GOutputStream *output);
+struct _BzSerializableInterface
+{
+  GTypeInterface parent_iface;
 
-DexFuture *
-bz_query_flathub_v2_json (const char *request);
+  void (*serialize) (BzSerializable  *self,
+                     GVariantBuilder *builder);
 
-DexFuture *
-bz_query_flathub_v2_json_take (char *request);
+  gboolean (*deserialize) (BzSerializable *self,
+                           GVariant       *import,
+                           GError        **error);
+};
+
+void
+bz_serializable_serialize (BzSerializable  *self,
+                           GVariantBuilder *builder);
+
+gboolean
+bz_serializable_deserialize (BzSerializable *self,
+                             GVariant       *import,
+                             GError        **error);
 
 G_END_DECLS

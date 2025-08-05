@@ -18,9 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
 #include "bz-screenshot.h"
+#include "bz-async-texture.h"
 
 struct _BzScreenshot
 {
@@ -42,12 +41,17 @@ enum
 static GParamSpec *props[LAST_PROP] = { 0 };
 
 static void
-invalidate_contents (GdkPaintable *paintable,
-                     BzScreenshot *self);
+invalidate_contents (BzScreenshot *self,
+                     GdkPaintable *paintable);
 
 static void
-invalidate_size (GdkPaintable *paintable,
-                 BzScreenshot *self);
+invalidate_size (BzScreenshot *self,
+                 GdkPaintable *paintable);
+
+static void
+async_loaded (BzScreenshot   *self,
+              GParamSpec     *pspec,
+              BzAsyncTexture *texture);
 
 static void
 bz_screenshot_dispose (GObject *object)
@@ -58,6 +62,7 @@ bz_screenshot_dispose (GObject *object)
     {
       g_signal_handlers_disconnect_by_func (self->paintable, invalidate_contents, self);
       g_signal_handlers_disconnect_by_func (self->paintable, invalidate_size, self);
+      g_signal_handlers_disconnect_by_func (self->paintable, async_loaded, self);
     }
   g_clear_object (&self->paintable);
 
@@ -134,12 +139,12 @@ bz_screenshot_measure (GtkWidget     *widget,
 
           result = ceil ((double) for_size / intrinsic_aspect_rato);
 
-          *minimum = MIN (intrinsic_height, result);
-          *natural = MIN (intrinsic_height, result);
+          *minimum = (int) MIN (intrinsic_height, result);
+          *natural = (int) MIN (intrinsic_height, result);
         }
       else
         {
-          *minimum = 0.0;
+          *minimum = 0;
           *natural = intrinsic_height;
         }
     }
@@ -241,20 +246,26 @@ bz_screenshot_set_paintable (BzScreenshot *self,
     {
       g_signal_handlers_disconnect_by_func (self->paintable, invalidate_contents, self);
       g_signal_handlers_disconnect_by_func (self->paintable, invalidate_size, self);
+      g_signal_handlers_disconnect_by_func (self->paintable, async_loaded, self);
     }
   g_clear_object (&self->paintable);
 
   if (paintable != NULL)
     {
       self->paintable = g_object_ref (paintable);
-      g_signal_connect (paintable, "invalidate-contents",
-                        G_CALLBACK (invalidate_contents), self);
-      g_signal_connect (paintable, "invalidate-size",
-                        G_CALLBACK (invalidate_size), self);
+      g_signal_connect_swapped (paintable, "invalidate-contents",
+                                G_CALLBACK (invalidate_contents), self);
+      g_signal_connect_swapped (paintable, "invalidate-size",
+                                G_CALLBACK (invalidate_size), self);
+      if (BZ_IS_ASYNC_TEXTURE (paintable))
+        g_signal_connect_swapped (paintable, "notify::loaded",
+                                  G_CALLBACK (async_loaded), self);
     }
 
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PAINTABLE]);
+  gtk_widget_queue_resize (GTK_WIDGET (self));
   gtk_widget_queue_draw (GTK_WIDGET (self));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PAINTABLE]);
 }
 
 GdkPaintable *
@@ -265,15 +276,24 @@ bz_screenshot_get_paintable (BzScreenshot *self)
 }
 
 static void
-invalidate_contents (GdkPaintable *paintable,
-                     BzScreenshot *self)
+invalidate_contents (BzScreenshot *self,
+                     GdkPaintable *paintable)
 {
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 static void
-invalidate_size (GdkPaintable *paintable,
-                 BzScreenshot *self)
+invalidate_size (BzScreenshot *self,
+                 GdkPaintable *paintable)
 {
+  gtk_widget_queue_resize (GTK_WIDGET (self));
+}
+
+static void
+async_loaded (BzScreenshot   *self,
+              GParamSpec     *pspec,
+              BzAsyncTexture *texture)
+{
+  gtk_widget_queue_draw (GTK_WIDGET (self));
   gtk_widget_queue_resize (GTK_WIDGET (self));
 }
