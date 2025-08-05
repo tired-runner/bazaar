@@ -580,26 +580,26 @@ bz_window_new (BzStateInfo *state)
   window        = g_object_new (BZ_TYPE_WINDOW, NULL);
   window->state = g_object_ref (state);
 
-  g_signal_connect_swapped (state,
-                            "notify::busy",
-                            G_CALLBACK (app_busy_changed),
-                            window);
-  g_signal_connect_swapped (state,
-                            "notify::checking-for-updates",
-                            G_CALLBACK (checking_for_updates_changed),
-                            window);
+  g_signal_connect_object (state,
+                           "notify::busy",
+                           G_CALLBACK (app_busy_changed),
+                           window, G_CONNECT_SWAPPED);
+  g_signal_connect_object (state,
+                           "notify::checking-for-updates",
+                           G_CALLBACK (checking_for_updates_changed),
+                           window, G_CONNECT_SWAPPED);
 
   /* these seem unsafe but BzApplication never
    * changes the objects we are connecting to
    */
-  g_signal_connect_swapped (bz_state_info_get_transaction_manager (state),
-                            "notify::active",
-                            G_CALLBACK (transactions_active_changed),
-                            window);
-  g_signal_connect_swapped (bz_state_info_get_transaction_manager (state),
-                            "notify::has-transactions",
-                            G_CALLBACK (has_transactions_changed),
-                            window);
+  g_signal_connect_object (bz_state_info_get_transaction_manager (state),
+                           "notify::active",
+                           G_CALLBACK (transactions_active_changed),
+                           window, G_CONNECT_SWAPPED);
+  g_signal_connect_object (bz_state_info_get_transaction_manager (state),
+                           "notify::has-transactions",
+                           G_CALLBACK (has_transactions_changed),
+                           window, G_CONNECT_SWAPPED);
 
   g_object_notify_by_pspec (G_OBJECT (window), props[PROP_STATE]);
 

@@ -1579,7 +1579,7 @@ new_window (BzApplication *self)
   BzWindow *window = NULL;
 
   window = bz_window_new (self->state);
-  gtk_window_set_application (GTK_WINDOW (window), GTK_APPLICATION (self));
+  gtk_application_add_window (GTK_APPLICATION (self), GTK_WINDOW (window));
 
   gtk_window_present (GTK_WINDOW (window));
   return GTK_WINDOW (window);

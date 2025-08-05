@@ -117,6 +117,7 @@ bz_full_view_dispose (GObject *object)
 {
   BzFullView *self = BZ_FULL_VIEW (object);
 
+  g_clear_object (&self->state);
   g_clear_object (&self->transactions);
   g_clear_object (&self->group);
   g_clear_object (&self->ui_entry);
