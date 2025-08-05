@@ -22,7 +22,9 @@ interface. A krunner
 [plugin](https://github.com/ublue-os/krunner-bazaar) is available for
 use on the KDE Plasma desktop.
 
-<img height="500" alt="Image" src="https://github.com/user-attachments/assets/79b04065-3e1b-4f5d-8260-a32e81c5736b" />
+<div align="center">
+<img height="512" alt="Image" src="https://github.com/user-attachments/assets/c63c8256-aae4-48a7-a4b0-68f60af3f980" />
+</div>
 
 Thanks to everyone in the GNOME development community for creating
 such an awesome desktop environment!
