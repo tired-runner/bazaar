@@ -760,8 +760,13 @@ retrieve_refs_for_remote_fiber (RetrieveRefsForRemoteData *data)
 
   silo = xb_builder_compile (
       builder,
-      // fallback for locales should be handled by AppStream as_component_get_name
-      XB_BUILDER_COMPILE_FLAG_NONE,
+
+      /* This was causing issues */
+      // // fallback for locales should be handled by AppStream as_component_get_name
+      // XB_BUILDER_COMPILE_FLAG_NONE,
+
+      /* This seems to work better */
+      XB_BUILDER_COMPILE_FLAG_NATIVE_LANGS,
       cancellable,
       &local_error);
   if (silo == NULL)
