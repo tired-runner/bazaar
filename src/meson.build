@@ -85,6 +85,7 @@ bz_sources = [
   'bz-installed-page.c',
   'bz-io.c',
   'bz-issue.c',
+  'bz-lazy-async-texture-model.c',
   'bz-preferences-dialog.c',
   'bz-progress-bar.c',
   'bz-release.c',

@@ -15,17 +15,9 @@ template $BzAppTile: Button {
     orientation: horizontal;
     spacing: 15;
 
-    Adw.Spinner {
-      margin-start: 16;
-      margin-end: 16;
-      width-request: 32;
-      visible: bind template.ui-entry as <$BzResult>.pending as <bool>;
-    }
-
     Image {
       pixel-size: 64;
-      visible: bind template.ui-entry as <$BzResult>.resolved as <bool>;
-      paintable: bind template.ui-entry as <$BzResult>.object as <$BzEntry>.icon-paintable;
+      paintable: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.icon-paintable;
     }
 
     Box {
@@ -50,8 +42,8 @@ template $BzAppTile: Button {
 
         Revealer {
           transition-type: crossfade;
-          reveal-child: bind template.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
-          visible: bind template.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
+          reveal-child: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
+          visible: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
 
           child: Image {
             styles [

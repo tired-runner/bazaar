@@ -515,7 +515,9 @@ template $BzFullView: Adw.Bin {
                   child-type: "BzScreenshot";
                   child-prop: "paintable";
                   visible: bind template.debounced-ui-entry as <$BzResult>.resolved as <bool>;
-                  model: bind template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.screenshot-paintables;
+                  model: $BzLazyAsyncTextureModel {
+                    model: bind template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.screenshot-paintables;
+                  };
                   bind-widget => $screenshots_bind_widget_cb(template);      
                   unbind-widget => $screenshots_unbind_widget_cb(template);      
                 }

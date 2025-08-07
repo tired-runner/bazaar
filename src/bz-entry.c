@@ -1943,8 +1943,8 @@ clear_entry (BzEntry *self)
   g_clear_pointer (&priv->url, g_free);
   g_clear_object (&priv->icon_paintable);
   g_clear_object (&priv->mini_icon);
-  g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
   g_clear_object (&priv->remote_repo_icon);
+  g_clear_pointer (&priv->search_tokens, g_ptr_array_unref);
   g_clear_pointer (&priv->metadata_license, g_free);
   g_clear_pointer (&priv->project_license, g_free);
   g_clear_pointer (&priv->project_group, g_free);

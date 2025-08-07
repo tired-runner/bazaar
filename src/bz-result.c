@@ -24,9 +24,9 @@ struct _BzResult
 {
   GObject parent_instance;
 
-  DexFuture *future;
+  DexFuture *finally;
   GObject   *object;
-  char      *message;
+  GError    *error;
 };
 
 G_DEFINE_FINAL_TYPE (BzResult, bz_result, G_TYPE_OBJECT);
@@ -54,9 +54,9 @@ bz_result_dispose (GObject *object)
 {
   BzResult *self = BZ_RESULT (object);
 
-  dex_clear (&self->future);
+  dex_clear (&self->finally);
   g_clear_object (&self->object);
-  g_clear_pointer (&self->message, g_free);
+  g_clear_pointer (&self->error, g_error_free);
 
   G_OBJECT_CLASS (bz_result_parent_class)->dispose (object);
 }
@@ -167,17 +167,16 @@ bz_result_new (DexFuture *future)
 
   g_return_val_if_fail (DEX_IS_FUTURE (future), NULL);
 
-  self         = g_object_new (BZ_TYPE_RESULT, NULL);
-  self->future = dex_ref (future);
+  self = g_object_new (BZ_TYPE_RESULT, NULL);
 
   status = dex_future_get_status (future);
   switch (status)
     {
     case DEX_FUTURE_STATUS_PENDING:
-      dex_future_disown (dex_future_finally (
+      self->finally = dex_future_finally (
           dex_ref (future),
           (DexFutureCallback) future_finally,
-          g_object_ref (self), g_object_unref));
+          g_object_ref (self), g_object_unref);
       break;
     case DEX_FUTURE_STATUS_RESOLVED:
       self->object = g_value_dup_object (dex_future_get_value (future, NULL));
@@ -187,7 +186,7 @@ bz_result_new (DexFuture *future)
         g_autoptr (GError) local_error = NULL;
 
         dex_future_get_value (future, &local_error);
-        self->message = g_strdup (local_error->message);
+        self->error = g_error_copy (local_error);
       }
       break;
     default:
@@ -201,21 +200,21 @@ gboolean
 bz_result_get_pending (BzResult *self)
 {
   g_return_val_if_fail (BZ_IS_RESULT (self), FALSE);
-  return dex_future_is_pending (self->future);
+  return self->finally != NULL;
 }
 
 gboolean
 bz_result_get_resolved (BzResult *self)
 {
   g_return_val_if_fail (BZ_IS_RESULT (self), FALSE);
-  return dex_future_is_resolved (self->future);
+  return self->object != NULL;
 }
 
 gboolean
 bz_result_get_rejected (BzResult *self)
 {
   g_return_val_if_fail (BZ_IS_RESULT (self), FALSE);
-  return dex_future_is_rejected (self->future);
+  return self->error != NULL;
 }
 
 gpointer
@@ -229,14 +228,26 @@ const char *
 bz_result_get_message (BzResult *self)
 {
   g_return_val_if_fail (BZ_IS_RESULT (self), NULL);
-  return self->message;
+
+  if (self->error != NULL)
+    return self->error->message;
+  else
+    return NULL;
 }
 
 DexFuture *
 bz_result_dup_future (BzResult *self)
 {
   g_return_val_if_fail (BZ_IS_RESULT (self), NULL);
-  return dex_ref (self->future);
+
+  if (self->finally != NULL)
+    return dex_ref (self->finally);
+  else if (self->object != NULL)
+    return dex_future_new_for_object (self->object);
+  else if (self->error != NULL)
+    return dex_future_new_for_error (g_error_copy (self->error));
+  else
+    return NULL;
 }
 
 static DexFuture *
@@ -245,6 +256,8 @@ future_finally (DexFuture *future,
 {
   g_autoptr (GError) local_error = NULL;
   const GValue *value            = NULL;
+
+  dex_clear (&self->finally);
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
@@ -256,13 +269,13 @@ future_finally (DexFuture *future,
     }
   else
     {
-      self->message = g_strdup (local_error->message);
+      self->error = g_error_copy (self->error);
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_MESSAGE]);
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PENDING]);
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_REJECTED]);
     }
 
-  return NULL;
+  return dex_ref (future);
 }
 
 /* End of bz-result.c */

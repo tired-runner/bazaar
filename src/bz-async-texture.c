@@ -20,7 +20,9 @@
 
 #define G_LOG_DOMAIN "BAZAAR::ASYNC-TEXTURE"
 
-#define MAX_LOAD_RETRIES 3
+#define MAX_LOAD_RETRIES       3
+#define RETRY_INTERVAL_SECONDS 5
+
 #include <glycin-gtk4-1/glycin-gtk4.h>
 #include <libdex.h>
 
@@ -29,6 +31,22 @@
 #include "bz-env.h"
 #include "bz-io.h"
 #include "bz-util.h"
+
+BZ_DEFINE_DATA (
+    load,
+    Load,
+    {
+      GFile        *source;
+      char         *source_uri;
+      GFile        *cache_into;
+      char         *cache_into_path;
+      GCancellable *cancellable;
+    },
+    BZ_RELEASE_DATA (source, g_object_unref);
+    BZ_RELEASE_DATA (source_uri, g_free);
+    BZ_RELEASE_DATA (cache_into, g_object_unref);
+    BZ_RELEASE_DATA (cache_into_path, g_free);
+    BZ_RELEASE_DATA (cancellable, g_object_unref));
 
 struct _BzAsyncTexture
 {
@@ -42,7 +60,9 @@ struct _BzAsyncTexture
 
   DexFuture    *task;
   GCancellable *cancellable;
-  int           retries;
+
+  int   retries;
+  guint retry_timeout;
 
   GdkPaintable *paintable;
   GMutex        texture_mutex;
@@ -72,7 +92,7 @@ static DexFuture *
 load_fiber_init (BzAsyncTexture *self);
 
 static DexFuture *
-load_fiber_work (BzAsyncTexture *self);
+load_fiber_work (LoadData *data);
 
 static DexFuture *
 load_finally (DexFuture      *future,
@@ -97,7 +117,11 @@ bz_async_texture_dispose (GObject *object)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (object);
 
+  g_clear_handle_id (&self->retry_timeout, g_source_remove);
+  if (self->cancellable != NULL)
+    g_cancellable_cancel (self->cancellable);
   dex_clear (&self->task);
+  g_clear_object (&self->cancellable);
 
   g_clear_object (&self->source);
   g_clear_pointer (&self->source_uri, g_free);
@@ -195,8 +219,7 @@ bz_async_texture_init (BzAsyncTexture *self)
 {
   static GtkIconPaintable *missing_icon = NULL;
 
-  self->cancellable = g_cancellable_new ();
-  self->retries     = 0;
+  self->retries = 0;
 
   if (g_once_init_enter_pointer (&missing_icon))
     {
@@ -404,7 +427,6 @@ bz_async_texture_ensure (BzAsyncTexture *self)
 
   locker = g_mutex_locker_new (&self->texture_mutex);
   maybe_load (self);
-  g_clear_pointer (&locker, g_mutex_locker_free);
 }
 
 void
@@ -412,8 +434,10 @@ bz_async_texture_cancel (BzAsyncTexture *self)
 {
   g_return_if_fail (BZ_IS_ASYNC_TEXTURE (self));
 
-  g_cancellable_cancel (self->cancellable);
+  if (self->cancellable != NULL)
+    g_cancellable_cancel (self->cancellable);
   dex_clear (&self->task);
+  g_clear_object (&self->cancellable);
   self->retries = G_MAXINT;
 }
 
@@ -434,7 +458,13 @@ maybe_load (BzAsyncTexture *self)
       self->retries >= MAX_LOAD_RETRIES)
     return;
 
+  if (self->cancellable != NULL)
+    g_cancellable_cancel (self->cancellable);
   dex_clear (&self->task);
+  g_clear_object (&self->cancellable);
+
+  self->cancellable = g_cancellable_new ();
+
   future = dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
@@ -446,35 +476,47 @@ maybe_load (BzAsyncTexture *self)
 static DexFuture *
 load_fiber_init (BzAsyncTexture *self)
 {
+  g_autoptr (LoadData) data    = NULL;
   g_autoptr (DexFuture) future = NULL;
+
+  data                  = load_data_new ();
+  data->source          = g_object_ref (self->source);
+  data->source_uri      = g_strdup (self->source_uri);
+  data->cache_into      = self->cache_into != NULL ? g_object_ref (self->cache_into) : NULL;
+  data->cache_into_path = self->cache_into_path != NULL ? g_strdup (self->cache_into_path) : NULL;
+  data->cancellable     = g_object_ref (self->cancellable);
 
   future = dex_scheduler_spawn (
       bz_get_io_scheduler (),
       bz_get_dex_stack_size (),
       (DexFiberFunc) load_fiber_work,
-      g_object_ref (self), g_object_unref);
+      load_data_ref (data), load_data_unref);
   future = dex_future_finally (
       future,
       (DexFutureCallback) load_finally,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   return g_steal_pointer (&future);
 }
 
 static DexFuture *
-load_fiber_work (BzAsyncTexture *self)
+load_fiber_work (LoadData *data)
 {
+  GFile        *source           = data->source;
+  char         *source_uri       = data->source_uri;
+  GFile        *cache_into       = data->cache_into;
+  GCancellable *cancellable      = data->cancellable;
   g_autoptr (GError) local_error = NULL;
   gboolean is_http               = FALSE;
   gboolean result                = FALSE;
   g_autoptr (GdkTexture) texture = NULL;
 
-  is_http = g_str_has_prefix (self->source_uri, "http");
+  is_http = g_str_has_prefix (source_uri, "http");
 
   /* TODO: maybe redownload if some time has passed
    * since the file was modified
    */
-  if (self->cache_into != NULL &&
-      g_file_query_exists (self->cache_into, NULL))
+  if (cache_into != NULL &&
+      g_file_query_exists (cache_into, NULL))
     {
       g_autoptr (BzGuard) guard = NULL;
 
@@ -484,7 +526,7 @@ load_fiber_work (BzAsyncTexture *self)
         g_autoptr (GlyImage) image   = NULL;
         g_autoptr (GlyFrame) frame   = NULL;
 
-        loader = gly_loader_new (self->cache_into);
+        loader = gly_loader_new (cache_into);
         image  = gly_loader_load (loader, &local_error);
         if (image != NULL && local_error == NULL)
           {
@@ -506,13 +548,13 @@ load_fiber_work (BzAsyncTexture *self)
         {
           g_autofree char *dest_path = NULL;
 
-          dest_path = g_file_get_path (self->cache_into);
+          dest_path = g_file_get_path (cache_into);
           g_warning ("An attempt to revive cached texture at %s has failed, "
                      "reaping and fetching from original source at %s instead: %s",
-                     dest_path, self->source_uri, local_error->message);
+                     dest_path, source_uri, local_error->message);
           g_clear_pointer (&local_error, g_error_free);
 
-          if (!g_file_delete (self->cache_into, NULL, &local_error))
+          if (!g_file_delete (cache_into, NULL, &local_error))
             {
               g_critical ("Couldn't reap faulty cached texture at %s, this "
                           "might lead to unexpected behavior: %s",
@@ -530,14 +572,14 @@ load_fiber_work (BzAsyncTexture *self)
       g_autoptr (GlyImage) image   = NULL;
       g_autoptr (GlyFrame) frame   = NULL;
 
-      if (self->cache_into != NULL)
+      if (cache_into != NULL)
         {
           g_autoptr (GFile) parent = NULL;
           gboolean reconstruct     = FALSE;
 
           BZ_BEGIN_GUARD (&guard);
           {
-            parent = g_file_get_parent (self->cache_into);
+            parent = g_file_get_parent (cache_into);
 
             if (g_file_query_exists (parent, NULL))
               {
@@ -548,7 +590,7 @@ load_fiber_work (BzAsyncTexture *self)
                   {
                     reconstruct = TRUE;
 
-                    result = g_file_delete (parent, self->cancellable, &local_error);
+                    result = g_file_delete (parent, cancellable, &local_error);
                     if (!result)
                       return dex_future_new_for_error (g_steal_pointer (&local_error));
                   }
@@ -559,7 +601,7 @@ load_fiber_work (BzAsyncTexture *self)
             if (reconstruct)
               {
                 result = g_file_make_directory_with_parents (
-                    parent, self->cancellable, &local_error);
+                    parent, cancellable, &local_error);
                 if (!result)
                   {
                     if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
@@ -574,15 +616,15 @@ load_fiber_work (BzAsyncTexture *self)
 
       if (is_http)
         {
-          if (self->cache_into != NULL)
-            load_file = g_object_ref (self->cache_into);
+          if (cache_into != NULL)
+            load_file = g_object_ref (cache_into);
           else
             {
               g_autofree char *basename    = NULL;
               g_autofree char *tmpl        = NULL;
               g_autoptr (GFileIOStream) io = NULL;
 
-              basename  = g_file_get_basename (self->source);
+              basename  = g_file_get_basename (source);
               tmpl      = g_strdup_printf ("XXXXXX-%s", basename);
               load_file = g_file_new_tmp (tmpl, &io, &local_error);
               if (load_file == NULL)
@@ -592,33 +634,33 @@ load_fiber_work (BzAsyncTexture *self)
 
           result = dex_await (bz_download_worker_invoke (
                                   bz_download_worker_get_default (),
-                                  self->source, load_file),
+                                  source, load_file),
                               &local_error);
           if (!result)
             return dex_future_new_for_error (g_steal_pointer (&local_error));
         }
       else
         {
-          if (self->cache_into != NULL)
+          if (cache_into != NULL)
             {
               result = g_file_copy (
-                  self->source, self->cache_into,
+                  source, cache_into,
                   G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
-                  self->cancellable, NULL, NULL, &local_error);
+                  cancellable, NULL, NULL, &local_error);
               if (!result)
                 return dex_future_new_for_error (g_steal_pointer (&local_error));
 
-              load_file = g_object_ref (self->cache_into);
+              load_file = g_object_ref (cache_into);
             }
           else
-            load_file = g_object_ref (self->source);
+            load_file = g_object_ref (source);
         }
 
       BZ_BEGIN_GUARD (&guard);
       {
         loader = gly_loader_new (load_file);
         image  = gly_loader_load (loader, &local_error);
-        if (is_http && self->cache_into == NULL)
+        if (is_http && cache_into == NULL)
           /* delete tmp file */
           g_file_delete (load_file, NULL, NULL);
         if (image == NULL || local_error != NULL)
@@ -677,20 +719,27 @@ load_finally (DexFuture      *future,
       dex_future_get_value (future, &local_error);
       if (self->retries < MAX_LOAD_RETRIES)
         {
-          g_warning ("Loading %s failed last time: %s. Retrying in 5 seconds. Retries left: %d",
-                     self->source_uri, local_error->message, MAX_LOAD_RETRIES - self->retries);
+          if (self->retries == MAX_LOAD_RETRIES - 1)
+            g_warning ("Loading %s failed: %s. Retrying in %d seconds. This will "
+                       "be the last retry, after which this texture will remain invalid",
+                       self->source_uri,
+                       local_error->message,
+                       RETRY_INTERVAL_SECONDS);
+          else
+            g_warning ("Loading %s failed: %s. Retrying in %d seconds. Retries left: %d",
+                       self->source_uri,
+                       local_error->message,
+                       RETRY_INTERVAL_SECONDS,
+                       MAX_LOAD_RETRIES - self->retries);
           self->retries++;
 
-          g_timeout_add_seconds_full (
+          g_clear_handle_id (&self->retry_timeout, g_source_remove);
+          self->retry_timeout = g_timeout_add_seconds_full (
               G_PRIORITY_DEFAULT_IDLE,
-              5,
+              RETRY_INTERVAL_SECONDS,
               (GSourceFunc) idle_reload,
-              g_object_ref (self),
-              g_object_unref);
+              self, NULL);
         }
-      else
-        g_warning ("Loading %s failed %d times. This texture will remain invalid",
-                   self->source_uri, self->retries);
 
       return dex_ref (future);
     }
@@ -714,6 +763,8 @@ static gboolean
 idle_reload (BzAsyncTexture *self)
 {
   g_autoptr (GMutexLocker) locker = NULL;
+
+  self->retry_timeout = 0;
 
   locker = g_mutex_locker_new (&self->texture_mutex);
   maybe_load (self);

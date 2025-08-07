@@ -55,8 +55,6 @@ struct _BzFlatpakEntry
   char    *addon_extension_of_ref;
 
   FlatpakRef *ref;
-
-  DexFuture *initialization;
 };
 
 static void

@@ -27,6 +27,7 @@
 #include "bz-flatpak-entry.h"
 #include "bz-full-view.h"
 #include "bz-io.h"
+#include "bz-lazy-async-texture-model.h"
 #include "bz-screenshot.h"
 #include "bz-section-view.h"
 #include "bz-share-dialog.h"
@@ -46,8 +47,6 @@ struct _BzFullView
   BzResult             *group_model;
 
   guint      debounce_timeout;
-  DexFuture *ui_entry_resolve_task;
-
   DexFuture *loading_image_viewer;
 
   /* Template widgets */
@@ -124,7 +123,6 @@ bz_full_view_dispose (GObject *object)
   g_clear_object (&self->debounced_ui_entry);
   g_clear_object (&self->group_model);
 
-  dex_clear (&self->ui_entry_resolve_task);
   dex_clear (&self->loading_image_viewer);
   g_clear_handle_id (&self->debounce_timeout, g_source_remove);
 
@@ -511,6 +509,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
   g_type_ensure (BZ_TYPE_SCREENSHOT);
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
   g_type_ensure (BZ_TYPE_DYNAMIC_LIST_VIEW);
+  g_type_ensure (BZ_TYPE_LAZY_ASYNC_TEXTURE_MODEL);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-full-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzFullView, stack);
@@ -575,10 +574,9 @@ bz_full_view_set_entry_group (BzFullView   *self,
   g_return_if_fail (group == NULL ||
                     BZ_IS_ENTRY_GROUP (group));
 
-  dex_clear (&self->ui_entry_resolve_task);
+  g_clear_handle_id (&self->debounce_timeout, g_source_remove);
   g_clear_object (&self->group);
   g_clear_object (&self->ui_entry);
-  g_clear_handle_id (&self->debounce_timeout, g_source_remove);
   g_clear_object (&self->debounced_ui_entry);
   g_clear_object (&self->group_model);
 
@@ -594,16 +592,7 @@ bz_full_view_set_entry_group (BzFullView   *self,
       future            = bz_entry_group_dup_all_into_model (group);
       self->group_model = bz_result_new (future);
 
-      // if (bz_result_get_resolved (self->ui_entry))
       adw_view_stack_set_visible_child_name (self->stack, "content");
-      // else
-      //   {
-      //     adw_view_stack_set_visible_child_name (self->stack, "pending");
-      //     self->ui_entry_resolve_task = dex_future_then (
-      //         bz_result_dup_future (self->ui_entry),
-      //         (DexFutureCallback) ui_entry_resolved_then,
-      //         self, NULL);
-      //   }
     }
   else
     adw_view_stack_set_visible_child_name (self->stack, "empty");
@@ -750,13 +739,5 @@ open_screenshots_external_finally (DexFuture  *future,
   // gtk_widget_set_visible (GTK_WIDGET (self->loading_screenshots_external), FALSE);
 
   self->loading_image_viewer = NULL;
-  return NULL;
-}
-
-static DexFuture *
-ui_entry_resolved_then (DexFuture  *future,
-                        BzFullView *self)
-{
-  // adw_view_stack_set_visible_child_name (self->stack, "content");
   return NULL;
 }

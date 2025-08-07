@@ -25,7 +25,6 @@ struct _BzAppTile
   GtkButton parent_instance;
 
   BzEntryGroup *group;
-  BzResult     *ui_entry;
 };
 
 G_DEFINE_FINAL_TYPE (BzAppTile, bz_app_tile, GTK_TYPE_BUTTON);
@@ -35,7 +34,6 @@ enum
   PROP_0,
 
   PROP_GROUP,
-  PROP_UI_ENTRY,
 
   LAST_PROP
 };
@@ -47,7 +45,6 @@ bz_app_tile_dispose (GObject *object)
   BzAppTile *self = BZ_APP_TILE (object);
 
   g_clear_object (&self->group);
-  g_clear_object (&self->ui_entry);
 
   G_OBJECT_CLASS (bz_app_tile_parent_class)->dispose (object);
 }
@@ -64,9 +61,6 @@ bz_app_tile_get_property (GObject    *object,
     {
     case PROP_GROUP:
       g_value_set_object (value, bz_app_tile_get_group (self));
-      break;
-    case PROP_UI_ENTRY:
-      g_value_set_object (value, self->ui_entry);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -86,7 +80,6 @@ bz_app_tile_set_property (GObject      *object,
     case PROP_GROUP:
       bz_app_tile_set_group (self, g_value_get_object (value));
       break;
-    case PROP_UI_ENTRY:
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -123,13 +116,6 @@ bz_app_tile_class_init (BzAppTileClass *klass)
           BZ_TYPE_ENTRY_GROUP,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
-  props[PROP_UI_ENTRY] =
-      g_param_spec_object (
-          "ui-entry",
-          NULL, NULL,
-          BZ_TYPE_RESULT,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
-
   g_object_class_install_properties (object_class, LAST_PROP, props);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-app-tile.ui");
@@ -163,15 +149,10 @@ bz_app_tile_set_group (BzAppTile    *self,
   g_return_if_fail (BZ_IS_APP_TILE (self));
 
   g_clear_object (&self->group);
-  g_clear_object (&self->ui_entry);
   if (group != NULL)
-    {
-      self->group    = g_object_ref (group);
-      self->ui_entry = bz_entry_group_dup_ui_entry (group);
-    }
+    self->group = g_object_ref (group);
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_GROUP]);
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_UI_ENTRY]);
 }
 
 /* End of bz-app-tile.c */
