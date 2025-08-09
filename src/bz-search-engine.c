@@ -28,6 +28,7 @@ struct _BzSearchEngine
   GObject parent_instance;
 
   GListModel *model;
+  GPtrArray  *mirror;
 };
 
 G_DEFINE_FINAL_TYPE (BzSearchEngine, bz_search_engine, G_TYPE_OBJECT);
@@ -42,15 +43,22 @@ enum
 };
 static GParamSpec *props[LAST_PROP] = { 0 };
 
+static void
+items_changed (BzSearchEngine *self,
+               guint           position,
+               guint           removed,
+               guint           added,
+               GListModel     *model);
+
 BZ_DEFINE_DATA (
     query_task,
     QueryTask,
     {
-      GArray *entries;
-      char  **terms;
+      char     **terms;
+      GPtrArray *shallow_mirror;
     },
-    BZ_RELEASE_DATA (entries, g_array_unref);
-    BZ_RELEASE_DATA (terms, g_strfreev))
+    BZ_RELEASE_DATA (terms, g_strfreev);
+    BZ_RELEASE_DATA (shallow_mirror, g_ptr_array_unref))
 static DexFuture *
 query_task_fiber (QueryTaskData *data);
 
@@ -84,17 +92,20 @@ BZ_DEFINE_DATA (
     Group,
     {
       BzEntryGroup *group;
-      GPtrArray    *tokens;
       GArray       *istrings;
-      double        score;
     },
     BZ_RELEASE_DATA (group, g_object_unref);
-    BZ_RELEASE_DATA (tokens, g_ptr_array_unref);
     BZ_RELEASE_DATA (istrings, g_array_unref))
 
+typedef struct
+{
+  guint  idx;
+  double val;
+} Score;
+
 static gint
-cmp_group_data (GroupData *a,
-                GroupData *b);
+cmp_scores (Score *a,
+            Score *b);
 
 #define PERFECT        1.0
 #define ALMOST_PERFECT 0.95
@@ -107,7 +118,11 @@ bz_search_engine_dispose (GObject *object)
 {
   BzSearchEngine *self = BZ_SEARCH_ENGINE (object);
 
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (self->model, items_changed, self);
   g_clear_object (&self->model);
+
+  g_clear_pointer (&self->mirror, g_ptr_array_unref);
 
   G_OBJECT_CLASS (bz_search_engine_parent_class)->dispose (object);
 }
@@ -170,6 +185,7 @@ bz_search_engine_class_init (BzSearchEngineClass *klass)
 static void
 bz_search_engine_init (BzSearchEngine *self)
 {
+  self->mirror = g_ptr_array_new_with_free_func (group_data_unref);
 }
 
 BzSearchEngine *
@@ -190,11 +206,21 @@ bz_search_engine_set_model (BzSearchEngine *self,
                             GListModel     *model)
 {
   g_return_if_fail (BZ_IS_SEARCH_ENGINE (self));
-  g_return_if_fail (G_IS_LIST_MODEL (model));
+  g_return_if_fail (model == NULL || G_IS_LIST_MODEL (model));
 
-  g_clear_pointer (&self->model, g_object_unref);
+  if (self->model != NULL)
+    g_signal_handlers_disconnect_by_func (self->model, items_changed, self);
+  g_clear_object (&self->model);
+
+  if (self->mirror->len > 0)
+    g_ptr_array_remove_range (self->mirror, 0, self->mirror->len);
+
   if (model != NULL)
-    self->model = g_object_ref (model);
+    {
+      self->model = g_object_ref (model);
+      items_changed (self, 0, 0, g_list_model_get_n_items (model), model);
+      g_signal_connect_swapped (model, "items-changed", G_CALLBACK (items_changed), self);
+    }
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_MODEL]);
 }
@@ -203,42 +229,27 @@ DexFuture *
 bz_search_engine_query (BzSearchEngine    *self,
                         const char *const *terms)
 {
-  guint n_entries                = 0;
-  g_autoptr (GArray) entries     = NULL;
-  g_autoptr (QueryTaskData) data = NULL;
+  g_autoptr (GPtrArray) shallow_mirror = NULL;
+  g_autoptr (QueryTaskData) data       = NULL;
 
   g_return_val_if_fail (BZ_IS_SEARCH_ENGINE (self), NULL);
   g_return_val_if_fail (terms != NULL && *terms != NULL, NULL);
 
-  if (self->model != NULL)
-    n_entries = g_list_model_get_n_items (self->model);
-  if (n_entries == 0 || **terms == '\0')
+  if (self->mirror->len == 0 || **terms == '\0')
     return dex_future_new_take_boxed (
         G_TYPE_PTR_ARRAY,
         g_ptr_array_new_with_free_func (g_object_unref));
 
-  entries = g_array_new (FALSE, TRUE, sizeof (GroupData));
-  g_array_set_clear_func (entries, group_data_deinit);
+  shallow_mirror = g_ptr_array_new_with_free_func (group_data_unref);
+  g_ptr_array_set_size (shallow_mirror, self->mirror->len);
 
-  g_array_set_size (entries, n_entries);
-  for (guint i = 0; i < n_entries; i++)
-    {
-      GroupData *addr   = NULL;
-      GPtrArray *tokens = NULL;
+  for (guint i = 0; i < shallow_mirror->len; i++)
+    g_ptr_array_index (shallow_mirror, i) =
+        group_data_ref (g_ptr_array_index (self->mirror, i));
 
-      addr = &g_array_index (entries, GroupData, i);
-
-      addr->group = g_list_model_get_item (self->model, i);
-      /* We understand the "search-tokens" prop to be immutable */
-      tokens       = bz_entry_group_get_search_tokens (addr->group);
-      addr->tokens = g_ptr_array_ref (tokens);
-
-      addr->score = 0;
-    }
-
-  data          = query_task_data_new ();
-  data->entries = g_steal_pointer (&entries);
-  data->terms   = g_strdupv ((gchar **) terms);
+  data                 = query_task_data_new ();
+  data->terms          = g_strdupv ((gchar **) terms);
+  data->shallow_mirror = g_steal_pointer (&shallow_mirror);
 
   return dex_scheduler_spawn (
       dex_thread_pool_scheduler_get_default (),
@@ -247,35 +258,83 @@ bz_search_engine_query (BzSearchEngine    *self,
       query_task_data_ref (data), query_task_data_unref);
 }
 
+static void
+items_changed (BzSearchEngine *self,
+               guint           position,
+               guint           removed,
+               guint           added,
+               GListModel     *model)
+{
+  if (removed > 0)
+    g_ptr_array_remove_range (self->mirror, position, removed);
+
+  for (guint i = 0; i < added; i++)
+    {
+      g_autoptr (BzEntryGroup) group = NULL;
+      const char *id                 = NULL;
+      const char *title              = NULL;
+      const char *description        = NULL;
+      GPtrArray  *search_tokens      = NULL;
+      g_autoptr (GroupData) data     = NULL;
+
+      group         = g_list_model_get_item (model, position + i);
+      id            = bz_entry_group_get_id (group);
+      title         = bz_entry_group_get_title (group);
+      description   = bz_entry_group_get_description (group);
+      search_tokens = bz_entry_group_get_search_tokens (group);
+
+      data        = group_data_new ();
+      data->group = g_object_ref (group);
+
+      data->istrings = g_array_new (FALSE, TRUE, sizeof (IndexedStringData));
+      g_array_set_clear_func (data->istrings, indexed_string_data_deinit);
+
+#define ADD_INDEXED_STRING(_s)                     \
+  if ((_s) != NULL)                                \
+    {                                              \
+      IndexedStringData append = { 0 };            \
+                                                   \
+      index_string ((_s), &append);                \
+      g_array_append_val (data->istrings, append); \
+    }
+
+      ADD_INDEXED_STRING (id);
+      ADD_INDEXED_STRING (title);
+      ADD_INDEXED_STRING (description);
+
+#undef ADD_INDEXED_STRING
+
+      if (search_tokens != NULL)
+        {
+          guint old_len = 0;
+
+          old_len = data->istrings->len;
+          g_array_set_size (data->istrings, old_len + search_tokens->len);
+
+          for (guint j = 0; j < search_tokens->len; j++)
+            {
+              const char        *token   = NULL;
+              IndexedStringData *istring = NULL;
+
+              token   = g_ptr_array_index (search_tokens, j);
+              istring = &g_array_index (data->istrings, IndexedStringData, old_len + j);
+
+              index_string (token, istring);
+            }
+        }
+
+      g_ptr_array_insert (self->mirror, position + i, g_steal_pointer (&data));
+    }
+}
+
 static DexFuture *
 query_task_fiber (QueryTaskData *data)
 {
-  GArray *entries                  = data->entries;
-  char  **terms                    = data->terms;
+  char     **terms                 = data->terms;
+  GPtrArray *shallow_mirror        = data->shallow_mirror;
   g_autoptr (GArray) term_istrings = NULL;
+  g_autoptr (GArray) scores        = NULL;
   g_autoptr (GPtrArray) results    = NULL;
-
-  /* TODO: move this outside and cache results for better perf */
-  for (guint i = 0; i < entries->len; i++)
-    {
-      GroupData *group_data = NULL;
-
-      group_data = &g_array_index (entries, GroupData, i);
-
-      group_data->istrings = g_array_new (FALSE, TRUE, sizeof (IndexedStringData));
-      g_array_set_clear_func (group_data->istrings, indexed_string_data_deinit);
-      g_array_set_size (group_data->istrings, group_data->tokens->len);
-      for (guint j = 0; j < group_data->tokens->len; j++)
-        {
-          const char        *token   = NULL;
-          IndexedStringData *istring = NULL;
-
-          token   = g_ptr_array_index (group_data->tokens, j);
-          istring = &g_array_index (group_data->istrings, IndexedStringData, j);
-
-          index_string (token, istring);
-        }
-    }
 
   term_istrings = g_array_new (FALSE, TRUE, sizeof (IndexedStringData));
   g_array_set_clear_func (term_istrings, indexed_string_data_deinit);
@@ -288,11 +347,14 @@ query_task_fiber (QueryTaskData *data)
       index_string (terms[i], istring);
     }
 
-  for (guint i = 0; i < entries->len;)
+  scores = g_array_new (FALSE, FALSE, sizeof (Score));
+
+  for (guint i = 0; i < shallow_mirror->len; i++)
     {
       GroupData *group_data = NULL;
+      double     score      = 0.0;
 
-      group_data = &g_array_index (entries, GroupData, i);
+      group_data = g_ptr_array_index (shallow_mirror, i);
       for (guint j = 0; j < term_istrings->len; j++)
         {
           IndexedStringData *term_istring = NULL;
@@ -309,29 +371,34 @@ query_task_fiber (QueryTaskData *data)
               /* earliest search tokens are most important */
               to_add *= 16.0 / (double) (k + 1);
 
-              group_data->score += to_add;
+              score += to_add;
             }
         }
 
-      if (group_data->score > 0.0)
-        i++;
-      else
-        g_array_remove_index_fast (entries, i);
+      if (score > 0.0)
+        {
+          Score append = { 0 };
+
+          append.idx = i;
+          append.val = score;
+          g_array_append_val (scores, append);
+        }
     }
 
-  if (entries->len > 0)
-    g_array_sort (entries, (GCompareFunc) cmp_group_data);
+  if (scores->len > 0)
+    g_array_sort (scores, (GCompareFunc) cmp_scores);
 
   results = g_ptr_array_new_with_free_func (g_object_unref);
-
-  g_ptr_array_set_size (results, entries->len);
-  for (guint i = 0; i < entries->len; i++)
+  g_ptr_array_set_size (results, scores->len);
+  for (guint i = 0; i < scores->len; i++)
     {
+      Score     *score      = NULL;
       GroupData *group_data = NULL;
 
-      group_data = &g_array_index (entries, GroupData, i);
+      score      = &g_array_index (scores, Score, i);
+      group_data = g_ptr_array_index (shallow_mirror, score->idx);
 
-      g_ptr_array_index (results, i) = g_steal_pointer (&group_data->group);
+      g_ptr_array_index (results, i) = g_object_ref (group_data->group);
     }
 
   return dex_future_new_take_boxed (
@@ -479,10 +546,10 @@ test_strings (IndexedStringData *query,
 }
 
 static gint
-cmp_group_data (GroupData *a,
-                GroupData *b)
+cmp_scores (Score *a,
+            Score *b)
 {
-  return (b->score - a->score < 0.0) ? -1 : 1;
+  return (b->val - a->val < 0.0) ? -1 : 1;
 }
 
 /* End of bz-search-engine.c */

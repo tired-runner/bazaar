@@ -1391,6 +1391,10 @@ finish_consuming_entries (DexFuture     *future,
 
   bz_state_info_set_online (self->state, TRUE);
   bz_state_info_set_busy (self->state, FALSE);
+  bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
+  bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
+  bz_search_engine_set_model (self->search_engine, G_LIST_MODEL (self->groups));
+
   gtk_filter_changed (GTK_FILTER (self->application_filter), GTK_FILTER_CHANGE_DIFFERENT);
 
   busy_label = g_strdup_printf (
@@ -1485,13 +1489,14 @@ refresh_finally (DexFuture     *future,
     dex_channel_close_send (self->app_channel);
 
   self->refresh_task = NULL;
-  if (bz_state_info_get_busy (self->state))
-    bz_state_info_set_busy (self->state, FALSE);
-  if (bz_state_info_get_checking_for_updates (self->state))
-    bz_state_info_set_checking_for_updates (self->state, FALSE);
-
-  bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
-  bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
+  if (dex_future_is_rejected (future))
+    {
+      bz_state_info_set_busy (self->state, FALSE);
+      bz_state_info_set_checking_for_updates (self->state, FALSE);
+      bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
+      bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
+      bz_search_engine_set_model (self->search_engine, G_LIST_MODEL (self->groups));
+    }
 
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
@@ -1543,6 +1548,7 @@ refresh (BzApplication *self)
 
   bz_state_info_set_all_entry_groups (self->state, NULL);
   bz_state_info_set_all_installed_entries (self->state, NULL);
+  bz_search_engine_set_model (self->search_engine, NULL);
 
   g_list_store_remove_all (self->groups);
   g_hash_table_remove_all (self->ids_to_groups);

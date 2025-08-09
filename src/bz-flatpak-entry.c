@@ -775,11 +775,9 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   if (FLATPAK_IS_REMOTE_REF (ref))
     eol = flatpak_remote_ref_get_eol (FLATPAK_REMOTE_REF (ref));
 
-  search_tokens = g_ptr_array_new_with_free_func (g_free);
-  g_ptr_array_add (search_tokens, g_strdup (unique_id));
-  g_ptr_array_add (search_tokens, g_strdup (title));
   if (as_search_tokens != NULL)
     {
+      search_tokens = g_ptr_array_new_with_free_func (g_free);
       for (guint i = 0; i < as_search_tokens->len; i++)
         {
           const char *token = NULL;

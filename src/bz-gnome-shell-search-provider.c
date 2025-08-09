@@ -380,16 +380,16 @@ request_finally (DexFuture   *future,
 
       for (guint i = 0; i < results->len; i++)
         {
-          BzEntryGroup    *group     = NULL;
-          g_autofree char *unique_id = NULL;
+          BzEntryGroup *group = NULL;
+          const char   *id    = NULL;
 
-          group     = g_ptr_array_index (results, i);
-          unique_id = bz_entry_group_dup_ui_entry_id (group);
+          group = g_ptr_array_index (results, i);
+          id    = bz_entry_group_get_id (group);
 
-          g_variant_builder_add (builder, "s", unique_id);
+          g_variant_builder_add (builder, "s", id);
           g_hash_table_replace (
               self->last_results,
-              g_strdup (unique_id),
+              g_strdup (id),
               g_object_ref (group));
         }
 

@@ -435,7 +435,7 @@ search_changed (GtkEditable    *editable,
 
   if (gtk_check_button_get_active (self->debounce_check))
     self->search_update_timeout = g_timeout_add_once (
-        150 /* 150 ms */, (GSourceOnceFunc) update_filter, self);
+        250 /* 250 ms */, (GSourceOnceFunc) update_filter, self);
   else
     update_filter (self);
 }
@@ -513,11 +513,18 @@ search_query_then (DexFuture      *future,
 static void
 update_filter (BzSearchWidget *self)
 {
-  const char *search_text      = NULL;
+  BzSearchEngine *engine       = NULL;
+  const char     *search_text  = NULL;
   g_autoptr (DexFuture) future = NULL;
 
-  dex_clear (&self->search_query);
   g_clear_handle_id (&self->search_update_timeout, g_source_remove);
+  dex_clear (&self->search_query);
+
+  if (self->state == NULL)
+    return;
+  engine = bz_state_info_get_search_engine (self->state);
+  if (engine == NULL)
+    return;
 
   search_text = gtk_editable_get_text (GTK_EDITABLE (self->search_bar));
 
@@ -547,7 +554,7 @@ update_filter (BzSearchWidget *self)
         {
           terms  = g_strv_builder_end (builder);
           future = bz_search_engine_query (
-              bz_state_info_get_search_engine (self->state),
+              engine,
               (const char *const *) terms);
           future = dex_future_then (
               future,
@@ -560,7 +567,12 @@ update_filter (BzSearchWidget *self)
     }
 
   if (self->search_query == NULL)
-    gtk_single_selection_set_model (self->selection_model, self->model);
+    {
+      gtk_single_selection_set_model (self->selection_model, self->model);
+      gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
+      gtk_widget_set_visible (GTK_WIDGET (self->search_busy), FALSE);
+      gtk_revealer_set_reveal_child (self->entry_list_revealer, TRUE);
+    }
 }
 
 static void
