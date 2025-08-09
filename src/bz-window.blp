@@ -120,6 +120,7 @@ template $BzWindow: Adw.ApplicationWindow {
 
             sidebar: Adw.ToolbarView {
               content: $BzSearchWidget search_widget {
+                state: bind template.state;
                 model: bind template.state as <$BzStateInfo>.all-entry-groups;
                 select => $search_widget_select_cb(template);
               };

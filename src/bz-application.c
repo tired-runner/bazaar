@@ -999,16 +999,15 @@ init_service_struct (BzApplication *self)
                             G_CALLBACK (transaction_success), self);
 
   self->state = bz_state_info_new ();
-  bz_state_info_set_settings (self->state, self->settings);
+  bz_state_info_set_application_factory (self->state, self->application_factory);
   bz_state_info_set_blocklists (self->state, self->blocklists);
   bz_state_info_set_curated_configs (self->state, self->blocklists);
-  bz_state_info_set_transaction_manager (self->state, self->transactions);
-  bz_state_info_set_entry_factory (self->state, self->entry_factory);
-  bz_state_info_set_application_factory (self->state, self->application_factory);
-  bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
-  bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
   bz_state_info_set_curated_provider (self->state, self->content_provider);
+  bz_state_info_set_entry_factory (self->state, self->entry_factory);
   bz_state_info_set_flathub (self->state, self->flathub);
+  bz_state_info_set_search_engine (self->state, self->search_engine);
+  bz_state_info_set_settings (self->state, self->settings);
+  bz_state_info_set_transaction_manager (self->state, self->transactions);
 }
 
 static DexFuture *
@@ -1491,6 +1490,9 @@ refresh_finally (DexFuture     *future,
   if (bz_state_info_get_checking_for_updates (self->state))
     bz_state_info_set_checking_for_updates (self->state, FALSE);
 
+  bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
+  bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
+
   value = dex_future_get_value (future, &local_error);
   if (value != NULL)
     {
@@ -1538,6 +1540,9 @@ refresh (BzApplication *self)
     }
 
   g_debug ("Refreshing complete application state...");
+
+  bz_state_info_set_all_entry_groups (self->state, NULL);
+  bz_state_info_set_all_installed_entries (self->state, NULL);
 
   g_list_store_remove_all (self->groups);
   g_hash_table_remove_all (self->ids_to_groups);

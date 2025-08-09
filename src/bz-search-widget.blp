@@ -139,16 +139,6 @@ template $BzSearchWidget: Adw.Bin {
                 label: _("Advanced");
               }
 
-              CheckButton regex_check {
-                label: _("Match using regular expressions");
-                toggled => $regex_toggled_cb(template);
-              }
-              
-              CheckButton crossfade_check {
-                label: _("Hide filtering and sorting behind a crossfade effect");
-                active: true;
-              }
-              
               CheckButton debounce_check {
                 label: _("Debounce input to prevent instant replies");
                 active: true;
