@@ -451,6 +451,7 @@ app_busy_changed (BzWindow    *self,
                   GParamSpec  *pspec,
                   BzStateInfo *info)
 {
+  bz_search_widget_refresh (self->search_widget);
   set_page (self);
 }
 

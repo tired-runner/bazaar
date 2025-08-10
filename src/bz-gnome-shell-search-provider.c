@@ -20,6 +20,7 @@
 
 #include "bz-gnome-shell-search-provider.h"
 #include "bz-entry-group.h"
+#include "bz-search-result.h"
 #include "bz-util.h"
 #include "gs-shell-search-provider-generated.h"
 
@@ -380,11 +381,13 @@ request_finally (DexFuture   *future,
 
       for (guint i = 0; i < results->len; i++)
         {
-          BzEntryGroup *group = NULL;
-          const char   *id    = NULL;
+          BzSearchResult *result = NULL;
+          BzEntryGroup   *group  = NULL;
+          const char     *id     = NULL;
 
-          group = g_ptr_array_index (results, i);
-          id    = bz_entry_group_get_id (group);
+          result = g_ptr_array_index (results, i);
+          group  = bz_search_result_get_group (result);
+          id     = bz_entry_group_get_id (group);
 
           g_variant_builder_add (builder, "s", id);
           g_hash_table_replace (

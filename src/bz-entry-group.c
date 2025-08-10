@@ -33,6 +33,7 @@ struct _BzEntryGroup
   GListStore *store;
   char       *id;
   char       *title;
+  char       *developer;
   char       *description;
   GIcon      *mini_icon;
   gboolean    is_floss;
@@ -62,6 +63,7 @@ enum
   PROP_MODEL,
   PROP_ID,
   PROP_TITLE,
+  PROP_DEVELOPER,
   PROP_DESCRIPTION,
   PROP_MINI_ICON,
   PROP_IS_FLOSS,
@@ -122,6 +124,7 @@ bz_entry_group_dispose (GObject *object)
   g_clear_object (&self->store);
   g_clear_pointer (&self->id, g_free);
   g_clear_pointer (&self->title, g_free);
+  g_clear_pointer (&self->developer, g_free);
   g_clear_pointer (&self->description, g_free);
   g_clear_object (&self->mini_icon);
   g_clear_pointer (&self->search_tokens, g_ptr_array_unref);
@@ -150,6 +153,9 @@ bz_entry_group_get_property (GObject    *object,
       break;
     case PROP_TITLE:
       g_value_set_string (value, bz_entry_group_get_title (self));
+      break;
+    case PROP_DEVELOPER:
+      g_value_set_string (value, bz_entry_group_get_developer (self));
       break;
     case PROP_DESCRIPTION:
       g_value_set_string (value, bz_entry_group_get_description (self));
@@ -208,6 +214,7 @@ bz_entry_group_set_property (GObject      *object,
     case PROP_MODEL:
     case PROP_ID:
     case PROP_TITLE:
+    case PROP_DEVELOPER:
     case PROP_DESCRIPTION:
     case PROP_MINI_ICON:
     case PROP_IS_FLOSS:
@@ -251,6 +258,12 @@ bz_entry_group_class_init (BzEntryGroupClass *klass)
   props[PROP_TITLE] =
       g_param_spec_string (
           "title",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_DEVELOPER] =
+      g_param_spec_string (
+          "developer",
           NULL, NULL, NULL,
           G_PARAM_READABLE);
 
@@ -384,6 +397,13 @@ bz_entry_group_get_title (BzEntryGroup *self)
 {
   g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), NULL);
   return self->title;
+}
+
+const char *
+bz_entry_group_get_developer (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), NULL);
+  return self->developer;
 }
 
 const char *
@@ -549,6 +569,7 @@ bz_entry_group_add (BzEntryGroup *self,
   else
     {
       const char *title         = NULL;
+      const char *developer     = NULL;
       const char *description   = NULL;
       GIcon      *mini_icon     = NULL;
       GPtrArray  *search_tokens = NULL;
@@ -556,6 +577,7 @@ bz_entry_group_add (BzEntryGroup *self,
       g_list_store_append (self->store, unique_id_string);
 
       title         = bz_entry_get_title (entry);
+      developer     = bz_entry_get_developer (entry);
       description   = bz_entry_get_description (entry);
       mini_icon     = bz_entry_get_mini_icon (entry);
       search_tokens = bz_entry_get_search_tokens (entry);
@@ -564,6 +586,11 @@ bz_entry_group_add (BzEntryGroup *self,
         {
           self->title = g_strdup (title);
           g_object_notify_by_pspec (G_OBJECT (self), props[PROP_TITLE]);
+        }
+      if (developer != NULL && self->developer == NULL)
+        {
+          self->developer = g_strdup (developer);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEVELOPER]);
         }
       if (description != NULL && self->description == NULL)
         {
@@ -758,6 +785,7 @@ sync_props (BzEntryGroup *self,
             BzEntry      *entry)
 {
   const char *title         = NULL;
+  const char *developer     = NULL;
   const char *description   = NULL;
   GIcon      *mini_icon     = NULL;
   GPtrArray  *search_tokens = NULL;
@@ -765,6 +793,7 @@ sync_props (BzEntryGroup *self,
   gboolean    is_flathub    = FALSE;
 
   title         = bz_entry_get_title (entry);
+  developer     = bz_entry_get_developer (entry);
   description   = bz_entry_get_description (entry);
   mini_icon     = bz_entry_get_mini_icon (entry);
   search_tokens = bz_entry_get_search_tokens (entry);
@@ -776,6 +805,12 @@ sync_props (BzEntryGroup *self,
       g_clear_pointer (&self->title, g_free);
       self->title = g_strdup (title);
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_TITLE]);
+    }
+  if (developer != NULL)
+    {
+      g_clear_pointer (&self->developer, g_free);
+      self->developer = g_strdup (developer);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEVELOPER]);
     }
   if (description != NULL)
     {

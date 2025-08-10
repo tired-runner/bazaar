@@ -21,6 +21,7 @@
 #include "bz-search-engine.h"
 #include "bz-entry-group.h"
 #include "bz-env.h"
+#include "bz-search-result.h"
 #include "bz-util.h"
 
 struct _BzSearchEngine
@@ -91,11 +92,13 @@ BZ_DEFINE_DATA (
     group,
     Group,
     {
-      BzEntryGroup *group;
-      GArray       *istrings;
+      BzEntryGroup   *group;
+      GArray         *istrings;
+      BzSearchResult *default_result;
     },
     BZ_RELEASE_DATA (group, g_object_unref);
-    BZ_RELEASE_DATA (istrings, g_array_unref))
+    BZ_RELEASE_DATA (istrings, g_array_unref);
+    BZ_RELEASE_DATA (default_result, g_object_unref))
 
 typedef struct
 {
@@ -229,33 +232,53 @@ DexFuture *
 bz_search_engine_query (BzSearchEngine    *self,
                         const char *const *terms)
 {
-  g_autoptr (GPtrArray) shallow_mirror = NULL;
-  g_autoptr (QueryTaskData) data       = NULL;
 
   g_return_val_if_fail (BZ_IS_SEARCH_ENGINE (self), NULL);
   g_return_val_if_fail (terms != NULL && *terms != NULL, NULL);
 
   if (self->mirror->len == 0 || **terms == '\0')
-    return dex_future_new_take_boxed (
-        G_TYPE_PTR_ARRAY,
-        g_ptr_array_new_with_free_func (g_object_unref));
+    {
+      g_autoptr (GPtrArray) ret = NULL;
 
-  shallow_mirror = g_ptr_array_new_with_free_func (group_data_unref);
-  g_ptr_array_set_size (shallow_mirror, self->mirror->len);
+      ret = g_ptr_array_new_with_free_func (g_object_unref);
+      g_ptr_array_set_size (ret, self->mirror->len);
 
-  for (guint i = 0; i < shallow_mirror->len; i++)
-    g_ptr_array_index (shallow_mirror, i) =
-        group_data_ref (g_ptr_array_index (self->mirror, i));
+      for (guint i = 0; i < ret->len; i++)
+        {
+          GroupData *data = NULL;
 
-  data                 = query_task_data_new ();
-  data->terms          = g_strdupv ((gchar **) terms);
-  data->shallow_mirror = g_steal_pointer (&shallow_mirror);
+          data = g_ptr_array_index (self->mirror, i);
+          /* Set original index here to ensure it is always up to date */
+          bz_search_result_set_original_index (data->default_result, i);
+          g_ptr_array_index (ret, i) = g_object_ref (data->default_result);
+        }
 
-  return dex_scheduler_spawn (
-      dex_thread_pool_scheduler_get_default (),
-      bz_get_dex_stack_size (),
-      (DexFiberFunc) query_task_fiber,
-      query_task_data_ref (data), query_task_data_unref);
+      return dex_future_new_take_boxed (
+          G_TYPE_PTR_ARRAY,
+          g_steal_pointer (&ret));
+    }
+  else
+    {
+      g_autoptr (GPtrArray) shallow_mirror = NULL;
+      g_autoptr (QueryTaskData) data       = NULL;
+
+      shallow_mirror = g_ptr_array_new_with_free_func (group_data_unref);
+      g_ptr_array_set_size (shallow_mirror, self->mirror->len);
+
+      for (guint i = 0; i < shallow_mirror->len; i++)
+        g_ptr_array_index (shallow_mirror, i) =
+            group_data_ref (g_ptr_array_index (self->mirror, i));
+
+      data                 = query_task_data_new ();
+      data->terms          = g_strdupv ((gchar **) terms);
+      data->shallow_mirror = g_steal_pointer (&shallow_mirror);
+
+      return dex_scheduler_spawn (
+          dex_thread_pool_scheduler_get_default (),
+          bz_get_dex_stack_size (),
+          (DexFiberFunc) query_task_fiber,
+          query_task_data_ref (data), query_task_data_unref);
+    }
 }
 
 static void
@@ -273,6 +296,7 @@ items_changed (BzSearchEngine *self,
       g_autoptr (BzEntryGroup) group = NULL;
       const char *id                 = NULL;
       const char *title              = NULL;
+      const char *developer          = NULL;
       const char *description        = NULL;
       GPtrArray  *search_tokens      = NULL;
       g_autoptr (GroupData) data     = NULL;
@@ -280,6 +304,7 @@ items_changed (BzSearchEngine *self,
       group         = g_list_model_get_item (model, position + i);
       id            = bz_entry_group_get_id (group);
       title         = bz_entry_group_get_title (group);
+      developer     = bz_entry_group_get_developer (group);
       description   = bz_entry_group_get_description (group);
       search_tokens = bz_entry_group_get_search_tokens (group);
 
@@ -300,6 +325,7 @@ items_changed (BzSearchEngine *self,
 
       ADD_INDEXED_STRING (id);
       ADD_INDEXED_STRING (title);
+      ADD_INDEXED_STRING (developer);
       ADD_INDEXED_STRING (description);
 
 #undef ADD_INDEXED_STRING
@@ -322,6 +348,9 @@ items_changed (BzSearchEngine *self,
               index_string (token, istring);
             }
         }
+
+      data->default_result = bz_search_result_new ();
+      bz_search_result_set_group (data->default_result, group);
 
       g_ptr_array_insert (self->mirror, position + i, g_steal_pointer (&data));
     }
@@ -355,27 +384,32 @@ query_task_fiber (QueryTaskData *data)
       double     score      = 0.0;
 
       group_data = g_ptr_array_index (shallow_mirror, i);
-      for (guint j = 0; j < term_istrings->len; j++)
+      for (guint j = 0; j < group_data->istrings->len; j++)
         {
-          IndexedStringData *term_istring = NULL;
+          IndexedStringData *token_istring = NULL;
+          double             token_score   = 1.0;
 
-          term_istring = &g_array_index (term_istrings, IndexedStringData, j);
-          for (guint k = 0; k < group_data->istrings->len; k++)
+          token_istring = &g_array_index (group_data->istrings, IndexedStringData, j);
+          for (guint k = 0; k < term_istrings->len; k++)
             {
-              IndexedStringData *token_istring = NULL;
-              double             to_add        = 0.0;
+              IndexedStringData *term_istring = NULL;
+              double             mult         = 0.0;
 
-              token_istring = &g_array_index (group_data->istrings, IndexedStringData, k);
+              term_istring = &g_array_index (term_istrings, IndexedStringData, k);
 
-              to_add = test_strings (term_istring, token_istring);
-              /* earliest search tokens are most important */
-              to_add *= 16.0 / (double) (k + 1);
-
-              score += to_add;
+              mult = test_strings (term_istring, token_istring);
+              /* highly reward multiple terms hitting the same token */
+              token_score *= mult;
             }
+
+          /* correct for the decay of multiple terms */
+          token_score *= (double) term_istrings->len;
+          /* earliest tokens are the most important */
+          token_score *= 16.0 / (double) (j + 1);
+          score += token_score;
         }
 
-      if (score > 0.0)
+      if (score > (double) term_istrings->len)
         {
           Score append = { 0 };
 
@@ -392,13 +426,19 @@ query_task_fiber (QueryTaskData *data)
   g_ptr_array_set_size (results, scores->len);
   for (guint i = 0; i < scores->len; i++)
     {
-      Score     *score      = NULL;
-      GroupData *group_data = NULL;
+      Score     *score                  = NULL;
+      GroupData *group_data             = NULL;
+      g_autoptr (BzSearchResult) result = NULL;
 
       score      = &g_array_index (scores, Score, i);
       group_data = g_ptr_array_index (shallow_mirror, score->idx);
 
-      g_ptr_array_index (results, i) = g_object_ref (group_data->group);
+      result = bz_search_result_new ();
+      bz_search_result_set_group (result, group_data->group);
+      bz_search_result_set_original_index (result, score->idx);
+      bz_search_result_set_score (result, score->val);
+
+      g_ptr_array_index (results, i) = g_steal_pointer (&result);
     }
 
   return dex_future_new_take_boxed (

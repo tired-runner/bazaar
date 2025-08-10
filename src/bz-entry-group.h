@@ -42,6 +42,9 @@ const char *
 bz_entry_group_get_title (BzEntryGroup *self);
 
 const char *
+bz_entry_group_get_developer (BzEntryGroup *self);
+
+const char *
 bz_entry_group_get_description (BzEntryGroup *self);
 
 GdkPaintable *

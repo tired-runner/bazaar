@@ -93,6 +93,7 @@ bz_sources = [
   'bz-review.c',
   'bz-screenshot.c',
   'bz-search-engine.c',
+  'bz-search-result.c',
   'bz-search-widget.c',
   'bz-section-view.c',
   'bz-serializable.c',

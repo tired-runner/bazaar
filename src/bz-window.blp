@@ -118,12 +118,10 @@ template $BzWindow: Adw.ApplicationWindow {
             sidebar-position: start;
             notify::show-sidebar => $search_split_open_changed_cb(template);
 
-            sidebar: Adw.ToolbarView {
-              content: $BzSearchWidget search_widget {
-                state: bind template.state;
-                model: bind template.state as <$BzStateInfo>.all-entry-groups;
-                select => $search_widget_select_cb(template);
-              };
+            sidebar: $BzSearchWidget search_widget {
+              width-request: 400;
+              state: bind template.state;
+              select => $search_widget_select_cb(template);
             };
 
             content: Adw.ToastOverlay toasts {
@@ -409,6 +407,7 @@ template $BzWindow: Adw.ApplicationWindow {
         setters {
           split_view.collapsed: true;
           transactions.width-request: 250;
+          search_widget.width-request: 250;
         }
 
         apply => $breakpoint_apply_cb(template);

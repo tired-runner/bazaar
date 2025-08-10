@@ -141,6 +141,11 @@ command_line_open_flatpakref (BzApplication           *self,
                               GApplicationCommandLine *cmdline,
                               const char              *path);
 
+static gint
+cmp_group (BzEntryGroup *a,
+           BzEntryGroup *b,
+           gpointer      user_data);
+
 static gboolean
 string_eq_entry (BzEntry    *a,
                  BzEntry    *b,
@@ -1372,6 +1377,7 @@ fetch_entries_then (DexFuture     *future,
   g_autofree char *busy_label = NULL;
 
   dex_channel_close_send (self->app_channel);
+  g_list_store_sort (self->groups, (GCompareDataFunc) cmp_group, NULL);
 
   busy_label = g_strdup_printf (_ ("Waiting for background indexing tasks to catch up...")),
   bz_state_info_set_busy_label (self->state, busy_label);
@@ -1390,10 +1396,10 @@ finish_consuming_entries (DexFuture     *future,
   g_debug ("Finished synchronizing with remotes, notifying UI...");
 
   bz_state_info_set_online (self->state, TRUE);
-  bz_state_info_set_busy (self->state, FALSE);
   bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
   bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
   bz_search_engine_set_model (self->search_engine, G_LIST_MODEL (self->groups));
+  bz_state_info_set_busy (self->state, FALSE);
 
   gtk_filter_changed (GTK_FILTER (self->application_filter), GTK_FILTER_CHANGE_DIFFERENT);
 
@@ -1491,11 +1497,11 @@ refresh_finally (DexFuture     *future,
   self->refresh_task = NULL;
   if (dex_future_is_rejected (future))
     {
-      bz_state_info_set_busy (self->state, FALSE);
       bz_state_info_set_checking_for_updates (self->state, FALSE);
       bz_state_info_set_all_entry_groups (self->state, G_LIST_MODEL (self->groups));
       bz_state_info_set_all_installed_entries (self->state, G_LIST_MODEL (self->installed_apps));
       bz_search_engine_set_model (self->search_engine, G_LIST_MODEL (self->groups));
+      bz_state_info_set_busy (self->state, FALSE);
     }
 
   value = dex_future_get_value (future, &local_error);
@@ -1659,4 +1665,23 @@ command_line_open_flatpakref (BzApplication           *self,
       else
         open_flatpakref_take (self, g_file_new_for_path (path));
     }
+}
+
+static gint
+cmp_group (BzEntryGroup *a,
+           BzEntryGroup *b,
+           gpointer      user_data)
+{
+  const char *title_a = NULL;
+  const char *title_b = NULL;
+
+  title_a = bz_entry_group_get_title (a);
+  title_b = bz_entry_group_get_title (b);
+
+  if (title_a == NULL)
+    return 1;
+  if (title_b == NULL)
+    return -1;
+
+  return g_strcmp0 (title_a, title_b);
 }

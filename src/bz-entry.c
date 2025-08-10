@@ -1389,6 +1389,17 @@ bz_entry_get_title (BzEntry *self)
 }
 
 const char *
+bz_entry_get_developer (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
+  priv = bz_entry_get_instance_private (self);
+
+  return priv->developer;
+}
+
+const char *
 bz_entry_get_eol (BzEntry *self)
 {
   BzEntryPrivate *priv = NULL;
