@@ -547,7 +547,6 @@ read_task_fiber (ReadTaskData *data)
       {
         dex_ref (writing_future);
         bz_clear_guard (&guard);
-        g_print ("wai\n");
         dex_await (g_steal_pointer (&writing_future), NULL);
       }
   }
