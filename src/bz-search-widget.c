@@ -536,8 +536,10 @@ search_query_then (DexFuture      *future,
 
   gtk_widget_set_visible (GTK_WIDGET (self->search_busy), FALSE);
   gtk_revealer_set_reveal_child (self->entry_list_revealer, results->len > 0);
-  /* Here to combat weird list view scrolling behavior */
-  gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
+
+  if (results->len > 0)
+    /* Here to combat weird list view scrolling behavior */
+    gtk_list_view_scroll_to (self->list_view, 0, GTK_LIST_SCROLL_SELECT, NULL);
 
   dex_clear (&self->search_query);
   return NULL;
