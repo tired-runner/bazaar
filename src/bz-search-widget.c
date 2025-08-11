@@ -488,6 +488,44 @@ search_query_then (DexFuture      *future,
   results    = g_value_get_boxed (dex_future_get_value (future, NULL));
   old_length = g_list_model_get_n_items (G_LIST_MODEL (self->search_model));
 
+  if (gtk_check_button_get_active (self->foss_check))
+    {
+      for (guint i = 0; i < results->len;)
+        {
+          BzSearchResult *result  = NULL;
+          BzEntryGroup   *group   = NULL;
+          gboolean        is_foss = FALSE;
+
+          result  = g_ptr_array_index (results, i);
+          group   = bz_search_result_get_group (result);
+          is_foss = bz_entry_group_get_is_floss (group);
+
+          if (is_foss)
+            i++;
+          else
+            g_ptr_array_remove_index (results, i);
+        }
+    }
+
+  if (gtk_check_button_get_active (self->flathub_check))
+    {
+      for (guint i = 0; i < results->len;)
+        {
+          BzSearchResult *result     = NULL;
+          BzEntryGroup   *group      = NULL;
+          gboolean        is_flathub = FALSE;
+
+          result     = g_ptr_array_index (results, i);
+          group      = bz_search_result_get_group (result);
+          is_flathub = bz_entry_group_get_is_flathub (group);
+
+          if (is_flathub)
+            i++;
+          else
+            g_ptr_array_remove_index (results, i);
+        }
+    }
+
   g_list_store_splice (
       self->search_model,
       0, old_length,
