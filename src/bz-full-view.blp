@@ -512,8 +512,8 @@ template $BzFullView: Adw.Bin {
                 $BzDynamicListView screenshots {
                   vexpand: true;
                   scroll: true;
-                  child-type: "BzScreenshot";
-                  child-prop: "paintable";
+                  child-type: "BzDecoratedScreenshot";
+                  child-prop: "async-texture";
                   visible: bind template.debounced-ui-entry as <$BzResult>.resolved as <bool>;
                   model: $BzLazyAsyncTextureModel {
                     model: bind template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.screenshot-paintables;

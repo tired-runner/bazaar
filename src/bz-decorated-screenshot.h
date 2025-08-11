@@ -1,4 +1,4 @@
-/* bz-screenshot.h
+/* bz-decorated-screenshot.h
  *
  * Copyright 2025 Adam Masciola
  *
@@ -20,35 +20,25 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
+#include <adwaita.h>
+
+#include "bz-async-texture.h"
 
 G_BEGIN_DECLS
 
-#define BZ_TYPE_SCREENSHOT (bz_screenshot_get_type ())
-G_DECLARE_FINAL_TYPE (BzScreenshot, bz_screenshot, BZ, SCREENSHOT, GtkWidget)
+#define BZ_TYPE_DECORATED_SCREENSHOT (bz_decorated_screenshot_get_type ())
+G_DECLARE_FINAL_TYPE (BzDecoratedScreenshot, bz_decorated_screenshot, BZ, DECORATED_SCREENSHOT, AdwBin)
 
-GtkWidget *
-bz_screenshot_new (void);
+BzDecoratedScreenshot *
+bz_decorated_screenshot_new (void);
 
-void
-bz_screenshot_set_paintable (BzScreenshot *self,
-                             GdkPaintable *paintable);
-
-GdkPaintable *
-bz_screenshot_get_paintable (BzScreenshot *self);
+BzAsyncTexture *
+bz_decorated_screenshot_get_async_texture (BzDecoratedScreenshot *self);
 
 void
-bz_screenshot_set_focus_x (BzScreenshot *self,
-                           double        focus_x);
-
-double
-bz_screenshot_get_focus_x (BzScreenshot *self);
-
-void
-bz_screenshot_set_focus_y (BzScreenshot *self,
-                           double        focus_y);
-
-double
-bz_screenshot_get_focus_y (BzScreenshot *self);
+bz_decorated_screenshot_set_async_texture (BzDecoratedScreenshot *self,
+                                           BzAsyncTexture        *async_texture);
 
 G_END_DECLS
+
+/* End of bz-decorated-screenshot.h */
