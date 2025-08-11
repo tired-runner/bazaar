@@ -320,23 +320,63 @@ bz_download_worker_invoke (BzDownloadWorker *self,
 BzDownloadWorker *
 bz_download_worker_get_default (void)
 {
-  static BzDownloadWorker *worker = NULL;
+  static GMutex     mutex         = { 0 };
+  static GPtrArray *workers       = NULL;
+  static guint      next          = 0;
+  g_autoptr (GMutexLocker) locker = NULL;
+  BzDownloadWorker *ret           = NULL;
 
-  if (g_once_init_enter_pointer (&worker))
+  locker = g_mutex_locker_new (&mutex);
+
+  if (workers == NULL)
     {
-      g_autoptr (GError) local_error   = NULL;
-      g_autoptr (BzDownloadWorker) tmp = NULL;
+      workers = g_ptr_array_new_with_free_func (g_object_unref);
 
-      tmp = bz_download_worker_new ("default", &local_error);
-      if (tmp == NULL)
-        g_critical ("FATAL!!! The default download worker could not be spawned: %s",
-                    local_error->message);
-      g_assert (tmp != NULL);
+      /* TODO: make number of workers controllable with envvar */
+#define N_WORKERS 5
 
-      g_once_init_leave_pointer (&worker, g_steal_pointer (&tmp));
+      for (guint i = 0; i < N_WORKERS; i++)
+        {
+          g_autoptr (GError) local_error      = NULL;
+          g_autoptr (BzDownloadWorker) worker = NULL;
+
+          worker = bz_download_worker_new ("default", &local_error);
+          if (worker == NULL)
+            g_critical ("FATAL!!! The default download worker could not be spawned: %s",
+                        local_error->message);
+          g_assert (worker != NULL);
+
+          g_ptr_array_add (workers, g_steal_pointer (&worker));
+        }
     }
 
-  return worker;
+  /* Check if any of the subprocesses need to be recreated */
+  for (guint i = 0; i < workers->len; i++)
+    {
+      BzDownloadWorker **loc = NULL;
+
+      loc = (BzDownloadWorker **) &g_ptr_array_index (workers, i);
+      if (g_subprocess_get_identifier ((*loc)->subprocess) == NULL)
+        {
+          g_autoptr (GError) local_error      = NULL;
+          g_autoptr (BzDownloadWorker) worker = NULL;
+
+          g_clear_object (loc);
+
+          worker = bz_download_worker_new ("default", &local_error);
+          if (worker == NULL)
+            g_critical ("FATAL!!! The default download worker could not be spawned: %s",
+                        local_error->message);
+          g_assert (worker != NULL);
+
+          *loc = g_steal_pointer (&worker);
+        }
+    }
+
+  ret  = g_ptr_array_index (workers, next);
+  next = (next + 1) % workers->len;
+
+  return ret;
 }
 
 static DexFuture *
@@ -369,9 +409,12 @@ monitor_worker_fiber (MonitorWorkerData *data)
           &local_error);
       if (line == NULL)
         {
-          g_critical ("Could not read stdout from download worker subprocess: %s",
-                      local_error->message);
-          continue;
+          if (local_error != NULL)
+            g_critical ("Could not read stdout from download worker subprocess: %s",
+                        local_error->message);
+
+          /* give up on this subprocess and wait to be disposed */
+          return NULL;
         }
 
       variant = g_variant_parse (G_VARIANT_TYPE ("(sb)"),

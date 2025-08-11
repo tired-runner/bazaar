@@ -40,6 +40,9 @@ read_stdin (gpointer user_data);
 static DexFuture *
 download_fiber (DownloadData *data);
 
+static DexFuture *
+print_fiber (char *output);
+
 int
 main (int   argc,
       char *argv[])
@@ -154,7 +157,20 @@ download_fiber (DownloadData *data)
 done:
   variant = g_variant_new ("(sb)", dest, success);
   output  = g_variant_print (variant, TRUE);
-  g_print ("%s\n", output);
 
+  dex_future_disown (dex_scheduler_spawn (
+      /* ensure we only output on main thread */
+      dex_scheduler_get_default (),
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) print_fiber,
+      g_steal_pointer (&output), g_free));
+
+  return NULL;
+}
+
+static DexFuture *
+print_fiber (char *output)
+{
+  g_print ("%s\n", output);
   return NULL;
 }
