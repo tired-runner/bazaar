@@ -21,6 +21,7 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include <libdex.h>
 
 G_BEGIN_DECLS
 
@@ -120,6 +121,9 @@ bz_entry_get_is_foss (BzEntry *self);
 gboolean
 bz_entry_get_is_flathub (BzEntry *self);
 
+DexFuture *
+bz_entry_load_mini_icon (BzEntry *self);
+
 gint
 bz_entry_calc_usefulness (BzEntry *self);
 
@@ -131,5 +135,9 @@ gboolean
 bz_entry_deserialize (BzEntry  *self,
                       GVariant *import,
                       GError  **error);
+
+GIcon *
+bz_load_mini_icon_sync (const char *unique_id_checksum,
+                        const char *path);
 
 G_END_DECLS

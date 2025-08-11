@@ -174,20 +174,8 @@ template $BzSearchWidget: Adw.Bin {
                   Box {
                     hexpand: true;
                     valign: center;
-                    orientation: horizontal;
+                    orientation: vertical;
                     spacing: 3;
-
-                    // Label {
-                    //   styles [
-                    //     "monospace",
-                    //   ]
-
-                    //   margin-end: 5;
-                    //   xalign: 0.0;
-                    //   width-chars: 5;
-                    //   single-line-mode: true;
-                    //   label: bind $score_to_string(template.item as <$BzSearchResult>.score) as <string>;
-                    // }
 
                     Label {
                       styles [
@@ -207,7 +195,7 @@ template $BzSearchWidget: Adw.Bin {
                         "dim-label",
                       ]
 
-                      xalign: 1.0;
+                      xalign: 0.0;
                       ellipsize: end;
                       single-line-mode: true;
                       label: bind template.item as <$BzSearchResult>.group as <$BzEntryGroup>.description;

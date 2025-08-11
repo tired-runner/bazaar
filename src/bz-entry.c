@@ -18,11 +18,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+/* TODO: clean this mess up */
+
 #define G_LOG_DOMAIN  "BAZAAR::ENTRY"
 #define BAZAAR_MODULE "entry"
 
 #include <json-glib/json-glib.h>
-#include <libdex.h>
 
 #include "bz-async-texture.h"
 #include "bz-data-point.h"
@@ -175,17 +176,21 @@ BZ_DEFINE_DATA (
     load_mini_icon,
     LoadMiniIcon,
     {
-      BzEntry    *self;
-      GdkTexture *texture;
-      GIcon      *result;
+      BzEntry *self;
+      char    *path;
+      GIcon   *result;
     },
     BZ_RELEASE_DATA (self, g_object_unref);
-    BZ_RELEASE_DATA (texture, g_object_unref);
+    BZ_RELEASE_DATA (path, g_free);
     BZ_RELEASE_DATA (result, g_object_unref))
 static DexFuture *
 load_mini_icon_fiber (LoadMiniIconData *data);
 static DexFuture *
 load_mini_icon_notify (LoadMiniIconData *data);
+
+static GIcon *
+load_mini_icon_sync (const char *unique_id_checksum,
+                     const char *path);
 
 static void
 clear_entry (BzEntry *self);
@@ -255,16 +260,7 @@ bz_entry_get_property (GObject    *object,
       break;
     case PROP_ICON_PAINTABLE:
       g_value_set_object (value, priv->icon_paintable);
-      if (priv->mini_icon == NULL &&
-          priv->mini_icon_future == NULL &&
-          BZ_IS_ASYNC_TEXTURE (priv->icon_paintable))
-        {
-          dex_clear (&priv->mini_icon_future);
-          priv->mini_icon_future = dex_future_then (
-              bz_async_texture_dup_future (BZ_ASYNC_TEXTURE (priv->icon_paintable)),
-              (DexFutureCallback) icon_paintable_future_then,
-              self, NULL);
-        }
+      dex_unref (bz_entry_load_mini_icon (self));
       break;
     case PROP_MINI_ICON:
       g_value_set_object (value, priv->mini_icon);
@@ -1531,6 +1527,36 @@ bz_entry_get_is_flathub (BzEntry *self)
   return priv->is_flathub;
 }
 
+DexFuture *
+bz_entry_load_mini_icon (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  dex_return_error_if_fail (BZ_IS_ENTRY (self));
+  priv = bz_entry_get_instance_private (self);
+
+  if (priv->mini_icon == NULL &&
+      priv->mini_icon_future == NULL &&
+      BZ_IS_ASYNC_TEXTURE (priv->icon_paintable))
+    {
+      dex_clear (&priv->mini_icon_future);
+      priv->mini_icon_future = dex_future_then (
+          bz_async_texture_dup_future (BZ_ASYNC_TEXTURE (priv->icon_paintable)),
+          (DexFutureCallback) icon_paintable_future_then,
+          self, NULL);
+      return dex_ref (priv->mini_icon_future);
+    }
+  else
+    return dex_future_new_true ();
+}
+
+GIcon *
+bz_load_mini_icon_sync (const char *unique_id_checksum,
+                        const char *path)
+{
+  return load_mini_icon_sync (unique_id_checksum, path);
+}
+
 gint
 bz_entry_calc_usefulness (BzEntry *self)
 {
@@ -1833,11 +1859,23 @@ static DexFuture *
 icon_paintable_future_then (DexFuture *future,
                             BzEntry   *self)
 {
+  BzEntryPrivate *priv              = NULL;
+  const char     *icon_path         = NULL;
   g_autoptr (LoadMiniIconData) data = NULL;
 
-  data          = load_mini_icon_data_new ();
-  data->self    = g_object_ref (self);
-  data->texture = g_value_dup_object (dex_future_get_value (future, NULL));
+  priv = bz_entry_get_instance_private (self);
+
+  /* ? */
+  if (!BZ_IS_ASYNC_TEXTURE (priv->icon_paintable))
+    return NULL;
+
+  icon_path = bz_async_texture_get_cache_into_path (BZ_ASYNC_TEXTURE (priv->icon_paintable));
+  if (icon_path == NULL)
+    return NULL;
+
+  data       = load_mini_icon_data_new ();
+  data->self = g_object_ref (self);
+  data->path = g_strdup (icon_path);
 
   return dex_scheduler_spawn (
       bz_get_io_scheduler (),
@@ -1850,75 +1888,72 @@ icon_paintable_future_then (DexFuture *future,
 static DexFuture *
 load_mini_icon_fiber (LoadMiniIconData *data)
 {
-  BzEntry    *self                            = data->self;
-  GdkTexture *texture                         = data->texture;
-  int         width                           = 0;
-  int         height                          = 0;
-  gsize       stride                          = 0;
-  g_autoptr (BzGuard) guard                   = NULL;
-  g_autoptr (GdkTextureDownloader) downloader = NULL;
-  g_autoptr (GBytes) bytes                    = NULL;
-  gsize            bytes_size                 = 0;
-  gconstpointer    bytes_data                 = NULL;
-  cairo_surface_t *surface_in                 = NULL;
-  cairo_surface_t *surface_out                = NULL;
-  cairo_t         *cairo                      = NULL;
-  g_autofree char *main_cache                 = NULL;
-  g_autoptr (GString) mini_icon_basename      = NULL;
-  g_autofree char *mini_icon_path             = NULL;
-  g_autoptr (GFile) parent_file               = NULL;
-  g_autoptr (GFile) mini_icon_file            = NULL;
-  g_autoptr (GIcon) mini_icon                 = NULL;
+  BzEntry *self = data->self;
+  char    *path = data->path;
 
-  BZ_BEGIN_GUARD (&guard);
-  {
-    width  = gdk_texture_get_width (texture);
-    height = gdk_texture_get_height (texture);
-
-    downloader = gdk_texture_downloader_new (texture);
-    gdk_texture_downloader_set_format (downloader, GDK_MEMORY_A8R8G8B8);
-
-    bytes      = gdk_texture_downloader_download_bytes (downloader, &stride);
-    bytes_data = g_bytes_get_data (bytes, &bytes_size);
-
-    surface_in = cairo_image_surface_create_for_data (
-        (unsigned char *) bytes_data, CAIRO_FORMAT_ARGB32, width, height, stride);
-
-    /* 24x24 for the gnome-shell search provider */
-    surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
-    cairo       = cairo_create (surface_out);
-
-    cairo_scale (cairo, 24.0 / (double) width, 24.0 / (double) height);
-    cairo_set_source_surface (cairo, surface_in, 0, 0);
-    cairo_paint (cairo);
-    cairo_restore (cairo);
-
-    main_cache         = bz_dup_module_dir ();
-    mini_icon_basename = g_string_new (bz_entry_get_unique_id_checksum (BZ_ENTRY (self)));
-    g_string_append (mini_icon_basename, "-24x24.png");
-    mini_icon_path = g_build_filename (main_cache, mini_icon_basename->str, NULL);
-
-    parent_file = g_file_new_for_path (main_cache);
-    g_file_make_directory_with_parents (parent_file, NULL, NULL);
-
-    cairo_surface_flush (surface_out);
-    cairo_surface_write_to_png (surface_out, mini_icon_path);
-    cairo_destroy (cairo);
-    cairo_surface_destroy (surface_in);
-    cairo_surface_destroy (surface_out);
-  }
-  bz_clear_guard (&guard);
-
-  mini_icon_file = g_file_new_for_path (mini_icon_path);
-  mini_icon      = g_file_icon_new (mini_icon_file);
-
-  data->result = g_steal_pointer (&mini_icon);
+  data->result = load_mini_icon_sync (
+      bz_entry_get_unique_id_checksum (BZ_ENTRY (self)),
+      path);
   return dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
       (DexFiberFunc) load_mini_icon_notify,
       load_mini_icon_data_ref (data),
       load_mini_icon_data_unref);
+}
+
+static GIcon *
+load_mini_icon_sync (const char *unique_id_checksum,
+                     const char *path)
+{
+  g_autofree char *main_cache            = NULL;
+  g_autoptr (GString) mini_icon_basename = NULL;
+  g_autofree char *mini_icon_path        = NULL;
+  g_autoptr (GBytes) bytes               = NULL;
+  cairo_surface_t *surface_in            = NULL;
+  int              width                 = 0;
+  int              height                = 0;
+  cairo_surface_t *surface_out           = NULL;
+  cairo_t         *cairo                 = NULL;
+  g_autoptr (GFile) parent_file          = NULL;
+  g_autoptr (GFile) mini_icon_file       = NULL;
+  g_autoptr (GIcon) mini_icon            = NULL;
+
+  main_cache         = bz_dup_module_dir ();
+  mini_icon_basename = g_string_new (unique_id_checksum);
+  g_string_append (mini_icon_basename, "-24x24.png");
+  mini_icon_path = g_build_filename (main_cache, mini_icon_basename->str, NULL);
+
+  if (g_file_test (mini_icon_path, G_FILE_TEST_EXISTS))
+    /* Assume the icon left behind by last writer */
+    goto done;
+
+  surface_in = cairo_image_surface_create_from_png (path);
+  width      = cairo_image_surface_get_width (surface_in);
+  height     = cairo_image_surface_get_height (surface_in);
+
+  /* 24x24 for the gnome-shell search provider */
+  surface_out = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
+  cairo       = cairo_create (surface_out);
+
+  cairo_scale (cairo, 24.0 / (double) width, 24.0 / (double) height);
+  cairo_set_source_surface (cairo, surface_in, 0, 0);
+  cairo_paint (cairo);
+  cairo_restore (cairo);
+
+  parent_file = g_file_new_for_path (main_cache);
+  g_file_make_directory_with_parents (parent_file, NULL, NULL);
+
+  cairo_surface_flush (surface_out);
+  cairo_surface_write_to_png (surface_out, mini_icon_path);
+  cairo_destroy (cairo);
+  cairo_surface_destroy (surface_in);
+  cairo_surface_destroy (surface_out);
+
+done:
+  mini_icon_file = g_file_new_for_path (mini_icon_path);
+  mini_icon      = g_file_icon_new (mini_icon_file);
+  return g_steal_pointer (&mini_icon);
 }
 
 static DexFuture *
@@ -1941,7 +1976,6 @@ clear_entry (BzEntry *self)
 
   dex_clear (&priv->mini_icon_future);
   g_clear_pointer (&priv->flathub_prop_queries, g_hash_table_unref);
-
   g_clear_object (&priv->addons);
   g_clear_pointer (&priv->id, g_free);
   g_clear_pointer (&priv->unique_id, g_free);

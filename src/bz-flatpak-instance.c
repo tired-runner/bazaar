@@ -976,17 +976,13 @@ retrieve_refs_for_remote_fiber (RetrieveRefsForRemoteData *data)
           remote_icon,
           NULL);
       if (entry != NULL)
-        {
-          result = dex_await (
-              dex_channel_send (channel, dex_future_new_for_object (entry)),
-              &local_error);
-        }
+        result = dex_await (
+            dex_channel_send (channel, dex_future_new_for_object (entry)),
+            &local_error);
       else
-        {
-          result = dex_await (
-              dex_channel_send (channel, dex_future_new_for_int (-1)),
-              &local_error);
-        }
+        result = dex_await (
+            dex_channel_send (channel, dex_future_new_for_int (-1)),
+            &local_error);
       if (!result)
         return dex_future_new_reject (
             DEX_ERROR,

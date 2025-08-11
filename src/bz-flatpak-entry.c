@@ -336,6 +336,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   g_autoptr (GPtrArray) as_search_tokens       = NULL;
   g_autoptr (GPtrArray) search_tokens          = NULL;
   g_autoptr (GdkPaintable) icon_paintable      = NULL;
+  g_autoptr (GIcon) mini_icon                  = NULL;
   g_autoptr (GListStore) screenshot_paintables = NULL;
   g_autoptr (GListStore) share_urls            = NULL;
   g_autofree char *donation_url                = NULL;
@@ -464,6 +465,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
           root   = xb_silo_get_root (silo);
           string = g_string_new (NULL);
 
+          /* TODO this sucks big time */
           cleanup_regex = g_regex_new (
               "^ +| +$|\\t+|\\A\\s+|\\s+\\z",
               G_REGEX_MULTILINE,
@@ -731,6 +733,9 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
 
               texture        = bz_async_texture_new_lazy (source, cache_into);
               icon_paintable = GDK_PAINTABLE (texture);
+
+              if (select_is_local)
+                mini_icon = bz_load_mini_icon_sync (unique_id_checksum, select);
             }
         }
     }
@@ -809,6 +814,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       "developer", developer,
       "developer-id", developer_id,
       "icon-paintable", icon_paintable,
+      "mini-icon", mini_icon,
       "screenshot-paintables", screenshot_paintables,
       "share-urls", share_urls,
       "donation-url", donation_url,
