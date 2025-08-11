@@ -25,8 +25,6 @@
 #define WATCH_CLEANUP_INTERVAL_MSEC       5000
 #define WATCH_RECACHE_INTERVAL_SEC_DOUBLE 4.0
 
-#include <xmlb.h>
-
 #include "bz-entry-cache-manager.h"
 #include "bz-env.h"
 #include "bz-flatpak-entry.h"
@@ -216,9 +214,13 @@ bz_entry_cache_manager_class_init (BzEntryCacheManagerClass *klass)
 static void
 bz_entry_cache_manager_init (BzEntryCacheManager *self)
 {
+  static DexScheduler *global_scheduler = NULL;
   g_autoptr (OngoingTaskData) task_data = NULL;
 
-  self->scheduler    = dex_thread_pool_scheduler_new ();
+  if (g_once_init_enter_pointer (&global_scheduler))
+    g_once_init_leave_pointer (&global_scheduler, dex_thread_pool_scheduler_new ());
+
+  self->scheduler    = dex_ref (global_scheduler);
   self->memory_usage = 0;
 
   task_data             = ongoing_task_data_new ();

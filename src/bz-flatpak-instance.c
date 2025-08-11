@@ -1512,9 +1512,9 @@ cmp_rref (FlatpakRemoteRef *a,
       a_kind == AS_COMPONENT_KIND_CONSOLE_APP ||
       a_kind == AS_COMPONENT_KIND_WEB_APP)
     return 1;
-  if (a_kind == AS_COMPONENT_KIND_DESKTOP_APP ||
-      a_kind == AS_COMPONENT_KIND_CONSOLE_APP ||
-      a_kind == AS_COMPONENT_KIND_WEB_APP)
+  if (b_kind == AS_COMPONENT_KIND_DESKTOP_APP ||
+      b_kind == AS_COMPONENT_KIND_CONSOLE_APP ||
+      b_kind == AS_COMPONENT_KIND_WEB_APP)
     return -1;
 
   return 0;
