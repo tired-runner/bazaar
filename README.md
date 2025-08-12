@@ -44,7 +44,7 @@ You will need the following dependencies installed, along with a C compiler, mes
 |---------------------------------------------------------|-------------------|------------------------|-----------------------------------------------------|
 | [gtk4](https://gitlab.gnome.org/GNOME/gtk/)             | `gtk4`            | enforced by libadwaita | GUI                                                 |
 | [libadwaita](https://gitlab.gnome.org/GNOME/libadwaita) | `libadwaita-1`    | `1.7`                  | GNOME styling                                       |
-| [libdex](https://gitlab.gnome.org/GNOME/libdex)         | `libdex-1`        | `0.9`                  | Async helpers                                       |
+| [libdex](https://gitlab.gnome.org/GNOME/libdex)         | `libdex-1`        | `0.11.1`               | Async helpers                                       |
 | [flatpak](https://github.com/flatpak/flatpak)           | `flatpak`         | `1.9`                  | Flatpak installation management                     |
 | [appstream](https://github.com/ximion/appstream)        | `appstream`       | `1.0`                  | Download application metadata                       |
 | [xmlb](https://github.com/hughsie/libxmlb)              | `xmlb`            | `0.3.4`                | Handle binary xml appstream bundles/Parse plain xml |
