@@ -70,6 +70,7 @@ struct _BzWindow
   AdwToolbarView      *toolbar_view;
   AdwHeaderBar        *top_header_bar;
   AdwHeaderBar        *bottom_header_bar;
+  AdwToggle           *curated_toggle;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -407,6 +408,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toolbar_view);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, top_header_bar);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, bottom_header_bar);
+  gtk_widget_class_bind_template_child (widget_class, BzWindow, curated_toggle);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, browser_group_selected_cb);
@@ -601,6 +603,16 @@ bz_window_new (BzStateInfo *state)
                            "notify::has-transactions",
                            G_CALLBACK (has_transactions_changed),
                            window, G_CONNECT_SWAPPED);
+
+  /* TODO: connect to "items-changed" if this ever becomes dynamic */
+  if (g_list_model_get_n_items (
+          bz_state_info_get_curated_configs (state)) == 0)
+    {
+      adw_toggle_group_set_active_name (
+          window->title_toggle_group, "flathub");
+      adw_toggle_group_remove (
+          window->title_toggle_group, window->curated_toggle);
+    }
 
   g_object_notify_by_pspec (G_OBJECT (window), props[PROP_STATE]);
 
