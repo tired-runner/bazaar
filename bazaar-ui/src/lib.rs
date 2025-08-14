@@ -1,4 +1,8 @@
+mod scrolled_window;
+
+pub use scrolled_window::*;
+
 #[no_mangle]
-pub unsafe extern "C" fn print_hello_world() {
-    println!("hello world!");
+pub extern "C" fn bazaar_ui_init() {
+    _ = gtk::init();
 }

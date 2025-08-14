@@ -25,8 +25,6 @@
 #include <glib/gi18n.h>
 #include <libdex.h>
 
-#include <bazaar-ui.h>
-
 #include "bz-application.h"
 
 int
@@ -41,8 +39,6 @@ main (int   argc,
       g_print ("%s\n", PACKAGE_VERSION);
       return 0;
     }
-
-  print_hello_world ();
 
   g_debug ("Initializing libdex...");
   dex_init ();

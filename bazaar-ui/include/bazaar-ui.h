@@ -20,10 +20,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include <gtk/gtk.h>
+#include <adwaita.h>
 
 G_BEGIN_DECLS
 
-void print_hello_world (void);
+void bazaar_ui_init (void);
+
+#define BZ_TYPE_SCROLLED_WINDOW (bz_scrolled_window_get_type ())
+G_DECLARE_FINAL_TYPE (BzScrolledWindow, bz_scrolled_window, BZ, SCROLLED_WINDOW, AdwBin)
 
 G_END_DECLS
