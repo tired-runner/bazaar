@@ -570,7 +570,7 @@ msgstr ""
 "Możliwość wyświetlania i instalowania lokalnych plików .flatpak będzie "
 "niedługo dostępna! Tymczasem, możesz uruchomić z poziomu terminala\n"
 "\n"
-"flatpak install --bundle twoj-pakiet.flatpak\n"
+"flatpak install --bundle twoj-pakiet.flatpak"
 
 #: src/bz-window.c:742
 msgid "Can't do that right now!"
