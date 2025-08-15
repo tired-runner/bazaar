@@ -110,7 +110,7 @@ bz_sources = [
 ]
 
 bz_deps = [
-  bazaar_ui_dep,
+  # bazaar_ui_dep,
   math,
   gtk_dep,
   libadwaita_dep,

@@ -22,7 +22,7 @@
 
 #include "config.h"
 
-#include <bazaar-ui.h>
+// #include <bazaar-ui.h>
 #include <glib/gi18n.h>
 
 #include "bz-application-map-factory.h"
@@ -966,7 +966,7 @@ init_service_struct (BzApplication *self)
 {
   GtkCustomFilter *filter = NULL;
 
-  bazaar_ui_init ();
+  // bazaar_ui_init ();
 
   (void) bz_download_worker_get_default ();
 

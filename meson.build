@@ -110,7 +110,7 @@ else
 
 
   subdir('data')
-  subdir('bazaar-ui')
+  # subdir('bazaar-ui')
   subdir('src')
   subdir('po')
 
