@@ -600,6 +600,7 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
     {
       FlatpakInstallation *installation              = NULL;
       FlatpakRemote       *remote                    = NULL;
+      const char          *name                      = NULL;
       g_autoptr (RetrieveRefsForRemoteData) job_data = NULL;
 
       if (i < system_remotes->len)
@@ -615,6 +616,11 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
 
       if (flatpak_remote_get_disabled (remote) ||
           flatpak_remote_get_noenumerate (remote))
+        continue;
+
+      name = flatpak_remote_get_name (remote);
+      if (g_strstr_len (name, -1, "fedora"))
+        /* the fedora flatpak repos cause too many issues */
         continue;
 
       job_data                     = retrieve_refs_for_remote_data_new ();
