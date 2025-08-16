@@ -25,6 +25,7 @@
 #include "bz-backend.h"
 #include "bz-env.h"
 #include "bz-flatpak-private.h"
+#include "bz-global-state.h"
 #include "bz-io.h"
 #include "bz-util.h"
 
@@ -58,6 +59,28 @@ BZ_DEFINE_DATA (
     BZ_RELEASE_DATA (instance, g_object_unref))
 static DexFuture *
 init_fiber (InitData *data);
+
+BZ_DEFINE_DATA (
+    check_has_flathub,
+    CheckHasFlathub,
+    {
+      GCancellable      *cancellable;
+      BzFlatpakInstance *instance;
+    },
+    BZ_RELEASE_DATA (cancellable, g_object_unref));
+static DexFuture *
+check_has_flathub_fiber (CheckHasFlathubData *data);
+
+BZ_DEFINE_DATA (
+    ensure_flathub,
+    EnsureFlathub,
+    {
+      GCancellable      *cancellable;
+      BzFlatpakInstance *instance;
+    },
+    BZ_RELEASE_DATA (cancellable, g_object_unref));
+static DexFuture *
+ensure_flathub_fiber (EnsureFlathubData *data);
 
 BZ_DEFINE_DATA (
     load_local_ref,
@@ -440,6 +463,46 @@ bz_flatpak_instance_new (void)
       init_data_ref (data), init_data_unref);
 }
 
+DexFuture *
+bz_flatpak_instance_has_flathub (BzFlatpakInstance *self,
+                                 GCancellable      *cancellable)
+{
+  g_autoptr (CheckHasFlathubData) data = NULL;
+
+  dex_return_error_if_fail (BZ_IS_FLATPAK_INSTANCE (self));
+  dex_return_error_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable));
+
+  data              = check_has_flathub_data_new ();
+  data->instance    = self;
+  data->cancellable = cancellable != NULL ? g_object_ref (cancellable) : NULL;
+
+  return dex_scheduler_spawn (
+      data->instance->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) check_has_flathub_fiber,
+      check_has_flathub_data_ref (data), check_has_flathub_data_unref);
+}
+
+DexFuture *
+bz_flatpak_instance_ensure_has_flathub (BzFlatpakInstance *self,
+                                        GCancellable      *cancellable)
+{
+  g_autoptr (EnsureFlathubData) data = NULL;
+
+  dex_return_error_if_fail (BZ_IS_FLATPAK_INSTANCE (self));
+  dex_return_error_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable));
+
+  data              = ensure_flathub_data_new ();
+  data->instance    = self;
+  data->cancellable = cancellable != NULL ? g_object_ref (cancellable) : NULL;
+
+  return dex_scheduler_spawn (
+      data->instance->scheduler,
+      bz_get_dex_stack_size (),
+      (DexFiberFunc) ensure_flathub_fiber,
+      ensure_flathub_data_ref (data), ensure_flathub_data_unref);
+}
+
 static DexFuture *
 init_fiber (InitData *data)
 {
@@ -451,21 +514,136 @@ init_fiber (InitData *data)
 
   instance->system = flatpak_installation_new_system (NULL, &local_error);
   if (instance->system == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
-        "Failed to initialize system installation: %s",
-        local_error->message);
+    {
+      g_warning ("Failed to initialize system installation: %s",
+                 local_error->message);
+      g_clear_pointer (&local_error, g_error_free);
+    }
 
   instance->user = flatpak_installation_new_user (NULL, &local_error);
   if (instance->user == NULL)
+    {
+      g_warning ("Failed to initialize user installation: %s",
+                 local_error->message);
+      g_clear_pointer (&local_error, g_error_free);
+    }
+
+  if (instance->system == NULL && instance->user == NULL)
     return dex_future_new_reject (
         BZ_FLATPAK_ERROR,
         BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
-        "Failed to initialize user installation: %s",
-        local_error->message);
+        "Failed to initialize any flatpak installations");
 
   return dex_future_new_for_object (instance);
+}
+
+static DexFuture *
+check_has_flathub_fiber (CheckHasFlathubData *data)
+{
+  BzFlatpakInstance *instance          = data->instance;
+  GCancellable      *cancellable       = data->cancellable;
+  g_autoptr (GError) local_error       = NULL;
+  g_autoptr (GPtrArray) system_remotes = NULL;
+  guint n_system_remotes               = 0;
+  g_autoptr (GPtrArray) user_remotes   = NULL;
+  guint n_user_remotes                 = 0;
+
+  if (instance->system != NULL)
+    {
+      system_remotes = flatpak_installation_list_remotes (
+          instance->system, cancellable, &local_error);
+      if (system_remotes == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+            "Failed to enumerate remotes for system installation: %s",
+            local_error->message);
+      n_system_remotes = system_remotes->len;
+    }
+
+  if (instance->user != NULL)
+    {
+      user_remotes = flatpak_installation_list_remotes (
+          instance->user, cancellable, &local_error);
+      if (user_remotes == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+            "Failed to enumerate remotes for user installation: %s",
+            local_error->message);
+      n_user_remotes = user_remotes->len;
+    }
+
+  for (guint i = 0; i < n_system_remotes + n_user_remotes; i++)
+    {
+      FlatpakRemote *remote = NULL;
+      const char    *name   = NULL;
+
+      if (i < n_system_remotes)
+        remote = g_ptr_array_index (system_remotes, i);
+      else
+        remote = g_ptr_array_index (user_remotes, i - n_system_remotes);
+
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_noenumerate (remote))
+        continue;
+
+      name = flatpak_remote_get_name (remote);
+      if (g_strcmp0 (name, "flathub"))
+        return dex_future_new_true ();
+    }
+  return dex_future_new_false ();
+}
+
+static DexFuture *
+ensure_flathub_fiber (EnsureFlathubData *data)
+{
+  BzFlatpakInstance *instance      = data->instance;
+  GCancellable      *cancellable   = data->cancellable;
+  g_autoptr (GError) local_error   = NULL;
+  g_autoptr (SoupMessage) message  = NULL;
+  g_autoptr (GOutputStream) output = NULL;
+  gboolean result                  = FALSE;
+  g_autoptr (GBytes) bytes         = NULL;
+  g_autoptr (FlatpakRemote) remote = NULL;
+
+#define REPO_URL "https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+  message = soup_message_new (SOUP_METHOD_GET, REPO_URL);
+  output  = g_memory_output_stream_new_resizable ();
+  result  = dex_await (
+      bz_send_with_global_http_session_then_splice_into (message, output),
+      &local_error);
+  if (!result)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "Failed to retrieve flatpakrepo file from %s: %s",
+        REPO_URL, local_error->message);
+
+  bytes  = g_memory_output_stream_steal_as_bytes (G_MEMORY_OUTPUT_STREAM (output));
+  remote = flatpak_remote_new_from_file ("flathub", bytes, &local_error);
+  if (remote == NULL)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+        "Failed to construct flatpak remote from flatpakrepo file %s: %s",
+        REPO_URL, local_error->message);
+
+  result = flatpak_installation_add_remote (
+      instance->system != NULL ? instance->system : instance->user,
+      remote,
+      TRUE,
+      cancellable,
+      &local_error);
+  if (!result)
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "Failed to add flathub to flatpak installation: %s",
+        local_error->message);
+
+  return dex_future_new_true ();
 }
 
 static DexFuture *
@@ -545,13 +723,18 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
   GCancellable      *cancellable            = data->cancellable;
   BzFlatpakInstance *instance               = data->instance;
   GPtrArray         *blocked_names          = data->blocked_names;
+  DexChannel        *channel                = data->channel;
   g_autoptr (GError) local_error            = NULL;
   g_autoptr (GPtrArray) system_remotes      = NULL;
+  guint n_system_remotes                    = 0;
   g_autoptr (GPtrArray) user_remotes        = NULL;
+  guint n_user_remotes                      = 0;
   g_autoptr (GHashTable) blocked_names_hash = NULL;
-  guint                  n_jobs             = 0;
-  g_autofree DexFuture **jobs               = NULL;
-  DexFuture             *future             = NULL;
+  g_autoptr (GPtrArray) jobs                = NULL;
+  g_autoptr (GPtrArray) job_names           = NULL;
+  g_autoptr (DexFuture) future              = NULL;
+  gboolean result                           = FALSE;
+  g_autoptr (GString) error_string          = NULL;
 
   while (instance->cache_dirs->len > 0)
     {
@@ -562,26 +745,43 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
       g_free (cache_dir);
     }
 
-  system_remotes = flatpak_installation_list_remotes (
-      instance->system, cancellable, &local_error);
-  if (system_remotes == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
-        "Failed to enumerate remotes for system installation: %s",
-        local_error->message);
+  if (instance->system != NULL)
+    {
+      system_remotes = flatpak_installation_list_remotes (
+          instance->system, cancellable, &local_error);
+      if (system_remotes == NULL)
+        {
+          dex_channel_close_send (channel);
+          return dex_future_new_reject (
+              BZ_FLATPAK_ERROR,
+              BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+              "Failed to enumerate remotes for system installation: %s",
+              local_error->message);
+        }
+      n_system_remotes = system_remotes->len;
+    }
 
-  user_remotes = flatpak_installation_list_remotes (
-      instance->user, cancellable, &local_error);
-  if (user_remotes == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
-        "Failed to enumerate remotes for user installation: %s",
-        local_error->message);
+  if (instance->user != NULL)
+    {
+      user_remotes = flatpak_installation_list_remotes (
+          instance->user, cancellable, &local_error);
+      if (user_remotes == NULL)
+        {
+          dex_channel_close_send (channel);
+          return dex_future_new_reject (
+              BZ_FLATPAK_ERROR,
+              BZ_FLATPAK_ERROR_CANNOT_INITIALIZE,
+              "Failed to enumerate remotes for user installation: %s",
+              local_error->message);
+        }
+      n_user_remotes = user_remotes->len;
+    }
 
-  if (system_remotes->len + user_remotes->len == 0)
-    return dex_future_new_true ();
+  if (n_user_remotes + n_system_remotes == 0)
+    {
+      dex_channel_close_send (channel);
+      return dex_future_new_true ();
+    }
 
   if (blocked_names != NULL)
     {
@@ -595,15 +795,18 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
         }
     }
 
-  jobs = g_malloc0_n (system_remotes->len + user_remotes->len, sizeof (*jobs));
-  for (guint i = 0; i < system_remotes->len + user_remotes->len; i++)
+  jobs      = g_ptr_array_new_with_free_func (dex_unref);
+  job_names = g_ptr_array_new_with_free_func (g_free);
+
+  for (guint i = 0; i < n_system_remotes + n_user_remotes; i++)
     {
       FlatpakInstallation *installation              = NULL;
       FlatpakRemote       *remote                    = NULL;
       const char          *name                      = NULL;
       g_autoptr (RetrieveRefsForRemoteData) job_data = NULL;
+      g_autoptr (DexFuture) job_future               = NULL;
 
-      if (i < system_remotes->len)
+      if (i < n_system_remotes)
         {
           installation = instance->system;
           remote       = g_ptr_array_index (system_remotes, i);
@@ -611,7 +814,7 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
       else
         {
           installation = instance->user;
-          remote       = g_ptr_array_index (user_remotes, i - system_remotes->len);
+          remote       = g_ptr_array_index (user_remotes, i - n_system_remotes);
         }
 
       if (flatpak_remote_get_disabled (remote) ||
@@ -629,22 +832,62 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
       job_data->remote             = g_object_ref (remote);
       job_data->blocked_names_hash = blocked_names_hash != NULL ? g_hash_table_ref (blocked_names_hash) : NULL;
 
-      jobs[n_jobs++] = dex_scheduler_spawn (
+      job_future = dex_scheduler_spawn (
           instance->scheduler,
           bz_get_dex_stack_size (),
           (DexFiberFunc) retrieve_refs_for_remote_fiber,
           retrieve_refs_for_remote_data_ref (job_data),
           retrieve_refs_for_remote_data_unref);
+
+      g_ptr_array_add (jobs, g_steal_pointer (&job_future));
+      g_ptr_array_add (job_names, g_strdup (name));
     }
 
-  if (n_jobs == 0)
-    return dex_future_new_true ();
+  if (jobs->len == 0)
+    {
+      dex_channel_close_send (channel);
+      return dex_future_new_true ();
+    }
 
-  future = dex_future_all_racev (jobs, n_jobs);
-  for (guint i = 0; i < n_jobs; i++)
-    dex_unref (jobs[i]);
+  result = dex_await (dex_future_allv (
+                          (DexFuture *const *) jobs->pdata,
+                          jobs->len),
+                      NULL);
+  dex_channel_close_send (channel);
+  if (!result)
+    error_string = g_string_new ("No remotes could be synchronized:\n\n");
 
-  return future;
+  for (guint i = 0; i < jobs->len; i++)
+    {
+      DexFuture *job_future = NULL;
+      char      *name       = NULL;
+
+      job_future = g_ptr_array_index (jobs, i);
+      name       = g_ptr_array_index (job_names, i);
+
+      dex_future_get_value (job_future, &local_error);
+      if (local_error != NULL)
+        {
+          if (error_string == NULL)
+            error_string = g_string_new ("Some remotes couldn't be fully sychronized:\n");
+          g_string_append_printf (error_string, "\n%s failed because: %s\n", name, local_error->message);
+        }
+      g_clear_pointer (&local_error, g_error_free);
+    }
+
+  if (result)
+    {
+      if (error_string != NULL)
+        return dex_future_new_take_string (
+            g_string_free_and_steal (g_steal_pointer (&error_string)));
+      else
+        return dex_future_new_true ();
+    }
+  else
+    return dex_future_new_reject (
+        BZ_FLATPAK_ERROR,
+        BZ_FLATPAK_ERROR_REMOTE_SYNCHRONIZATION_FAILURE,
+        "%s", error_string->str);
 }
 
 static void
@@ -1007,35 +1250,45 @@ retrieve_installs_fiber (GatherRefsData *data)
   BzFlatpakInstance *instance       = data->instance;
   g_autoptr (GError) local_error    = NULL;
   g_autoptr (GPtrArray) system_refs = NULL;
+  guint n_system_refs               = 0;
   g_autoptr (GPtrArray) user_refs   = NULL;
+  guint n_user_refs                 = 0;
   g_autoptr (GHashTable) ids        = NULL;
 
-  system_refs = flatpak_installation_list_installed_refs (
-      instance->system, cancellable, &local_error);
-  if (system_refs == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
-        "Failed to discover installed refs for system installation: %s",
-        local_error->message);
+  if (instance->system != NULL)
+    {
+      system_refs = flatpak_installation_list_installed_refs (
+          instance->system, cancellable, &local_error);
+      if (system_refs == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
+            "Failed to discover installed refs for system installation: %s",
+            local_error->message);
+      n_system_refs = system_refs->len;
+    }
 
-  user_refs = flatpak_installation_list_installed_refs (
-      instance->user, cancellable, &local_error);
-  if (user_refs == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
-        "Failed to discover installed refs for user installation: %s",
-        local_error->message);
+  if (instance->user != NULL)
+    {
+      user_refs = flatpak_installation_list_installed_refs (
+          instance->user, cancellable, &local_error);
+      if (user_refs == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_LOCAL_SYNCHRONIZATION_FAILURE,
+            "Failed to discover installed refs for user installation: %s",
+            local_error->message);
+      n_user_refs = user_refs->len;
+    }
 
   ids = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-  for (guint i = 0; i < system_refs->len + user_refs->len; i++)
+  for (guint i = 0; i < n_system_refs + n_user_refs; i++)
     {
       gboolean             user = FALSE;
       FlatpakInstalledRef *iref = NULL;
 
-      if (i < system_refs->len)
+      if (i < n_system_refs)
         {
           user = FALSE;
           iref = g_ptr_array_index (system_refs, i);
@@ -1043,7 +1296,7 @@ retrieve_installs_fiber (GatherRefsData *data)
       else
         {
           user = TRUE;
-          iref = g_ptr_array_index (user_refs, i - system_refs->len);
+          iref = g_ptr_array_index (user_refs, i - n_system_refs);
         }
 
       g_hash_table_add (ids, bz_flatpak_ref_format_unique (FLATPAK_REF (iref), user));
@@ -1122,23 +1375,29 @@ transaction_fiber (TransactionData *data)
   gboolean result                                   = FALSE;
   g_autoptr (FlatpakTransactionProgress) progress   = NULL;
 
-  system_transaction = flatpak_transaction_new_for_installation (
-      instance->system, cancellable, &local_error);
-  if (system_transaction == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
-        "Failed to initialize potential transaction for system installation: %s",
-        local_error->message);
+  if (instance->system != NULL)
+    {
+      system_transaction = flatpak_transaction_new_for_installation (
+          instance->system, cancellable, &local_error);
+      if (system_transaction == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+            "Failed to initialize potential transaction for system installation: %s",
+            local_error->message);
+    }
 
-  user_transaction = flatpak_transaction_new_for_installation (
-      instance->user, cancellable, &local_error);
-  if (user_transaction == NULL)
-    return dex_future_new_reject (
-        BZ_FLATPAK_ERROR,
-        BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
-        "Failed to initialize potential transaction for system installation: %s",
-        local_error->message);
+  if (instance->user != NULL)
+    {
+      user_transaction = flatpak_transaction_new_for_installation (
+          instance->user, cancellable, &local_error);
+      if (user_transaction == NULL)
+        return dex_future_new_reject (
+            BZ_FLATPAK_ERROR,
+            BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+            "Failed to initialize potential transaction for system installation: %s",
+            local_error->message);
+    }
 
   if (installations != NULL)
     {
@@ -1146,13 +1405,25 @@ transaction_fiber (TransactionData *data)
         {
           BzFlatpakEntry  *entry   = NULL;
           FlatpakRef      *ref     = NULL;
+          gboolean         is_user = FALSE;
           g_autofree char *ref_fmt = NULL;
 
           entry   = g_ptr_array_index (installations, i);
           ref     = bz_flatpak_entry_get_ref (entry);
+          is_user = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry));
           ref_fmt = flatpak_ref_format_ref (ref);
-          result  = flatpak_transaction_add_install (
-              bz_flatpak_entry_is_user (entry)
+
+          if ((is_user && instance->user == NULL) ||
+              (!is_user && instance->system == NULL))
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "Failed to append the update of %s to transaction "
+                "because its installation couldn't be found",
+                ref_fmt);
+
+          result = flatpak_transaction_add_install (
+              is_user
                   ? user_transaction
                   : system_transaction,
               bz_entry_get_remote_repo_name (BZ_ENTRY (entry)),
@@ -1179,13 +1450,25 @@ transaction_fiber (TransactionData *data)
         {
           BzFlatpakEntry  *entry   = NULL;
           FlatpakRef      *ref     = NULL;
+          gboolean         is_user = FALSE;
           g_autofree char *ref_fmt = NULL;
 
           entry   = g_ptr_array_index (updates, i);
           ref     = bz_flatpak_entry_get_ref (entry);
+          is_user = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry));
           ref_fmt = flatpak_ref_format_ref (ref);
-          result  = flatpak_transaction_add_update (
-              bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry))
+
+          if ((is_user && instance->user == NULL) ||
+              (!is_user && instance->system == NULL))
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "Failed to append the update of %s to transaction "
+                "because its installation couldn't be found",
+                ref_fmt);
+
+          result = flatpak_transaction_add_update (
+              is_user
                   ? user_transaction
                   : system_transaction,
               ref_fmt,
@@ -1212,13 +1495,25 @@ transaction_fiber (TransactionData *data)
         {
           BzFlatpakEntry  *entry   = NULL;
           FlatpakRef      *ref     = NULL;
+          gboolean         is_user = FALSE;
           g_autofree char *ref_fmt = NULL;
 
           entry   = g_ptr_array_index (removals, i);
           ref     = bz_flatpak_entry_get_ref (entry);
+          is_user = bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry));
           ref_fmt = flatpak_ref_format_ref (ref);
-          result  = flatpak_transaction_add_uninstall (
-              bz_flatpak_entry_is_user (BZ_FLATPAK_ENTRY (entry))
+
+          if ((is_user && instance->user == NULL) ||
+              (!is_user && instance->system == NULL))
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_TRANSACTION_FAILURE,
+                "Failed to append the removal of %s to transaction "
+                "because its installation couldn't be found",
+                ref_fmt);
+
+          result = flatpak_transaction_add_uninstall (
+              is_user
                   ? user_transaction
                   : system_transaction,
               ref_fmt,
@@ -1237,14 +1532,16 @@ transaction_fiber (TransactionData *data)
         }
     }
 
-  if (!flatpak_transaction_is_empty (system_transaction))
+  if (system_transaction != NULL &&
+      !flatpak_transaction_is_empty (system_transaction))
     {
       g_autolist (GObject) operations = NULL;
 
       operations = flatpak_transaction_get_operations (system_transaction);
       data->n_operations += g_list_length (operations);
     }
-  if (!flatpak_transaction_is_empty (user_transaction))
+  if (user_transaction != NULL &&
+      !flatpak_transaction_is_empty (user_transaction))
     {
       g_autolist (GObject) operations = NULL;
 
@@ -1252,7 +1549,8 @@ transaction_fiber (TransactionData *data)
       data->n_operations += g_list_length (operations);
     }
 
-  if (!flatpak_transaction_is_empty (system_transaction))
+  if (system_transaction != NULL &&
+      !flatpak_transaction_is_empty (system_transaction))
     {
       g_signal_connect (system_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
       result = flatpak_transaction_run (system_transaction, cancellable, &local_error);
@@ -1264,7 +1562,8 @@ transaction_fiber (TransactionData *data)
             local_error->message);
     }
 
-  if (!flatpak_transaction_is_empty (user_transaction))
+  if (user_transaction != NULL &&
+      !flatpak_transaction_is_empty (user_transaction))
     {
       g_signal_connect (user_transaction, "new-operation", G_CALLBACK (transaction_new_operation), data);
       result = flatpak_transaction_run (user_transaction, cancellable, &local_error);
