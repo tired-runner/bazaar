@@ -1168,7 +1168,7 @@ refresh_fiber (BzApplication *self)
     bz_state_info_set_flathub (self->state, self->flathub);
   else
     {
-      const char *response = NULL;
+      g_autofree char *response = NULL;
 
       window = gtk_application_get_active_window (GTK_APPLICATION (self));
       if (window != NULL)
