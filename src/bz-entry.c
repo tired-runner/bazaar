@@ -235,7 +235,7 @@ bz_entry_get_property (GObject    *object,
       g_value_set_string (value, priv->unique_id);
       break;
     case PROP_UNIQUE_ID_CHECKSUM:
-      g_value_set_string (value, priv->unique_id);
+      g_value_set_string (value, priv->unique_id_checksum);
       break;
     case PROP_TITLE:
       g_value_set_string (value, priv->title);
