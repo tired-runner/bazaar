@@ -1637,7 +1637,9 @@ command_line_open_flatpakref (BzApplication           *self,
                               GApplicationCommandLine *cmdline,
                               const char              *path)
 {
-  if (g_path_is_absolute (path))
+  if (g_uri_is_valid (path, G_URI_FLAGS_NONE, NULL))
+    open_flatpakref_take (self, g_file_new_for_uri (path));
+  else if (g_path_is_absolute (path))
     open_flatpakref_take (self, g_file_new_for_path (path));
   else
     {

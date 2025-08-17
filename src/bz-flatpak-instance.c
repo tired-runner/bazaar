@@ -654,28 +654,65 @@ load_local_ref_fiber (LoadLocalRefData *data)
   BzFlatpakInstance *instance       = data->instance;
   GFile             *file           = data->file;
   g_autoptr (GError) local_error    = NULL;
+  g_autofree char *uri              = NULL;
   g_autofree char *path             = NULL;
   g_autoptr (FlatpakBundleRef) bref = NULL;
   g_autoptr (BzFlatpakEntry) entry  = NULL;
 
+  uri  = g_file_get_uri (file);
   path = g_file_get_path (file);
+  if (uri == NULL)
+    uri = g_strdup_printf ("file://%s", path);
 
-  if (g_str_has_suffix (path, ".flatpakref"))
+  if (g_str_has_suffix (uri, ".flatpakref"))
     {
+      const char *resolved_uri      = NULL;
       g_autoptr (GKeyFile) key_file = g_key_file_new ();
       gboolean         result       = FALSE;
       g_autofree char *name         = NULL;
 
+      if (g_str_has_prefix (uri, "flatpak+https"))
+        resolved_uri = uri + strlen ("flatpak+");
+      else
+        resolved_uri = uri;
+
       key_file = g_key_file_new ();
-      result   = g_key_file_load_from_file (
-          key_file, path, G_KEY_FILE_NONE, &local_error);
+
+      if (g_str_has_prefix (resolved_uri, "http"))
+        {
+          g_autoptr (SoupMessage) message  = NULL;
+          g_autoptr (GOutputStream) output = NULL;
+          g_autoptr (GBytes) bytes         = NULL;
+
+          message = soup_message_new (SOUP_METHOD_GET, resolved_uri);
+          output  = g_memory_output_stream_new_resizable ();
+          result  = dex_await (
+              bz_send_with_global_http_session_then_splice_into (message, output),
+              &local_error);
+          if (!result)
+            return dex_future_new_reject (
+                BZ_FLATPAK_ERROR,
+                BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
+                "Failed to retrieve flatpakref file from %s: %s",
+                resolved_uri, local_error->message);
+
+          bytes  = g_memory_output_stream_steal_as_bytes (G_MEMORY_OUTPUT_STREAM (output));
+          result = g_key_file_load_from_bytes (key_file, bytes, G_KEY_FILE_NONE, &local_error);
+        }
+      else if (path != NULL)
+        result = g_key_file_load_from_file (
+            key_file, path, G_KEY_FILE_NONE, &local_error);
+      else
+        local_error = g_error_new (
+            G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+            "Cannot handle URIs of this type");
+
       if (!result)
         return dex_future_new_reject (
             BZ_FLATPAK_ERROR,
             BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
-            "Failed to load local flatpakref '%s' into a key file: %s",
-            path,
-            local_error->message);
+            "Failed to load flatpakref '%s' into a key file: %s",
+            uri, local_error->message);
 
       name = g_key_file_get_string (key_file, "Flatpak Ref", "Name", &local_error);
       if (name == NULL)
@@ -683,8 +720,7 @@ load_local_ref_fiber (LoadLocalRefData *data)
             BZ_FLATPAK_ERROR,
             BZ_FLATPAK_ERROR_IO_MISBEHAVIOR,
             "Failed to load locate \"Name\" key in flatpakref '%s': %s",
-            path,
-            local_error->message);
+            uri, local_error->message);
 
       return dex_future_new_take_string (g_steal_pointer (&name));
     }
