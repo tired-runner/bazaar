@@ -57,7 +57,6 @@ struct _BzWindow
   BzFullView          *full_view;
   GtkToggleButton     *toggle_transactions;
   GtkButton           *go_back;
-  GtkButton           *refresh;
   GtkButton           *search;
   BzSearchWidget      *search_widget;
   GtkButton           *update_button;
@@ -71,6 +70,7 @@ struct _BzWindow
   AdwHeaderBar        *top_header_bar;
   AdwHeaderBar        *bottom_header_bar;
   AdwToggle           *curated_toggle;
+  // GtkButton           *refresh;
 };
 
 G_DEFINE_FINAL_TYPE (BzWindow, bz_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -335,12 +335,12 @@ go_back_cb (BzWindow  *self,
   set_page (self);
 }
 
-static void
-refresh_cb (BzWindow  *self,
-            GtkButton *button)
-{
-  gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
-}
+// static void
+// refresh_cb (BzWindow  *self,
+//             GtkButton *button)
+// {
+//   gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
+// }
 
 static void
 update_cb (BzWindow  *self,
@@ -396,7 +396,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toasts);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, toggle_transactions);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, go_back);
-  gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
+  // gtk_widget_class_bind_template_child (widget_class, BzWindow, refresh);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, search_widget);
   gtk_widget_class_bind_template_child (widget_class, BzWindow, update_button);
@@ -424,7 +424,7 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, stop_transactions_cb);
   gtk_widget_class_bind_template_callback (widget_class, search_split_open_changed_cb);
   gtk_widget_class_bind_template_callback (widget_class, go_back_cb);
-  gtk_widget_class_bind_template_callback (widget_class, refresh_cb);
+  // gtk_widget_class_bind_template_callback (widget_class, refresh_cb);
   gtk_widget_class_bind_template_callback (widget_class, update_cb);
   gtk_widget_class_bind_template_callback (widget_class, transactions_clear_cb);
 }

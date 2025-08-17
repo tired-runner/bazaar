@@ -241,14 +241,14 @@ template $BzWindow: Adw.ApplicationWindow {
             clicked => $go_back_cb(template);
           }
 
-          [start]
-          Button refresh {
-            has-tooltip: true;
-            tooltip-text: _("Refresh");
-            icon-name: "view-refresh-symbolic";
-            sensitive: bind $invert_boolean(template.state as <$BzStateInfo>.busy) as <bool>;
-            clicked => $refresh_cb(template);
-          }
+          // [start]
+          // Button refresh {
+          //   has-tooltip: true;
+          //   tooltip-text: _("Refresh");
+          //   icon-name: "view-refresh-symbolic";
+          //   sensitive: bind $invert_boolean(template.state as <$BzStateInfo>.busy) as <bool>;
+          //   clicked => $refresh_cb(template);
+          // }
 
           [start]
           ToggleButton search {
