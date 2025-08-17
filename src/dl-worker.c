@@ -35,7 +35,7 @@ BZ_DEFINE_DATA (
     BZ_RELEASE_DATA (dest, g_free));
 
 static DexFuture *
-read_stdin (gpointer user_data);
+read_stdin (GMainLoop *loop);
 
 static DexFuture *
 download_fiber (DownloadData *data);
@@ -57,14 +57,14 @@ main (int   argc,
       dex_thread_pool_scheduler_get_default (),
       bz_get_dex_stack_size (),
       (DexFiberFunc) read_stdin,
-      NULL, NULL));
+      main_loop, NULL));
   g_main_loop_run (main_loop);
 
   return EXIT_SUCCESS;
 }
 
 static DexFuture *
-read_stdin (gpointer user_data)
+read_stdin (GMainLoop *loop)
 {
   g_autoptr (GIOChannel) stdin_channel = NULL;
 
@@ -83,8 +83,9 @@ read_stdin (gpointer user_data)
           stdin_channel, &string, NULL, NULL, &local_error);
       if (local_error != NULL)
         {
-          g_critical ("Failure reading stdin channel: %s", local_error->message);
-          continue;
+          g_critical ("FATAL: Failure reading stdin channel: %s", local_error->message);
+          g_main_loop_quit (loop);
+          return NULL;
         }
       if (string == NULL)
         continue;
