@@ -420,6 +420,11 @@ template $BzWindow: Adw.ApplicationWindow {
 menu primary_menu {
   section {
     item {
+      label: _("_Refresh");
+      action: "app.refresh";
+    }
+    
+    item {
       label: _("_Keyboard Shortcuts");
       action: "win.show-help-overlay";
     }
