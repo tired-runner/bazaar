@@ -863,7 +863,7 @@ retrieve_remote_refs_fiber (GatherRefsData *data)
           continue;
         }
 
-      if (g_strstr_len (name, -1, "fedora"))
+      if (g_strstr_len (name, -1, "fedora") != NULL)
         {
           g_debug ("Skipping remote %s", name);
           /* the fedora flatpak repos cause too many issues */
