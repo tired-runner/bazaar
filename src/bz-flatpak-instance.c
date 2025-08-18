@@ -590,7 +590,7 @@ check_has_flathub_fiber (CheckHasFlathubData *data)
         continue;
 
       name = flatpak_remote_get_name (remote);
-      if (g_strcmp0 (name, "flathub"))
+      if (g_strcmp0 (name, "flathub") == 0)
         return dex_future_new_true ();
     }
   return dex_future_new_false ();
