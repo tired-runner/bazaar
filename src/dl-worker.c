@@ -81,14 +81,13 @@ read_stdin (GMainLoop *loop)
 
       g_io_channel_read_line (
           stdin_channel, &string, NULL, NULL, &local_error);
-      if (local_error != NULL)
+      if (string == NULL)
         {
-          g_critical ("FATAL: Failure reading stdin channel: %s", local_error->message);
+          if (local_error != NULL)
+            g_critical ("FATAL: Failure reading stdin channel: %s", local_error->message);
           g_main_loop_quit (loop);
           return NULL;
         }
-      if (string == NULL)
-        continue;
 
       newline = g_utf8_strchr (string, -1, '\n');
       if (newline != NULL)
