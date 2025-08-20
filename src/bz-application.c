@@ -662,8 +662,8 @@ bz_application_flatseal_action (GSimpleAction *action,
   if (window != NULL)
     bz_show_error_for_widget (
         GTK_WIDGET (window),
-        "This functionality is currently disabled. It is recommended "
-        "you download and install Flatseal to manage app permissions.");
+        _ ("This functionality is currently disabled. It is recommended "
+           "you download and install Flatseal to manage app permissions."));
 }
 
 static void
