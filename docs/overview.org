@@ -225,7 +225,7 @@ examples:
   script will go forward with the task of setting up a steam shortcut.
 - You would like to prevent users from installing a certain appid, as
   some other method of installation, such as a system package, would
-  provide a superior experience. A blocklist could acheieve this, but
+  provide a superior experience. A blocklist could achieve this, but
   you don't like the idea of hiding anything from the user. A hook
   subscribed to the "before-transaction" event could issue a warning
   and ask for extra confirmation. If the user decides to listen to the
@@ -246,7 +246,7 @@ will receive:
 - =BAZAAR_HOOK_ID=: the value of the "id" mapping
 - =BAZAAR_HOOK_TYPE=: the value of the "when" mapping
 - =BAZAAR_HOOK_WAS_ABORTED=: "true" if a dialog aborted the hook
-- =BAZAAR_HOOK_DIALOG_ID=: if applicable, the id of thecurrent dialog
+- =BAZAAR_HOOK_DIALOG_ID=: if applicable, the id of the current dialog
 - =BAZAAR_HOOK_DIALOG_RESPONSE_ID=: if applicable, the user response
   given through the current dialog
 - =BAZAAR_TS_APPID=: if applicable, the appid of the entry Bazaar is
