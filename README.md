@@ -4,8 +4,11 @@
 <img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="128" height="128" />
 </div>
 
-A new app store for GNOME with a focus on discovering and installing
-applications and add-ons from Flatpak remotes, particularly
+NOTE: If you are a distributor/packager who would like to learn how to
+customize Bazaar, take a look at the [docs](/docs/overview.org).
+
+Bazaar is new app store for GNOME with a focus on discovering and
+installing applications and add-ons from Flatpak remotes, particularly
 [Flathub](https://flathub.org/). It emphasizes supporting the
 developers who make the Linux desktop possible. Bazaar features a
 "curated" tab that can be configured by distributors to allow for a

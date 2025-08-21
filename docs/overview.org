@@ -58,36 +58,137 @@ is not currently running.
 =[PACKAGE PATH/URI]= could be a =.flatpakref= file. flatpak+https and
 regular https is supported.
 
-This is the output of =bazaar service --help=:
-#+begin_example
-Usage:
-  bazaar [OPTION?] - an app center for GNOME
-
-Options for command "service"
-
-Options:
-  --help                     Print help
-  --is-running               Exit successfully if the Bazaar service is running
-  --extra-blocklist          Add an extra blocklist to read from
-  --extra-content-config     Add an extra yaml file with which to configure the app browser
-#+end_example
-
 ** Comptime Vars
 Bazaar provides a few compile time meson options:
 
-| Name                            | Explanation                                                                                                                  |
-|---------------------------------+------------------------------------------------------------------------------------------------------------------------------|
-| =hardcoded_blocklist_path=      | Embeds a path to a blocklist into Bazaar which, if possible, will always be read with highest priority                       |
-| =hardcoded_content_config_path= | Embeds a path to a curated YAML configuration file into Bazaar which, if possible, will always be read with highest priority |
+- =hardcoded_main_config_path=: Embeds a path to a main configuration
+  file into Bazaar. If this is not defined at compile time, Bazaar
+  will never attempt to read a main config
+- =hardcoded_blocklist_path=: Embeds a path to a blocklist into Bazaar
+  which, if possible, will always be read with highest priority
+- =hardcoded_content_config_path=: Embeds a path to a curated YAML
+  configuration file into Bazaar which, if possible, will always be
+  read with highest priority
 
 ** Curated Configurations
-WRITE ME!!!
+If Bazaar is provided a non-zero amount of curated configs, an extra
+tab will appear on the window's header bar called "Curated". This
+section is intended for distributors to curate applications for users
+with a customizable interface. Curated configs are YAML files. They
+are constantly monitored by Bazaar for filesystem events, so when the
+config changes, Bazaar will automatically reload the content.
+
+Right now, curated configs are essentially composed of a list of
+"sections" which appear stacked on top of each other inside of a
+scrollable viewport in the order they appear in the YAML. Each section
+has certain properties you can customize, like a title, an image
+banner URI, and of course a list of appids. Bazaar maps the appids you
+provide to the best matching "entry group" from the table of
+applications it was able to pull from remote sources (Simply put, an
+entry group in Bazaar is a collection of applications which share the
+same appid but come from different sources or installations). The
+entry group has a designated "ui entry" which was previously
+determined in the refresh process to have the most useful content
+associated with it as it pertains to presenting things like icons,
+descriptions, screenshots, etc to the user. When the user selects the
+app in the section, they are brought to a "full view" where they can
+see a bunch of information stored inside or referenced by the ui entry
+and choose to invoke transactions on the entry group, like
+installation or removal.
+
+Additionally, curated configs allow you to define a css block from
+which you can reference classes inside sections and change the way gtk
+renders the content.
+
+Here is a basic curated config:
+#+begin_src yaml
+  # Some css names at your disposal:
+  # - banner
+  # - banner-text
+  # - description
+  # - subtitle
+  # - title
+  css: |
+    .main-section {
+      margin: 15px;
+      border-radius: 25px;
+    }
+    .main-section banner-text {
+      margin: 15px;
+    }
+    .background-1 {
+      background: linear-gradient(45deg, #170a49, #52136c);
+    }
+    .background-2 {
+      background: linear-gradient(75deg, #51263c, #7104a9);
+    }
+
+  sections:
+    - title: "My Favorite Apps"
+      subtitle: "These are really good and you should download them!"
+      
+      # can be https as well
+      banner: file:///home/kolunmi/banner-1.jxl
+      
+      # can be "fill", "contain", "cover", or "scale-down"
+      # see https://docs.gtk.org/gtk4/enum.ContentFit.html
+      banner-fit: contain
+      
+      # can be "fill", "start", "end", or "center"
+      # see https://docs.gtk.org/gtk4/enum.Align.html
+      # halign -> "horizontal alignment"
+      banner-text-halign: start
+      # halign -> "vertical alignment"
+      banner-text-valign: center
+
+      # "The horizontal alignment of the label text inside its size
+      # allocation."
+      # see https://docs.gtk.org/gtk4/property.Label.xalign.html
+      banner-text-label-xalign: 0.0
+
+      # reference the classes we defined earlier
+      classes:
+        - main-section
+        - background-1
+
+      # appid list
+      appids:
+        - com.usebottles.bottles
+        - io.mgba.mGBA
+        - net.pcsx2.PCSX2
+        - org.blender.Blender
+        - org.desmume.DeSmuME
+        - org.duckstation.DuckStation
+        - org.freecad.FreeCAD
+        
+    - title: "Some more awesome apps!"
+      subtitle: "These are also pretty cool"
+      banner: file:///home/kolunmi/banner-2.png
+      banner-fit: contain
+      banner-text-halign: end
+      banner-text-valign: center
+      banner-text-label-xalign: 1.0
+      classes:
+        - main-section
+        - background-2
+      appids:
+        - org.gimp.GIMP
+        - org.gnome.Builder
+        - org.gnome.Loupe
+        - org.inkscape.Inkscape
+#+end_src
 
 ** Blocklists
-Blocklists are plain text files with newline-separated appids:
+Blocklists are a way to ensure that users will never interact with a
+certain application inside Bazaar. They are plain text files with
+newline-separated appids:
 #+begin_example
 com.jetbrains.CLion
 com.valvesoftware.Steam
 io.neovim.nvim
 net.lutris.Lutris
 #+end_example
+
+Note: blocklists will only prevent certain appids from appearing in
+Bazaar. They do not stop the user from installing anything with the
+flatpak cli, for example.
