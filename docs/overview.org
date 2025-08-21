@@ -138,7 +138,7 @@ Here is a basic curated config:
       # see https://docs.gtk.org/gtk4/enum.Align.html
       # halign -> "horizontal alignment"
       banner-text-halign: start
-      # halign -> "vertical alignment"
+      # valign -> "vertical alignment"
       banner-text-valign: center
 
       # "The horizontal alignment of the label text inside its size
