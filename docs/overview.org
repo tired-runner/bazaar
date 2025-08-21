@@ -302,7 +302,10 @@ demonstrating how to define a hook:
       dialogs:
         - id: my-dialog-1
           title: "Please confirm"
-          body: "This application is an official GNOME app, which is important because..."
+          # If true, render inline markup commands
+          # see https://docs.gtk.org/Pango/pango_markup.html
+          body-use-markup: true
+          body: "This application is an official <a href=\"https://www.gnome.org/\">GNOME</a> app, which is <b>important</b> because..."
           # Determines which option will be assumed if the user hits the
           # escape key or otherwise cancels the dialog
           default-response-id: no
@@ -317,6 +320,7 @@ demonstrating how to define a hook:
               style: suggested
         - id: my-dialog-2
           title: "Double check"
+          body-use-markup: false
           body: "Here are some other considerations..."
           default-response-id: no
           options:
