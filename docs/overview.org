@@ -292,7 +292,9 @@ will receive:
     being taken. Both "confirm" and "deny" imply the effect of "stop",
     and "stop" implies "confirm".
 
-Here is a basic example demonstrating how to define a hook:
+Hooks are defined in the main yaml config as indicated by the
+=hardcoded_main_config_path= comptime var. Here is a basic example
+demonstrating how to define a hook:
 #+begin_src yaml
   hooks:
     - id: my-hook
