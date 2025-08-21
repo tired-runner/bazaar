@@ -107,6 +107,13 @@ bz_flathub_page_set_property (GObject      *object,
     }
 }
 
+static guint
+limit_if_false (gpointer object,
+                gboolean value)
+{
+  return value ? 256 : 8;
+}
+
 static void
 bind_widget_cb (BzFlathubPage     *self,
                 BzAppTile         *tile,
@@ -166,6 +173,7 @@ bz_flathub_page_class_init (BzFlathubPageClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-flathub-page.ui");
   gtk_widget_class_bind_template_child (widget_class, BzFlathubPage, stack);
+  gtk_widget_class_bind_template_callback (widget_class, limit_if_false);
   gtk_widget_class_bind_template_callback (widget_class, bind_widget_cb);
   gtk_widget_class_bind_template_callback (widget_class, unbind_widget_cb);
 }

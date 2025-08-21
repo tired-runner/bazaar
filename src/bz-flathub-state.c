@@ -511,10 +511,10 @@ initialize_fiber (BzFlathubState *self)
   ADD_REQUEST ("/app-picks/app-of-the-day", "/app-picks/app-of-the-day/%s", for_day);
   ADD_REQUEST ("/app-picks/apps-of-the-week", "/app-picks/apps-of-the-week/%s", for_day);
   ADD_REQUEST ("/collection/category", "/collection/category");
-  ADD_REQUEST ("/collection/recently-updated", "/collection/recently-updated?page=0&per_page=50");
-  ADD_REQUEST ("/collection/recently-added", "/collection/recently-added?page=0&per_page=50");
-  ADD_REQUEST ("/collection/popular", "/collection/popular?page=0&per_page=50");
-  ADD_REQUEST ("/collection/trending", "/collection/trending?page=0&per_page=50");
+  ADD_REQUEST ("/collection/recently-updated", "/collection/recently-updated?page=0&per_page=100");
+  ADD_REQUEST ("/collection/recently-added", "/collection/recently-added?page=0&per_page=100");
+  ADD_REQUEST ("/collection/popular", "/collection/popular?page=0&per_page=100");
+  ADD_REQUEST ("/collection/trending", "/collection/trending?page=0&per_page=100");
 
   while (g_hash_table_size (futures) > 0)
     {

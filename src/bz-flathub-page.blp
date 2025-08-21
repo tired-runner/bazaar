@@ -39,7 +39,7 @@ template $BzFlathubPage: Adw.Bin {
               margin-top: 20;
               margin-bottom: 20;
               orientation: vertical;
-              spacing: 20;
+              spacing: 80;
 
               Box {
                 orientation: vertical;
@@ -53,48 +53,45 @@ template $BzFlathubPage: Adw.Bin {
                   xalign: 0.0;
                 }
 
-                Box {
-                  styles [
-                    "card",
-                  ]
-                  margin-start: 20;
-                  margin-end: 20;
-                  margin-top: 20;
-                  margin-bottom: 20;
-                  
-                  $BzDynamicListView {
-                    margin-top: 30;
-                    margin-bottom: 30;
-                    hexpand: true;
+                $BzDynamicListView {
+                  hexpand: true;
                     
-                    scroll: false;
-                    noscroll-kind: carousel;
-                    child-type: "BzAppTile";
-                    child-prop: "group";
-                    model: SliceListModel {
-                      offset: 0;
-                      size: 7;
-                      model: bind template.state as <$BzFlathubState>.apps_of_the_week;
-                    };
+                  scroll: false;
+                  noscroll-kind: flow-box;
+                  child-type: "BzAppTile";
+                  child-prop: "group";
+                  model: SliceListModel {
+                    offset: 0;
+                    size: 7;
+                    model: bind template.state as <$BzFlathubState>.apps_of_the_week;
+                  };
 
-                    bind-widget => $bind_widget_cb(template);      
-                    unbind-widget => $unbind_widget_cb(template);      
-                  }
+                  bind-widget => $bind_widget_cb(template);      
+                  unbind-widget => $unbind_widget_cb(template);      
                 }
               }
-
-              Separator {}
 
               Box {
                 orientation: vertical;
                 spacing: 10;
-                
-                Label {
-                  styles [
-                    "title-1",
-                  ]
-                  label: _("Trending");
-                  xalign: 0.0;
+
+                Box {
+                  orientation: horizontal;
+                  spacing: 10;
+                  
+                  Label {
+                    styles [
+                      "title-1",
+                    ]
+                    label: _("Trending");
+                    xalign: 0.0;
+                    hexpand: true;
+                  }
+
+                  ToggleButton show_more_trending {
+                    label: _("Show More");
+                    active: false;
+                  }
                 }
                 
                 $BzDynamicListView {
@@ -106,7 +103,7 @@ template $BzFlathubPage: Adw.Bin {
                   child-prop: "group";
                   model: SliceListModel {
                     offset: 0;
-                    size: 30;
+                    size: bind $limit_if_false(show_more_trending.active) as <uint>;
                     model: bind template.state as <$BzFlathubState>.trending;
                   };
                   
@@ -115,18 +112,27 @@ template $BzFlathubPage: Adw.Bin {
                 }
               }
 
-              Separator {}
-              
               Box {
                 orientation: vertical;
                 spacing: 10;
                 
-                Label {
-                  styles [
-                    "title-1",
-                  ]
-                  label: _("Recently Updated");
-                  xalign: 0.0;
+                Box {
+                  orientation: horizontal;
+                  spacing: 10;
+                  
+                  Label {
+                    styles [
+                      "title-1",
+                    ]
+                    label: _("Recently Updated");
+                    xalign: 0.0;
+                    hexpand: true;
+                  }
+                  
+                  ToggleButton show_more_recently_updated {
+                    label: _("Show More");
+                    active: false;
+                  }
                 }
                 
                 $BzDynamicListView {
@@ -138,7 +144,7 @@ template $BzFlathubPage: Adw.Bin {
                   child-prop: "group";
                   model: SliceListModel {
                     offset: 0;
-                    size: 10;
+                    size: bind $limit_if_false(show_more_recently_updated.active) as <uint>;
                     model: bind template.state as <$BzFlathubState>.recently_updated;
                   };
                   
@@ -147,18 +153,27 @@ template $BzFlathubPage: Adw.Bin {
                 }
               }
 
-              Separator {}
-              
               Box {
                 orientation: vertical;
                 spacing: 10;
                 
-                Label {
-                  styles [
-                    "title-1",
-                  ]
-                  label: _("Recently Added");
-                  xalign: 0.0;
+                Box {
+                  orientation: horizontal;
+                  spacing: 10;
+                  
+                  Label {
+                    styles [
+                      "title-1",
+                    ]
+                    label: _("Recently Added");
+                    xalign: 0.0;
+                    hexpand: true;
+                  }
+                  
+                  ToggleButton show_more_recently_added {
+                    label: _("Show More");
+                    active: false;
+                  }
                 }
                 
                 $BzDynamicListView {
@@ -170,7 +185,7 @@ template $BzFlathubPage: Adw.Bin {
                   child-prop: "group";
                   model: SliceListModel {
                     offset: 0;
-                    size: 10;
+                    size: bind $limit_if_false(show_more_recently_added.active) as <uint>;
                     model: bind template.state as <$BzFlathubState>.recently_added;
                   };
                   
@@ -179,18 +194,27 @@ template $BzFlathubPage: Adw.Bin {
                 }
               }
               
-              Separator {}
-              
               Box {
                 orientation: vertical;
                 spacing: 10;
                 
-                Label {
-                  styles [
-                    "title-1",
-                  ]
-                  label: _("Popular");
-                  xalign: 0.0;
+                Box {
+                  orientation: horizontal;
+                  spacing: 10;
+                  
+                  Label {
+                    styles [
+                      "title-1",
+                    ]
+                    label: _("Popular");
+                    xalign: 0.0;
+                    hexpand: true;
+                  }
+                  
+                  ToggleButton show_more_popular {
+                    label: _("Show More");
+                    active: false;
+                  }
                 }
                 
                 $BzDynamicListView {
@@ -202,7 +226,7 @@ template $BzFlathubPage: Adw.Bin {
                   child-prop: "group";
                   model: SliceListModel {
                     offset: 0;
-                    size: 30;
+                    size: bind $limit_if_false(show_more_popular.active) as <uint>;
                     model: bind template.state as <$BzFlathubState>.popular;
                   };
                   
