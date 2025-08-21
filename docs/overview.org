@@ -197,7 +197,12 @@ flatpak cli, for example.
 Hooks are an advanced feature of Bazaar. In essence, they allow you to
 programmatically react to events and define dialogs with which you can
 query user input. Currently, the only events you can subscribe to are
-the "before-transaction" and "after-transaction" events.
+the "before-transaction" and "after-transaction" events:
+
+- =before-transaction=: run the hook right before a transaction is
+  scheduled to begin
+- =after-transaction=: run the hook after a transaction successfully
+  completes
 
 Hooks are run like a signal emission. After an event occurs, hooks
 that are found to be of the appropriate type are evaluated in an order
