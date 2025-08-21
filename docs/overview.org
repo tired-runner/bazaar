@@ -192,3 +192,173 @@ net.lutris.Lutris
 Note: blocklists will only prevent certain appids from appearing in
 Bazaar. They do not stop the user from installing anything with the
 flatpak cli, for example.
+
+** Hooks
+Hooks are an advanced feature of Bazaar. In essence, they allow you to
+programmatically react to events and define dialogs with which you can
+query user input. Currently, the only events you can subscribe to are
+the "before-transaction" and "after-transaction" events.
+
+Hooks are run like a signal emission. After an event occurs, hooks
+that are found to be of the appropriate type are evaluated in an order
+of priority. Higher priority hooks have the ability to stop the
+emission from propagating further downwards. In the case of some
+events, like "before-transaction", a hook can also hint to Bazaar some
+action to take, in this case whether the transaction should be
+aborted.
+
+A shell snippet which is defined by you is evaluated with =/bin/sh -c=
+multiple times over the course of a hook's execution. An invocation of
+the shell snippet is referred to as a "stage". Your shell snippet
+(which of course could just invoke another script written in whatever
+language you prefer) will be provided a number of environment
+variables which together will describe the current stage. Your snippet
+must react accordingly by printing a response to stdout, which Bazaar
+will read back.
+
+This opens up a lot of possibilities for customization; here are a few
+examples:
+
+- You would like a certain appid to be added to steam after the user
+  installs it, so you register a hook on "after-transaction" to query
+  the user's permission with a custom dialog. If they confirm, your
+  script will go forward with the task of setting up a steam shortcut.
+- You would like to prevent users from installing a certain appid, as
+  some other method of installation, such as a system package, would
+  provide a superior experience. A blocklist could acheieve this, but
+  you don't like the idea of hiding anything from the user. A hook
+  subscribed to the "before-transaction" event could issue a warning
+  and ask for extra confirmation. If the user decides to listen to the
+  warning, you can signal to Bazaar that the transaction should be
+  aborted.
+
+Here is an overview of the environment variables the shell snippet
+will receive:
+
+- =BAZAAR_HOOK_INITIATED_UNIX_STAMP=: the unix timestamp in seconds at
+  which this hook was first invoked (the number of seconds that have
+  elapsed since 1970-01-01 00:00:00 UTC)
+- =BAZAAR_HOOK_INITIATED_UNIX_STAMP_USEC=: the unix timestamp in
+  microseconds at which this hook was first invoked (the number of
+  microseconds that have elapsed since 1970-01-01 00:00:00 UTC)
+- =BAZAAR_HOOK_STAGE_IDX=: the number of stages this hook has run so
+  far
+- =BAZAAR_HOOK_ID=: the value of the "id" mapping
+- =BAZAAR_HOOK_TYPE=: the value of the "when" mapping
+- =BAZAAR_HOOK_WAS_ABORTED=: "true" if a dialog aborted the hook
+- =BAZAAR_HOOK_DIALOG_ID=: if applicable, the id of thecurrent dialog
+- =BAZAAR_HOOK_DIALOG_RESPONSE_ID=: if applicable, the user response
+  given through the current dialog
+- =BAZAAR_TS_APPID=: if applicable, the appid of the entry Bazaar is
+  currently dealing with
+- =BAZAAR_TS_TYPE=: if applicable, the type of transaction being
+  run. Can be "install", "update", or "removal".
+- =BAZAAR_HOOK_STAGE=: the stage at which the hook is running. This
+  will indicate what the shell body is instructed to do at this
+  time. The shell body must respond by outputting to stdout with a
+  valid answer; the structure of a valid answer will depend on the
+  stage, and if the structure is not valid the hook will be
+  abandoned. The shell body might be run multiple times by Bazaar over
+  the course of a hook with this variable set to differing values in
+  order know how to orchestrate events in the UI, so the shell body
+  must be able to branch depending on the value. The value may be any
+  of the following:
+  - =setup=: the hook is starting. Respond with "ok" to continue the
+    execution of this hook, or "pass" to skip it and move on to the
+    next registered hook
+  - =setup-dialog= Bazaar is ready to ask the user a question with one
+    of the dialogs you've defined inside the "dialogs"
+    mapping. =BAZAAR_HOOK_DIALOG_ID= will tell you which one. Respond
+    with "ok" to spawn the dialog, or "pass" to skip the dialog.
+  - =teardown-dialog= Bazaar has received input from the user after
+    asking them a question with one of the dialogs you've defined
+    inside the "dialogs" mapping.  =BAZAAR_HOOK_DIALOG_ID= will tell
+    you which one. =BAZAAR_HOOK_DIALOG_RESPONSE_ID= will tell you the
+    response the user chose. Respond with "ok" to continue, or "abort"
+    to stop the execution of this hook.
+  - =catch= One of your dialogs has aborted. This is your chance to
+    handle the error. Respond with "recover" to continue, or "abort"
+    to confirm that the execution of this hook should indeed skip to
+    the teardown stage.
+  - =action= Everything so far has gone according to plan, so it is
+    time to take whatever external action this hook exists for. Bazaar
+    requires no response at this time.
+  - =teardown= The hook is cleaning up. Respond with "continue" to
+    propagate the signal emission to lower priority hooks, or "stop"
+    to indicate the emission should stop. Alternatively, if this hook
+    type should hint to Bazaar an action to take (such as the
+    "before-transaction" hook), respond with "confirm" to hint that
+    the action should be taken, or "deny" to prevent the action from
+    being taken. Both "confirm" and "deny" imply the effect of "stop",
+    and "stop" implies "confirm".
+
+Here is a basic example demonstrating how to define a hook:
+#+begin_src yaml
+  hooks:
+    - id: my-hook
+      when: before-transaction
+      dialogs:
+        - id: my-dialog-1
+          title: "Please confirm"
+          body: "This application is an official GNOME app, which is important because..."
+          # Determines which option will be assumed if the user hits the
+          # escape key or otherwise cancels the dialog
+          default-response-id: no
+          options:
+            - id: no
+              string: "Don't install"
+              # can be "destructive" or "suggested" or omit for no
+              # styling
+              style: destructive
+            - id: yes
+              string: "Next"
+              style: suggested
+        - id: my-dialog-2
+          title: "Double check"
+          body: "Here are some other considerations..."
+          default-response-id: no
+          options:
+            - id: no
+              string: "Don't install"
+              style: destructive
+            - id: yes
+              string: "Continue with install"
+              style: suggested
+      shell: |
+        case "$BAZAAR_HOOK_STAGE" in
+            setup)
+                if [ "$BAZAAR_TS_TYPE" = install ]; then
+                  case "$BAZAAR_TS_APPID" in
+                      org\.gnome\.*)
+                          echo 'ok' ;;
+                      ,*) echo 'pass' ;;
+                  esac
+                else
+                  echo 'pass'
+                fi
+                ;;
+            setup-dialog)
+                echo 'ok'
+                ;;
+            teardown-dialog)
+                case "$BAZAAR_HOOK_DIALOG_RESPONSE_ID" in
+                    yes) echo 'ok' ;;
+                    ,*) echo 'abort' ;;
+                esac
+                ;;
+            catch)
+                echo 'abort'
+                ;;
+            action)
+                ;;
+            teardown)
+                [ "$BAZAAR_HOOK_WAS_ABORTED" = true ] && echo 'deny' || echo 'confirm'
+                ;;
+        esac
+
+#+end_src
+In this example, if this user tries to install an appid that starts
+with =org.gnome.=, we present two dialogs asking for confirmation. If
+they decide to select a response with an id other than =yes=, abort
+the transaction.
+
