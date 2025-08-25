@@ -570,12 +570,14 @@ debounce_timeout (BzFullView *self)
   self->debounced_ui_entry = g_object_ref (self->ui_entry);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_UI_ENTRY]);
 
-  dex_clear (&self->loading_forge_stars);
-  self->loading_forge_stars = dex_scheduler_spawn (
-      dex_scheduler_get_default (),
-      bz_get_dex_stack_size (),
-      (DexFiberFunc) retrieve_star_string_fiber,
-      self, NULL);
+  /* Disabled for now since we don't want to users to be rate limited
+     by github */
+  // dex_clear (&self->loading_forge_stars);
+  // self->loading_forge_stars = dex_scheduler_spawn (
+  //     dex_scheduler_get_default (),
+  //     bz_get_dex_stack_size (),
+  //     (DexFiberFunc) retrieve_star_string_fiber,
+  //     self, NULL);
 }
 
 static DexFuture *

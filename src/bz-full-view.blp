@@ -334,7 +334,9 @@ template $BzFullView: Adw.Bin {
                           "pill",
                         ]
 
-                        visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.forge-url as <string>) as <bool>) as <bool>;
+                        // disabled for now
+                        visible: false;
+                        // visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.forge-url as <string>) as <bool>) as <bool>;
                         valign: start;
                         has-tooltip: true;
                         tooltip-text: _("VCS Forge Star Count");
