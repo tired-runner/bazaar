@@ -625,6 +625,7 @@ ensure_flathub_fiber (EnsureFlathubData *data)
     {
       flatpak_remote_set_disabled (remote, FALSE);
       flatpak_remote_set_noenumerate (remote, FALSE);
+      flatpak_remote_set_gpg_verify (remote, TRUE);
     }
   else
     {
@@ -653,12 +654,7 @@ ensure_flathub_fiber (EnsureFlathubData *data)
             "Failed to construct flatpak remote from flatpakrepo file %s: %s",
             REPO_URL, local_error->message);
 
-      // /* Attempt to clobber a misconfigured old remote (?) */
-      // flatpak_installation_remove_remote (
-      //     instance->system != NULL ? instance->system : instance->user,
-      //     "flathub",
-      //     cancellable,
-      //     NULL);
+      flatpak_remote_set_gpg_verify (remote, TRUE);
 
       result = flatpak_installation_add_remote (
           instance->system != NULL ? instance->system : instance->user,
