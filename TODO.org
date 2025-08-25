@@ -1,0 +1,86 @@
+#+title: Bazaar TODOs
+
+These are roughly in order of descending priority:
+
+* UI
+
+1. Completely redo the Flathub Page to be more appealing
+   - perhaps replicate flathub's design a bit
+   - waiting on designs from people
+2. Create new "Landmark" widget in rust for the transaction view
+   - replicates a timeline of events
+   - more clear than previous UI
+
+
+* Issue priority
+
+1. #172 Tracking for Flathub package enhancement
+2. #235 Can't pull from untrusted non-gpg verified remote
+3. #247 Opening X11 apps from Flatpak fails silently bug
+4. #206 flatpak can't open local .flatpakref files bug
+5. #213 Flatpak builds failing 
+6. #220 Add an option to trash user data when uninstalling apps. enhancement help wanted
+7. #97  On KDE,can't edit permissions if Flatseal is not installed bug
+8. #211 Option to filter apps with EOL runtimes enhancement
+9. #85  Filter out app locales from update list enhancement
+10. #125 Show "Installed Size" and "User Data" in Installed tab
+11. #178 Add feature: Automatic search when typing in the main store's page enhancement
+12. #169 Add a tab where user can view all apps that can be updated instead of being prompted immediately when opening Bazaar enhancement
+13. #242 Pressing the esc key while in the search page should exist the search page. enhancement
+14. #117 Format app description text enhancement
+15. #116 Add functionaly to browse apps by category enhancement
+16. #152 Versions list of the app: Show change log for the latest version, let us click and expand older changelogs enhancement
+17. #118 Carve out a section for GNOME/KDE in the curated banners enhancement
+18. #87  Show Flatpak permissions before installing enhancement
+19. #155 Idea: make every app "box" get very slightly tinted by its own icon primary color enhancement
+20. #208 Many apps are still missing names and descriptions bug
+21. #244 UI suggestion for hover menu on images enhancement
+22. #153 Let us click on the developer name (already in blue, make it a link) and show a list of all apps by that developer enhancement
+23. #151 On KDE apps menu/search, we need the right click > uninstall/manage app that we had with Discover enhancement
+24. #190 Hide suggestions for apps that are already installed in plasma search enhancement
+25. #248 Doesn't run in Builder bug
+26. #99  Controller/GamePad scrolling doesen't work in the "Curated" page bug
+27. #98  Mouse 4 & 5 controls enhancement
+28. #133 The pt_BR.po file generated seems to have invalid UTF-8 characters, not allowing it to be opened on Zed Editor or Poedit. bug translations
+29. #191 Add swipe to go back functionality in app pages enhancement
+30. #232 Suggestion: Make Bazaar refresh and cache in the background on startup so its always ready to present itself enhancement
+31. #158 Add a menu/section to manage flatpak repos/sources. enhancement
+32. #163 Add the Flathub link to the share box enhancement
+33. #207 Store page and download size for apps do not include runtimes enhancement
+34. #154 Improve Install Popup with Intuitive Channel Selection and OS Maintainer Overrides enhancement
+35. #136 List source under install/start button when available from multiple repos enhancement
+36. #124 Center images vertically when only one is available bug
+37. #243 Option to bring back icons in search enhancement
+38. #179 Keep the header menu when searching enhancement
+39. #114 Change 'Flathub' tab name to 'Explore' enhancement
+40. #230 Middle tab flathub name seems redundant and should be renamed.
+41. #112 App details might need larger margins enhancement
+42. #111 Verified checkmark is low contrast bug
+43. #82  Shorten maximum length of search field text enhancement
+44. #166 Weblate as an alternative for translation translations
+45. #109 aur enhancement help wanted
+
+** Currently unsorted
+
+1. #73  Click an app in the list of updates to show the update enhancement
+2. #72  Various Navigation improvements
+3. #71  Some missing UI things
+4. #68  Add "Show Details" option for right-click menu enhancement
+5. #67  Add link to flathub app page enhancement
+6. #66  Navigation shortcuts for going back enhancement
+7. #65  Clean Application Metadata Leftovers After Uninstall enhancement
+8. #64  Add appstream URI handler support enhancement
+9. #63  Simplified CLI App Installation with Common Names enhancement
+10. #62  Simplify the confirmation of instalation enhancement
+11. #61  Add Confirmation Prompt for App Uninstallation enhancement
+12. #60  Add already installed indicator for curated applications enhancement
+13. #57  Adding package availability and origin icons/labels enhancement
+14. #56  Consider Integrating Web App Support To The Curation like stillOS enhancement
+15. #53  compatibility with libadwaita 1.6 enhancement
+16. #50  Seg fault when starting bug
+17. #45  Move refresh progress to the background, let people use current page while waiting until refresh is done enhancement
+18. #40  Add a small parallax effect to the category pictures while scrolling. enhancement
+19. #36  Surface an apps "favorite" button enhancement
+20. #33  Suggestion: Show version number of apps + Show transaction progress as a timeline enhancement
+21. #32  Edit permissions gets "stuck" on Warehouse bug
+22. #23  Different sections in installed list enhancement
