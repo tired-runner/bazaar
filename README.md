@@ -1,11 +1,14 @@
-# Bazaar
+<h1 align="center">
+<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="128" height="128" />
+<br/>
+Bazaar
+</h1>
+
+<p align="center">Discover and install applications</p>
 
 <div align="center">
-<img src="data/icons/hicolor/scalable/apps/io.github.kolunmi.Bazaar.svg" width="128" height="128" />
+<img height="512" alt="Image" src="https://github.com/user-attachments/assets/c63c8256-aae4-48a7-a4b0-68f60af3f980" />
 </div>
-
-NOTE: If you are a distributor/packager who would like to learn how to
-customize Bazaar, take a look at the [docs](/docs/overview.org).
 
 Bazaar is a new app store for GNOME with a focus on discovering and
 installing applications and add-ons from Flatpak remotes, particularly
@@ -25,12 +28,29 @@ interface. A krunner
 [plugin](https://github.com/ublue-os/krunner-bazaar) is available for
 use on the KDE Plasma desktop.
 
-<div align="center">
-<img height="512" alt="Image" src="https://github.com/user-attachments/assets/c63c8256-aae4-48a7-a4b0-68f60af3f980" />
-</div>
+### Installing
+
+Pre-built binaries are distributed via Flathub and GitHub actions:
+
+<a href='https://flathub.org/apps/details/io.github.kolunmi.Bazaar'><img width='240' alt='Download on Flathub' src='https://flathub.org/assets/badges/flathub-badge-en.png'/></a>
+
+[![Build Flatpak and Upload Artifact](https://github.com/kolunmi/bazaar/actions/workflows/build-flatpak.yml/badge.svg)](https://github.com/kolunmi/bazaar/actions/workflows/build-flatpak.yml)
+
+### Supporting
+
+If you would like to support me and the development of this
+application (Thank you!), I have a ko-fi here! <https://ko-fi.com/kolunmi> 
+
+[![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/kolunmi)
 
 Thanks to everyone in the GNOME development community for creating
 such an awesome desktop environment!
+
+### Contributing
+
+> [!NOTE]
+> If you are a distributor/packager who would like to learn how to
+customize Bazaar, take a look at the [docs](/docs/overview.org).
 
 If you would like to try this project on your local machine, clone it
 on the cli and type these commands inside the project root:
@@ -58,8 +78,6 @@ You will need the following dependencies installed, along with a C compiler, mes
 | [json-glib](https://gitlab.gnome.org/GNOME/json-glib)   | `json-glib-1.0`   | `1.10.0`               | Parse HTTP replies from Flathub                     |
 
 
-## Supporting
+#### Code of Conduct
 
-If you would like to support me and the development of this
-application (Thank you!), I have a ko-fi here!
-https://ko-fi.com/kolunmi
+This project adheres to the [GNOME Code of Conduct](https://conduct.gnome.org/). By participating through any means, including PRs, Issues or Discussions, you are expected to uphold this code.
