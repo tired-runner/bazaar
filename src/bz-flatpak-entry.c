@@ -938,7 +938,11 @@ bz_flatpak_entry_launch (BzFlatpakEntry    *self,
 
 #ifdef SANDBOXED_LIBFLATPAK
   fmt     = flatpak_ref_format_ref (FLATPAK_REF (ref));
-  cmdline = g_strdup_printf ("flatpak-spawn --host flatpak run %s", fmt);
+
+  if (g_file_test ("/run/systemd", G_FILE_TEST_EXISTS))
+    cmdline = g_strdup_printf ("flatpak-spawn --host systemd-run --user --pipe flatpak run %s", fmt);
+  else
+    cmdline = g_strdup_printf ("flatpak-spawn --host flatpak run %s", fmt);
 
   return g_spawn_command_line_async (cmdline, error);
 #else
