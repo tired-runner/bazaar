@@ -35,8 +35,8 @@ use on the KDE Plasma desktop.
 Thanks to [Jakub Steiner](http://jimmac.eu) for designing Bazaar's
 icon.
 
-The screenshot above showing the curated tab features [Aurora
-Linux](https://getaurora.dev/en)'s config.
+The screenshot above showing the curated tab features
+[Aurora](https://getaurora.dev/en)'s config.
 
 ### Installing
 
