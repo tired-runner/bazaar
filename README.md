@@ -7,6 +7,10 @@ Bazaar
 <p align="center">Discover and install applications</p>
 
 <div align="center">
+<img height="512" alt="Image" src="https://github.com/user-attachments/assets/0a149911-7edb-48c4-84e7-d4e64be80c0d" />
+</div>
+
+<div align="center">
 <img height="512" alt="Image" src="https://github.com/user-attachments/assets/c63c8256-aae4-48a7-a4b0-68f60af3f980" />
 </div>
 
@@ -27,6 +31,9 @@ close all windows, and implements the gnome-shell search provider dbus
 interface. A krunner
 [plugin](https://github.com/ublue-os/krunner-bazaar) is available for
 use on the KDE Plasma desktop.
+
+The screenshot above showing the curated tab features [Aurora
+Linux](https://getaurora.dev/en)'s config.
 
 ### Installing
 
