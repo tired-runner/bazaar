@@ -1677,8 +1677,10 @@ open_appstream_take (BzApplication *self,
       g_clear_pointer (&self->waiting_to_open_appstream, g_free);
       self->waiting_to_open_appstream = g_steal_pointer (&appstream);
     }
-  else
+  else if (g_str_has_prefix (appstream, "appstream://"))
     open_generic_id (self, appstream + strlen ("appstream://"));
+  else
+    open_generic_id (self, appstream + strlen ("appstream:"));
 
   if (appstream != NULL)
     g_free (appstream);
@@ -1730,7 +1732,7 @@ command_line_open_location (BzApplication           *self,
 {
   if (g_uri_is_valid (location, G_URI_FLAGS_NONE, NULL))
     {
-      if (g_str_has_prefix (location, "appstream://"))
+      if (g_str_has_prefix (location, "appstream:"))
         open_appstream_take (self, g_strdup (location));
       else
         open_flatpakref_take (self, g_file_new_for_uri (location));
