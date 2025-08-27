@@ -116,6 +116,9 @@ GListModel *
 bz_entry_get_share_urls (BzEntry *self);
 
 const char *
+bz_entry_get_url (BzEntry *self);
+
+const char *
 bz_entry_get_donation_url (BzEntry *self);
 
 const char *
