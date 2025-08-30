@@ -60,6 +60,7 @@ enum
 {
   SIGNAL_REMOVE,
   SIGNAL_INSTALL,
+  SIGNAL_SHOW,
 
   LAST_SIGNAL,
 };
@@ -300,6 +301,26 @@ install_addons_cb (GtkListItem *list_item,
 }
 
 static void
+view_store_page_cb (GtkListItem *list_item,
+                    GtkButton   *button)
+{
+  BzEntry   *entry    = NULL;
+  GtkWidget *menu_btn = NULL;
+  GtkWidget *self     = NULL;
+
+  entry = gtk_list_item_get_item (list_item);
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
+  self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_INSTALLED_PAGE);
+  g_assert (self != NULL);
+
+  g_signal_emit (self, signals[SIGNAL_SHOW], 0, entry);
+}
+
+static void
 remove_cb (GtkListItem *list_item,
            GtkButton   *button)
 {
@@ -391,6 +412,21 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
       G_TYPE_FROM_CLASS (klass),
       g_cclosure_marshal_VOID__OBJECTv);
 
+  signals[SIGNAL_SHOW] =
+      g_signal_new (
+          "show-entry",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_FIRST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__OBJECT,
+          G_TYPE_NONE, 1,
+          BZ_TYPE_ENTRY);
+  g_signal_set_va_marshaller (
+      signals[SIGNAL_SHOW],
+      G_TYPE_FROM_CLASS (klass),
+      g_cclosure_marshal_VOID__OBJECTv);
+
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-installed-page.ui");
@@ -402,6 +438,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, run_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);
   gtk_widget_class_bind_template_callback (widget_class, no_support_cb);
+  gtk_widget_class_bind_template_callback (widget_class, view_store_page_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_addons_cb);
   gtk_widget_class_bind_template_callback (widget_class, edit_permissions_cb);

@@ -223,6 +223,7 @@ template $BzWindow: Adw.ApplicationWindow {
                       model: bind template.state as <$BzStateInfo>.all-installed-entries;
                       install => $installed_page_install_cb(template);
                       remove => $installed_page_remove_cb(template);
+                      show-entry => $installed_page_show_cb(template);
                     };
                   }
                 };

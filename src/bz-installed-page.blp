@@ -234,6 +234,30 @@ template $BzInstalledPage: Adw.Bin {
                           Button {
                             styles [
                               "flat",
+                            ]
+
+                            has-tooltip: true;
+                            tooltip-text: _("View Store Page");
+
+                            child: Box {
+                              orientation: horizontal;
+                              spacing: 6;
+
+                              Image {
+                                icon-name: "eye-outline-filled-symbolic";
+                              }
+
+                              Label {
+                                label: _("View Store Page");
+                              }
+                            };
+
+                            clicked => $view_store_page_cb(template);
+                          }
+                          
+                          Button {
+                            styles [
+                              "flat",
                               "destructive-action",
                             ]
 
