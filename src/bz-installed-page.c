@@ -18,12 +18,15 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "bz-installed-page.h"
+#include <glib/gi18n.h>
+
 #include "bz-addons-dialog.h"
 #include "bz-error.h"
 #include "bz-flatpak-entry.h"
+#include "bz-installed-page.h"
 #include "bz-section-view.h"
 #include "bz-state-info.h"
+#include "bz-url.h"
 
 struct _BzInstalledPage
 {
@@ -197,18 +200,72 @@ run_cb (GtkListItem *list_item,
 }
 
 static void
-remove_cb (GtkListItem *list_item,
-           GtkButton   *button)
+support_cb (GtkListItem *list_item,
+            GtkButton   *button)
 {
-  BzEntry   *entry = NULL;
-  GtkWidget *self  = NULL;
+  BzEntry    *entry = NULL;
+  const char *url   = NULL;
 
   entry = gtk_list_item_get_item (list_item);
 
-  self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_INSTALLED_PAGE);
-  g_assert (self != NULL);
+  url = bz_entry_get_donation_url (entry);
+  g_app_info_launch_default_for_uri (url, NULL, NULL);
+}
 
-  g_signal_emit (self, signals[SIGNAL_REMOVE], 0, entry);
+static void
+no_support_cb (GtkListItem *list_item,
+               GtkButton   *button)
+{
+  BzEntry         *entry  = NULL;
+  GListModel      *urls   = NULL;
+  guint            n_urls = 0;
+  GtkWidget       *window = NULL;
+  g_autofree char *body   = NULL;
+
+  entry = gtk_list_item_get_item (list_item);
+  urls  = bz_entry_get_share_urls (entry);
+  if (urls != NULL)
+    n_urls = g_list_model_get_n_items (urls);
+
+  if (urls != NULL && n_urls > 0)
+    {
+      g_autoptr (BzUrl) select = NULL;
+
+      for (guint i = 0; i < n_urls; i++)
+        {
+          g_autoptr (BzUrl) url = NULL;
+          const char *name      = NULL;
+
+          url  = g_list_model_get_item (urls, i);
+          name = bz_url_get_name (url);
+          if (name != NULL && g_strcmp0 (name, "Homepage") == 0)
+            {
+              select = g_steal_pointer (&url);
+              break;
+            }
+        }
+      if (select == NULL)
+        select = g_list_model_get_item (urls, 0);
+
+      body = g_strdup_printf (
+          _ ("\"%s\" does not provide a donations link. "
+             "This does not mean you cannot support them! "
+             "Try looking at their "
+             "<a href=\"%s\">project page</a> "
+             "for more information."),
+          bz_entry_get_title (entry),
+          bz_url_get_url (select));
+    }
+  else
+    body = g_strdup_printf (
+        _ ("\"%s\" does not provide a donations link. "
+           "This does not mean you cannot support them! "
+           "Try finding their project page for more information."),
+        bz_entry_get_title (entry));
+
+  window = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_WINDOW);
+  if (window != NULL)
+    bz_show_alert_for_widget (window, _ ("No Donations Link"), body, TRUE);
 }
 
 static void
@@ -240,6 +297,26 @@ install_addons_cb (GtkListItem *list_item,
   g_signal_connect_swapped (addons_dialog, "transact", G_CALLBACK (addon_transact_cb), self);
 
   adw_dialog_present (addons_dialog, GTK_WIDGET (self));
+}
+
+static void
+remove_cb (GtkListItem *list_item,
+           GtkButton   *button)
+{
+  BzEntry   *entry    = NULL;
+  GtkWidget *menu_btn = NULL;
+  GtkWidget *self     = NULL;
+
+  entry = gtk_list_item_get_item (list_item);
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
+  self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_INSTALLED_PAGE);
+  g_assert (self != NULL);
+
+  g_signal_emit (self, signals[SIGNAL_REMOVE], 0, entry);
 }
 
 static void
@@ -323,6 +400,8 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
   gtk_widget_class_bind_template_callback (widget_class, run_cb);
+  gtk_widget_class_bind_template_callback (widget_class, support_cb);
+  gtk_widget_class_bind_template_callback (widget_class, no_support_cb);
   gtk_widget_class_bind_template_callback (widget_class, remove_cb);
   gtk_widget_class_bind_template_callback (widget_class, install_addons_cb);
   gtk_widget_class_bind_template_callback (widget_class, edit_permissions_cb);
