@@ -255,7 +255,7 @@ template $BzWindow: Adw.ApplicationWindow {
           ToggleButton search {
             has-tooltip: true;
             tooltip-text: _("Search");
-            icon-name: "system-search-symbolic";
+            icon-name: bind $get_search_icon_from_state(search_split.show-sidebar as <bool>) as <string>;
             active: bind search_split.show-sidebar bidirectional;
           }
 
