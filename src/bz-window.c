@@ -43,6 +43,8 @@ struct _BzWindow
 
   BzStateInfo *state;
 
+  GtkEventController *key_controller;
+
   GBinding *search_to_view_binding;
   gboolean  breakpoint_applied;
 
@@ -470,6 +472,31 @@ bz_window_class_init (BzWindowClass *klass)
   gtk_widget_class_install_action (widget_class, "escape", NULL, action_escape);
 }
 
+static gboolean
+key_pressed (BzWindow              *self,
+             guint                  keyval,
+             guint                  keycode,
+             GdkModifierType        state,
+             GtkEventControllerKey *controller)
+{
+  guint32 unichar = 0;
+  char    buf[32] = { 0 };
+
+  if (adw_overlay_split_view_get_show_sidebar (self->search_split))
+    return FALSE;
+
+  unichar = gdk_keyval_to_unicode (keyval);
+  if (unichar == 0)
+    return FALSE;
+
+  adw_overlay_split_view_set_show_sidebar (self->search_split, TRUE);
+
+  g_unichar_to_utf8 (unichar, buf);
+  bz_search_widget_set_text (self->search_widget, buf);
+
+  return TRUE;
+}
+
 static void
 bz_window_init (BzWindow *self)
 {
@@ -487,6 +514,10 @@ bz_window_init (BzWindow *self)
   //   }
 
   adw_toggle_group_set_active_name (self->title_toggle_group, "curated");
+
+  self->key_controller = gtk_event_controller_key_new ();
+  g_signal_connect_swapped (self->key_controller, "key-pressed", G_CALLBACK (key_pressed), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), self->key_controller);
 }
 
 static void
