@@ -8,6 +8,17 @@ template $BzWindow: Adw.ApplicationWindow {
   width-request: 650;
   height-request: 400;
 
+  ShortcutController {
+    Shortcut {
+      trigger: "Escape";
+      action: "action(escape)";
+    }
+    Shortcut {
+      trigger: "<ctrl>g";
+      action: "action(escape)";
+    }
+  }
+
   content: $BzCometOverlay comet_overlay {
     child: Adw.BreakpointBin breakpoint_bin {
       width-request: 550;

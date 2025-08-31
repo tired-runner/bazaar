@@ -25,7 +25,6 @@
 #include "bz-browse-widget.h"
 #include "bz-comet-overlay.h"
 #include "bz-entry-group.h"
-#include "bz-env.h"
 #include "bz-error.h"
 #include "bz-flathub-page.h"
 #include "bz-full-view.h"
@@ -385,6 +384,18 @@ transactions_clear_cb (BzWindow  *self,
 }
 
 static void
+action_escape (GtkWidget  *widget,
+               const char *action_name,
+               GVariant   *parameter)
+{
+  BzWindow *self = BZ_WINDOW (widget);
+
+  adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
+  gtk_toggle_button_set_active (self->toggle_transactions, FALSE);
+  set_page (self);
+}
+
+static void
 bz_window_class_init (BzWindowClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
@@ -455,6 +466,8 @@ bz_window_class_init (BzWindowClass *klass)
   // gtk_widget_class_bind_template_callback (widget_class, refresh_cb);
   gtk_widget_class_bind_template_callback (widget_class, update_cb);
   gtk_widget_class_bind_template_callback (widget_class, transactions_clear_cb);
+
+  gtk_widget_class_install_action (widget_class, "escape", NULL, action_escape);
 }
 
 static void
