@@ -486,7 +486,7 @@ key_pressed (BzWindow              *self,
     return FALSE;
 
   unichar = gdk_keyval_to_unicode (keyval);
-  if (unichar == 0)
+  if (unichar == 0 || !g_unichar_isgraph (unichar))
     return FALSE;
 
   adw_overlay_split_view_set_show_sidebar (self->search_split, TRUE);
