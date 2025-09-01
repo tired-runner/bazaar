@@ -151,209 +151,226 @@ template $BzFullView: Adw.Bin {
                     column-spacing: 3;
                     row-spacing: 3;
 
-                    Box {
+                    FlowBoxChild {
+                      focusable: false;
                       halign: start;
                       hexpand: false;
-                      orientation: horizontal;
-                      spacing: 10;
+                      
+                      child: Box {
+                        orientation: horizontal;
+                        spacing: 10;
 
-                      Button run_button {
-                        styles [
-                          "pill",
-                        ]
+                        Button run_button {
+                          styles [
+                            "pill",
+                          ]
 
-                        has-tooltip: true;
-                        tooltip-text: _("Run this application");
-                        visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
-                        sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
+                          has-tooltip: true;
+                          tooltip-text: _("Run this application");
+                          visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
+                          sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
                         
-                        icon-name: "media-playback-start-symbolic";
-                        clicked => $run_cb(template);
-                      }
+                          icon-name: "media-playback-start-symbolic";
+                          clicked => $run_cb(template);
+                        }
 
-                      Box {
+                        Box {
+                          styles [
+                            "linked",
+                          ]
+
+                          halign: start;
+                          hexpand: false;
+                          orientation: horizontal;
+
+                          Button {
+                            styles [
+                              "suggested-action",
+                              "pill",
+                            ]
+
+                            has-tooltip: true;
+                            tooltip-text: _("Download and install this application");
+                            visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable) as <bool>) as <bool>;
+                            sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable-and-available) as <bool>) as <bool>;
+
+                            child: Box {
+                              orientation: horizontal;
+                              spacing: 5;
+                              hexpand: false;
+
+                              Image {
+                                icon-name: "folder-download-symbolic";
+                              }
+
+                              Label {
+                                styles [
+                                  "caption-heading",
+                                ]
+
+                                label: _("Install");
+                              }
+                            };
+
+                            clicked => $install_cb(template);
+                          }
+
+                          Button remove_button {
+                            styles [
+                              "destructive-action",
+                              "pill",
+                            ]
+
+                            has-tooltip: true;
+                            tooltip-text: _("Uninstall this application");
+                            visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
+                            sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
+                          
+                            icon-name: "user-trash-symbolic";
+                            clicked => $remove_cb(template);
+                          }
+                        }
+                      };
+                    }
+
+                    FlowBoxChild {
+                      focusable: false;
+                      halign: start;
+                      hexpand: false;
+                      
+                      child: Box {
                         styles [
                           "linked",
                         ]
 
-                        halign: start;
-                        hexpand: false;
                         orientation: horizontal;
 
                         Button {
                           styles [
-                            "suggested-action",
                             "pill",
                           ]
 
+                          vexpand: false;
                           has-tooltip: true;
-                          tooltip-text: _("Download and install this application");
-                          visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable) as <bool>) as <bool>;
-                          sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.installable-and-available) as <bool>) as <bool>;
+                          tooltip-text: _("Share this application");
+                          icon-name: "share-alt-symbolic";
+                          clicked => $share_cb(template);
+                        }
+
+                        Button {
+                          styles [
+                            "pill",
+                          ]
+
+                          vexpand: false;
+                          has-tooltip: true;
+                          tooltip-text: _("The number of downloads in the last 30 days. Click to view this application's download statistics.");
+                          visible: bind $invert_boolean($is_null(template.debounced-ui-entry) as <bool>) as <bool>;
+                          sensitive: bind $invert_boolean($is_zero(template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.recent-downloads) as <bool>) as <bool>;
+                          clicked => $dl_stats_cb(template);
 
                           child: Box {
-                            orientation: horizontal;
-                            spacing: 5;
                             hexpand: false;
+                            orientation: horizontal;
+                            spacing: 10;
 
                             Image {
-                              icon-name: "folder-download-symbolic";
+                              icon-name: "graph-symbolic";
+                            }
+
+                            Adw.Spinner {
+                              visible: bind $is_null(template.debounced-ui-entry) as <bool>;
+                            }
+                          
+                            Label {
+                              label: bind $format_recent_downloads(template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.recent-downloads) as <string>;
+                              visible: bind $invert_boolean($is_null(template.debounced-ui-entry) as <bool>) as <bool>;
+                            }
+                          };
+                        }
+                      };
+                    }
+
+                    FlowBoxChild {
+                      focusable: false;
+                      halign: start;
+                      hexpand: false;
+                      
+                      visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.donation-url) as <bool>) as <bool>;
+
+                      child: Box {
+                        styles [
+                          "linked",
+                        ]
+
+                        orientation: horizontal;
+                      
+                        Button {
+                          styles [
+                            "pill",
+                            "suggested-action",
+                          ]
+
+                          valign: start;
+                          has-tooltip: true;
+                          tooltip-text: _("Support this developer");
+                          clicked => $support_cb(template);
+
+                          child: Box {
+                            hexpand: false;
+                            orientation: horizontal;
+                            spacing: 10;
+
+                            Image {
+                              icon-name: "heart-filled-symbolic";
                             }
 
                             Label {
-                              styles [
-                                "caption-heading",
-                              ]
-
-                              label: _("Install");
+                              label: _("Support");
                             }
                           };
-
-                          clicked => $install_cb(template);
                         }
+                      };
+                    }
 
-                        Button remove_button {
+                    FlowBoxChild {
+                      // disabled for now
+                      visible: false;
+                      focusable: false;
+                      halign: start;
+                      hexpand: false;
+                      
+                      child: Box {
+                        styles [
+                          "linked",
+                        ]
+
+                        orientation: horizontal;
+                      
+                        Button {
                           styles [
-                            "destructive-action",
                             "pill",
                           ]
 
+                          // visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.forge-url as <string>) as <bool>) as <bool>;
+                          valign: start;
                           has-tooltip: true;
-                          tooltip-text: _("Uninstall this application");
-                          visible: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
-                          sensitive: bind $invert_boolean($is_zero(template.entry-group as <$BzEntryGroup>.removable-and-available) as <bool>) as <bool>;
-                          
-                          icon-name: "user-trash-symbolic";
-                          clicked => $remove_cb(template);
+                          tooltip-text: _("VCS Forge Star Count");
+                          clicked => $forge_cb(template);
+
+                          child: Box {
+                            hexpand: false;
+                            orientation: horizontal;
+                            spacing: 10;
+
+                            Image {
+                              icon-name: "starred-symbolic";
+                            }
+
+                            Label forge_stars_label {}
+                          };
                         }
-                      }
-                    }
-
-                    Box {
-                      styles [
-                        "linked",
-                      ]
-
-                      halign: start;
-                      hexpand: false;
-                      orientation: horizontal;
-
-                      Button {
-                        styles [
-                          "pill",
-                        ]
-
-                        vexpand: false;
-                        has-tooltip: true;
-                        tooltip-text: _("Share this application");
-                        icon-name: "share-alt-symbolic";
-                        clicked => $share_cb(template);
-                      }
-
-                      Button {
-                        styles [
-                          "pill",
-                        ]
-
-                        vexpand: false;
-                        has-tooltip: true;
-                        tooltip-text: _("The number of downloads in the last 30 days. Click to view this application's download statistics.");
-                        clicked => $dl_stats_cb(template);
-                        visible: bind $invert_boolean($is_null(template.debounced-ui-entry) as <bool>) as <bool>;
-                        sensitive: bind $invert_boolean($is_zero(template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.recent-downloads) as <bool>) as <bool>;
-
-                        child: Box {
-                          hexpand: false;
-                          orientation: horizontal;
-                          spacing: 10;
-
-                          Image {
-                            icon-name: "graph-symbolic";
-                          }
-
-                          Adw.Spinner {
-                            visible: bind $is_null(template.debounced-ui-entry) as <bool>;
-                          }
-                          
-                          Label {
-                            label: bind $format_recent_downloads(template.debounced-ui-entry as <$BzResult>.object as <$BzEntry>.recent-downloads) as <string>;
-                            visible: bind $invert_boolean($is_null(template.debounced-ui-entry) as <bool>) as <bool>;
-                          }
-                        };
-                      }
-                    }
-
-                    Box {
-                      styles [
-                        "linked",
-                      ]
-
-                      halign: start;
-                      hexpand: false;
-                      orientation: horizontal;
-                      
-                      Button {
-                        styles [
-                          "pill",
-                          "suggested-action",
-                        ]
-
-                        visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.donation-url) as <bool>) as <bool>;
-                        valign: start;
-                        has-tooltip: true;
-                        tooltip-text: _("Support this developer");
-                        clicked => $support_cb(template);
-
-                        child: Box {
-                          hexpand: false;
-                          orientation: horizontal;
-                          spacing: 10;
-
-                          Image {
-                            icon-name: "heart-filled-symbolic";
-                          }
-
-                          Label {
-                            label: _("Support");
-                          }
-                        };
-                      }
-                    }
-
-                    Box {
-                      styles [
-                        "linked",
-                      ]
-
-                      halign: start;
-                      hexpand: false;
-                      orientation: horizontal;
-                      
-                      Button {
-                        styles [
-                          "pill",
-                        ]
-
-                        // disabled for now
-                        visible: false;
-                        // visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.forge-url as <string>) as <bool>) as <bool>;
-                        valign: start;
-                        has-tooltip: true;
-                        tooltip-text: _("VCS Forge Star Count");
-                        clicked => $forge_cb(template);
-
-                        child: Box {
-                          hexpand: false;
-                          orientation: horizontal;
-                          spacing: 10;
-
-                          Image {
-                            icon-name: "starred-symbolic";
-                          }
-
-                          Label forge_stars_label {}
-                        };
-                      }
+                      };
                     }
                   }
 
