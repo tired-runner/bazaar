@@ -25,7 +25,6 @@
 
 #include "bz-decorated-screenshot.h"
 #include "bz-dynamic-list-view.h"
-#include "bz-env.h"
 #include "bz-error.h"
 #include "bz-flatpak-entry.h"
 #include "bz-full-view.h"
