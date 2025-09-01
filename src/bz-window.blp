@@ -5,7 +5,7 @@ template $BzWindow: Adw.ApplicationWindow {
   title: _("Bazaar");
   default-width: 1220;
   default-height: 900;
-  width-request: 650;
+  width-request: 700;
   height-request: 400;
 
   ShortcutController {
@@ -138,7 +138,7 @@ template $BzWindow: Adw.ApplicationWindow {
             notify::show-sidebar => $search_split_open_changed_cb(template);
 
             sidebar: $BzSearchWidget search_widget {
-              width-request: 400;
+              width-request: 300;
               state: bind template.state;
               select => $search_widget_select_cb(template);
             };
@@ -426,7 +426,7 @@ template $BzWindow: Adw.ApplicationWindow {
         setters {
           split_view.collapsed: true;
           transactions.width-request: 250;
-          search_widget.width-request: 250;
+          search_widget.width-request: 200;
         }
 
         apply => $breakpoint_apply_cb(template);
