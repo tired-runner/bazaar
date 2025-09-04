@@ -1560,8 +1560,8 @@ refresh_fiber (BzApplication *self)
             }
 
           bz_state_info_set_available_updates (self->state, G_LIST_MODEL (store));
-          if (window != NULL)
-            bz_window_push_update_dialog (BZ_WINDOW (window));
+          // if (window != NULL)
+          //   bz_window_push_update_dialog (BZ_WINDOW (window));
         }
     }
   else if (window != NULL)

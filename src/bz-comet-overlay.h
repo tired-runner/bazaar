@@ -43,4 +43,8 @@ void
 bz_comet_overlay_spawn (BzCometOverlay *self,
                         BzComet        *comet);
 
+void
+bz_comet_overlay_pulse_child (BzCometOverlay *self,
+                              GtkWidget      *child);
+
 G_END_DECLS

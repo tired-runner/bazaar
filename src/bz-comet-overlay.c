@@ -18,11 +18,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
 #include <adwaita.h>
 
 #include "bz-comet-overlay.h"
+
+typedef struct
+{
+  double x;
+  double y;
+  double progress;
+} PulseState;
 
 struct _BzCometOverlay
 {
@@ -31,6 +36,7 @@ struct _BzCometOverlay
   GtkWidget *child;
 
   GHashTable *nodes;
+  GArray     *pulses;
 };
 
 G_DEFINE_FINAL_TYPE (BzCometOverlay, bz_comet_overlay, GTK_TYPE_WIDGET)
@@ -61,12 +67,22 @@ update_params (BzCometOverlay *self,
                int             height);
 
 static void
+pulse_cb (double     value,
+          GtkWidget *widget);
+
+static void
+append_pulse (GtkSnapshot *snapshot,
+              double       size,
+              double       opacity);
+
+static void
 bz_comet_overlay_dispose (GObject *object)
 {
   BzCometOverlay *self = BZ_COMET_OVERLAY (object);
 
   g_clear_pointer (&self->child, gtk_widget_unparent);
   g_clear_pointer (&self->nodes, g_hash_table_unref);
+  g_clear_pointer (&self->pulses, g_array_unref);
 
   G_OBJECT_CLASS (bz_comet_overlay_parent_class)->dispose (object);
 }
@@ -203,6 +219,18 @@ bz_comet_overlay_snapshot (GtkWidget   *widget,
       gtk_snapshot_append_node (snapshot, node);
       gtk_snapshot_restore (snapshot);
     }
+
+  for (guint i = 0; i < self->pulses->len; i++)
+    {
+      PulseState *pulse = NULL;
+
+      pulse = &g_array_index (self->pulses, PulseState, i);
+      gtk_snapshot_save (snapshot);
+      gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (pulse->x, pulse->y));
+      append_pulse (snapshot, pulse->progress * 200.0, 1.0 - pulse->progress);
+      gtk_snapshot_restore (snapshot);
+    }
+  g_array_set_size (self->pulses, 0);
 }
 
 static void
@@ -235,6 +263,7 @@ bz_comet_overlay_init (BzCometOverlay *self)
       g_direct_hash, g_direct_equal,
       g_object_unref,
       (GDestroyNotify) gsk_render_node_unref);
+  self->pulses = g_array_new (FALSE, FALSE, sizeof (PulseState));
 }
 
 GtkWidget *
@@ -320,28 +349,46 @@ bz_comet_overlay_spawn (BzCometOverlay *self,
   adw_animation_play (animation);
 }
 
+void
+bz_comet_overlay_pulse_child (BzCometOverlay *self,
+                              GtkWidget      *child)
+{
+  AdwAnimationTarget *target         = NULL;
+  AdwSpringParams    *spring         = NULL;
+  g_autoptr (AdwAnimation) animation = NULL;
+
+  g_return_if_fail (BZ_IS_COMET_OVERLAY (self));
+  g_return_if_fail (GTK_IS_WIDGET (child) &&
+                    gtk_widget_is_ancestor (child, GTK_WIDGET (self)));
+
+  target = adw_callback_animation_target_new (
+      (AdwAnimationTargetFunc) pulse_cb,
+      g_object_ref (child), g_object_unref);
+  spring = adw_spring_params_new (1.5, 0.1, 5.0);
+
+  animation = adw_spring_animation_new (
+      GTK_WIDGET (self),
+      0.0,
+      1.0,
+      spring,
+      target);
+  adw_spring_animation_set_epsilon (
+      ADW_SPRING_ANIMATION (animation), 0.0001);
+  adw_animation_play (animation);
+}
+
 static void
 progress_changed (BzComet        *comet,
                   GParamSpec     *pspec,
                   BzCometOverlay *self)
 {
-  double           path_length     = 0.0;
-  double           progress        = 0.0;
-  GdkPaintable    *paintable       = NULL;
-  double           intrinsic_width = 0;
-  double           icon_size       = 0.0;
-  double           grad_size       = 0.0;
-  AdwStyleManager *style_manager   = NULL;
-  g_autoptr (GdkRGBA) accent_color = NULL;
-  GskColorStop grad_stops[2]       = { 0 };
+  double        path_length        = 0.0;
+  double        progress           = 0.0;
+  GdkPaintable *paintable          = NULL;
+  double        intrinsic_width    = 0;
+  double        icon_size          = 0.0;
+  double        grad_size          = 0.0;
   g_autoptr (GtkSnapshot) snapshot = NULL;
-
-  const GdkRGBA transparent = {
-    .red   = 1.0,
-    .green = 1.0,
-    .blue  = 1.0,
-    .alpha = 0.0
-  };
 
   path_length = bz_comet_get_path_length (comet);
   progress    = bz_comet_get_progress (comet);
@@ -351,27 +398,8 @@ progress_changed (BzComet        *comet,
   icon_size       = (path_length - progress) / path_length * intrinsic_width;
   grad_size       = MAX (1.0, (path_length - progress) / path_length * intrinsic_width * 2.0);
 
-  style_manager       = adw_style_manager_get_default ();
-  accent_color        = adw_style_manager_get_accent_color_rgba (style_manager);
-  accent_color->alpha = 0.5;
-
-  grad_stops[0].color  = *accent_color;
-  grad_stops[0].offset = 0.9;
-  grad_stops[1].color  = transparent;
-  grad_stops[1].offset = 0.9;
-
   snapshot = gtk_snapshot_new ();
-
-  gtk_snapshot_append_radial_gradient (
-      snapshot,
-      &GRAPHENE_RECT_INIT (-grad_size / 2.0, -grad_size / 2.0, grad_size, grad_size),
-      &GRAPHENE_POINT_INIT (0.0, 0.0),
-      grad_size / 2.0,
-      grad_size / 2.0,
-      0.0,
-      1.0,
-      grad_stops,
-      G_N_ELEMENTS (grad_stops));
+  append_pulse (snapshot, grad_size, 1.0 - (path_length - progress));
 
   gtk_snapshot_save (snapshot);
   gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (-icon_size / 2.0, -icon_size / 2.0));
@@ -443,4 +471,72 @@ update_params (BzCometOverlay *self,
 
   bz_comet_set_path (comet, path);
   bz_comet_set_path_length (comet, distance);
+}
+
+static void
+pulse_cb (double     value,
+          GtkWidget *widget)
+{
+  BzCometOverlay *self   = NULL;
+  graphene_rect_t rect   = { 0 };
+  gboolean        result = FALSE;
+  PulseState      pulse  = { 0 };
+
+  self = (BzCometOverlay *) gtk_widget_get_ancestor (widget, BZ_TYPE_COMET_OVERLAY);
+  if (self == NULL)
+    {
+      g_warning ("Couldn't find ancestor BzCometOverlay for pulse!");
+      return;
+    }
+
+  result = gtk_widget_compute_bounds (widget, GTK_WIDGET (self), &rect);
+  if (!result)
+    {
+      g_warning ("Couldn't compute bounds of widget for pulse!");
+      return;
+    }
+
+  pulse.x        = rect.origin.x + rect.size.width / 2.0;
+  pulse.y        = rect.origin.y + rect.size.height / 2.0;
+  pulse.progress = value;
+
+  g_array_append_val (self->pulses, pulse);
+  gtk_widget_queue_draw (GTK_WIDGET (self));
+}
+
+static void
+append_pulse (GtkSnapshot *snapshot,
+              double       size,
+              double       opacity)
+{
+  const GdkRGBA transparent = {
+    .red   = 1.0,
+    .green = 1.0,
+    .blue  = 1.0,
+    .alpha = 0.0
+  };
+
+  AdwStyleManager *style_manager   = NULL;
+  g_autoptr (GdkRGBA) accent_color = NULL;
+  GskColorStop grad_stops[2]       = { 0 };
+
+  style_manager       = adw_style_manager_get_default ();
+  accent_color        = adw_style_manager_get_accent_color_rgba (style_manager);
+  accent_color->alpha = 0.75 * opacity;
+
+  grad_stops[0].color  = *accent_color;
+  grad_stops[0].offset = 0.9;
+  grad_stops[1].color  = transparent;
+  grad_stops[1].offset = 0.9;
+
+  gtk_snapshot_append_radial_gradient (
+      snapshot,
+      &GRAPHENE_RECT_INIT (-size / 2.0, -size / 2.0, size, size),
+      &GRAPHENE_POINT_INIT (0.0, 0.0),
+      size / 2.0,
+      size / 2.0,
+      0.0,
+      1.0,
+      grad_stops,
+      G_N_ELEMENTS (grad_stops));
 }

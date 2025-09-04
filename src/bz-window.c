@@ -558,10 +558,17 @@ checking_for_updates_changed (BzWindow    *self,
   checking_for_updates = bz_state_info_get_checking_for_updates (info);
   has_updates          = bz_state_info_get_available_updates (info) != NULL;
 
-  if (!busy && !checking_for_updates && !has_updates)
-    adw_toast_overlay_add_toast (
-        self->toasts,
-        adw_toast_new_format (_ ("Up to date!")));
+  if (!busy && !checking_for_updates)
+    {
+      if (has_updates)
+        bz_comet_overlay_pulse_child (
+            self->comet_overlay,
+            GTK_WIDGET (self->update_button));
+      else
+        adw_toast_overlay_add_toast (
+            self->toasts,
+            adw_toast_new_format (_ ("Up to date!")));
+    }
 }
 
 static void
