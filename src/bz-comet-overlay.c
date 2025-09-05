@@ -516,12 +516,12 @@ append_pulse (GtkSnapshot *snapshot,
     .alpha = 0.0
   };
 
-  if (size < 1.0)
-    return;
-
   AdwStyleManager *style_manager   = NULL;
   g_autoptr (GdkRGBA) accent_color = NULL;
   GskColorStop grad_stops[2]       = { 0 };
+
+  if (size < 1.0)
+    return;
 
   style_manager       = adw_style_manager_get_default ();
   accent_color        = adw_style_manager_get_accent_color_rgba (style_manager);
