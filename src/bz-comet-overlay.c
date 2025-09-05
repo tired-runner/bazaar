@@ -516,6 +516,9 @@ append_pulse (GtkSnapshot *snapshot,
     .alpha = 0.0
   };
 
+  if (size < 1.0)
+    return;
+
   AdwStyleManager *style_manager   = NULL;
   g_autoptr (GdkRGBA) accent_color = NULL;
   GskColorStop grad_stops[2]       = { 0 };
@@ -529,7 +532,6 @@ append_pulse (GtkSnapshot *snapshot,
   grad_stops[1].color  = transparent;
   grad_stops[1].offset = 0.9;
 
-  size = MAX (size, 0.001);
   gtk_snapshot_append_radial_gradient (
       snapshot,
       &GRAPHENE_RECT_INIT (-size / 2.0, -size / 2.0, size, size),
