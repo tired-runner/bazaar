@@ -1,0 +1,90 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $BzDetailedAppTile: Button {
+  styles [
+    "card",
+    "app-tile",
+  ]
+
+  child: Box {
+    margin-start: 12;
+    margin-end: 12;
+    margin-top: 12;
+    margin-bottom: 12;
+    orientation: horizontal;
+    spacing: 15;
+    can-focus: false;
+
+    Image {
+      pixel-size: 128;
+      paintable: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.icon-paintable;
+    }
+
+    Box {
+      valign: center;
+      hexpand: true;
+      orientation: vertical;
+      spacing: 5;
+
+      Box {
+        orientation: horizontal;
+        spacing: 10;
+
+        Label {
+          styles [
+            "title-1",
+          ]
+
+          xalign: 0.0;
+          ellipsize: end;
+          label: bind template.group as <$BzEntryGroup>.title;
+        }
+
+        Revealer {
+          transition-type: crossfade;
+          reveal-child: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
+          visible: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
+
+          child: Image {
+            styles [
+              "accent",
+            ]
+
+            has-tooltip: true;
+            tooltip-text: _("This flatpak is verified by the original developers of the software.");
+            icon-name: "verified-checkmark-symbolic";
+            icon-size: normal;
+          };
+        }
+      }
+
+      Label {
+        styles [
+          "title-4",
+          "dimmed",
+        ]
+
+        xalign: 0.0;
+        wrap: true;
+        ellipsize: end;
+        max-width-chars: 30;
+        lines: 3;
+        label: bind template.group as <$BzEntryGroup>.developer;
+      }
+
+      Label {
+        styles [
+          "title-3",
+        ]
+
+        xalign: 0.0;
+        wrap: true;
+        ellipsize: end;
+        max-width-chars: 25;
+        lines: 3;
+        label: bind template.group as <$BzEntryGroup>.description;
+      }
+    }
+  };
+}

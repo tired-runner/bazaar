@@ -79,6 +79,8 @@ typedef struct
   double        average_rating;
   char         *ratings_summary;
   GListModel   *version_history;
+  char         *light_accent_color;
+  char         *dark_accent_color;
 
   gboolean    is_flathub;
   gboolean    verified;
@@ -131,6 +133,8 @@ enum
   PROP_VERIFIED,
   PROP_DOWNLOAD_STATS,
   PROP_RECENT_DOWNLOADS,
+  PROP_LIGHT_ACCENT_COLOR,
+  PROP_DARK_ACCENT_COLOR,
 
   LAST_PROP
 };
@@ -315,6 +319,12 @@ bz_entry_get_property (GObject    *object,
     case PROP_VERSION_HISTORY:
       g_value_set_object (value, priv->version_history);
       break;
+    case PROP_LIGHT_ACCENT_COLOR:
+      g_value_set_string (value, priv->light_accent_color);
+      break;
+    case PROP_DARK_ACCENT_COLOR:
+      g_value_set_string (value, priv->dark_accent_color);
+      break;
     case PROP_IS_FLATHUB:
       g_value_set_boolean (value, priv->is_flathub);
       break;
@@ -466,6 +476,14 @@ bz_entry_set_property (GObject      *object,
     case PROP_VERSION_HISTORY:
       g_clear_object (&priv->version_history);
       priv->version_history = g_value_dup_object (value);
+      break;
+    case PROP_LIGHT_ACCENT_COLOR:
+      g_clear_pointer (&priv->light_accent_color, g_free);
+      priv->light_accent_color = g_value_dup_string (value);
+      break;
+    case PROP_DARK_ACCENT_COLOR:
+      g_clear_pointer (&priv->dark_accent_color, g_free);
+      priv->dark_accent_color = g_value_dup_string (value);
       break;
     case PROP_IS_FLATHUB:
       priv->is_flathub = g_value_get_boolean (value);
@@ -723,6 +741,18 @@ bz_entry_class_init (BzEntryClass *klass)
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);
 
+  props[PROP_LIGHT_ACCENT_COLOR] =
+      g_param_spec_string (
+          "light-accent-color",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
+  props[PROP_DARK_ACCENT_COLOR] =
+      g_param_spec_string (
+          "dark-accent-color",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE);
+
   props[PROP_IS_FLATHUB] =
       g_param_spec_boolean (
           "is-flathub",
@@ -959,47 +989,49 @@ bz_entry_real_serialize (BzSerializable  *serializable,
           g_variant_builder_add (builder, "{sv}", "version-history", g_variant_builder_end (sub_builder));
         }
     }
-
+  if (priv->light_accent_color != NULL)
+    g_variant_builder_add (builder, "{sv}", "light-accent-color", g_variant_new_string (priv->light_accent_color));
+  if (priv->dark_accent_color != NULL)
+    g_variant_builder_add (builder, "{sv}", "dark-accent-color", g_variant_new_string (priv->dark_accent_color));
   g_variant_builder_add (builder, "{sv}", "is-flathub", g_variant_new_boolean (priv->is_flathub));
-  /* Disabling this since it updates so often and downloading is cheap */
-  // if (priv->is_flathub)
-  //   {
-  //     if (priv->flathub_prop_queries != NULL)
-  //       {
-  //         if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_VERIFIED)))
-  //           g_variant_builder_add (builder, "{sv}", "verified", g_variant_new_boolean (priv->verified));
-  //         if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_DOWNLOAD_STATS)) &&
-  //             priv->download_stats != NULL)
-  //           {
-  //             guint n_items = 0;
+  if (priv->is_flathub)
+    {
+      if (priv->flathub_prop_queries != NULL)
+        {
+          if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_VERIFIED)))
+            g_variant_builder_add (builder, "{sv}", "verified", g_variant_new_boolean (priv->verified));
+          if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_DOWNLOAD_STATS)) &&
+              priv->download_stats != NULL)
+            {
+              guint n_items = 0;
 
-  //             n_items = g_list_model_get_n_items (priv->download_stats);
-  //             if (n_items > 0)
-  //               {
-  //                 g_autoptr (GVariantBuilder) sub_builder = NULL;
+              n_items = g_list_model_get_n_items (priv->download_stats);
+              if (n_items > 0)
+                {
+                  g_autoptr (GVariantBuilder) sub_builder = NULL;
 
-  //                 sub_builder = g_variant_builder_new (G_VARIANT_TYPE ("a(ddms)"));
-  //                 for (guint i = 0; i < n_items; i++)
-  //                   {
-  //                     g_autoptr (BzDataPoint) point = NULL;
-  //                     double      independent       = 0.0;
-  //                     double      dependent         = 0.0;
-  //                     const char *label             = NULL;
+                  sub_builder = g_variant_builder_new (G_VARIANT_TYPE ("a(ddms)"));
+                  for (guint i = 0; i < n_items; i++)
+                    {
+                      g_autoptr (BzDataPoint) point = NULL;
+                      double      independent       = 0.0;
+                      double      dependent         = 0.0;
+                      const char *label             = NULL;
 
-  //                     point       = g_list_model_get_item (priv->download_stats, i);
-  //                     independent = bz_data_point_get_independent (point);
-  //                     dependent   = bz_data_point_get_dependent (point);
-  //                     label       = bz_data_point_get_label (point);
+                      point       = g_list_model_get_item (priv->download_stats, i);
+                      independent = bz_data_point_get_independent (point);
+                      dependent   = bz_data_point_get_dependent (point);
+                      label       = bz_data_point_get_label (point);
 
-  //                     g_variant_builder_add (sub_builder, "(ddms)", independent, dependent, label);
-  //                   }
-  //                 g_variant_builder_add (builder, "{sv}", "download-stats", g_variant_builder_end (sub_builder));
-  //               }
-  //           }
-  //         if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_RECENT_DOWNLOADS)))
-  //           g_variant_builder_add (builder, "{sv}", "recent-downloads", g_variant_new_int32 (priv->recent_downloads));
-  //       }
-  //   }
+                      g_variant_builder_add (sub_builder, "(ddms)", independent, dependent, label);
+                    }
+                  g_variant_builder_add (builder, "{sv}", "download-stats", g_variant_builder_end (sub_builder));
+                }
+            }
+          if (g_hash_table_contains (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_RECENT_DOWNLOADS)))
+            g_variant_builder_add (builder, "{sv}", "recent-downloads", g_variant_new_int32 (priv->recent_downloads));
+        }
+    }
 }
 
 static gboolean
@@ -1205,51 +1237,57 @@ bz_entry_real_deserialize (BzSerializable *serializable,
 
           priv->version_history = G_LIST_MODEL (g_steal_pointer (&store));
         }
+      else if (g_strcmp0 (key, "light-accent-color") == 0)
+        priv->light_accent_color = g_variant_dup_string (value, NULL);
+      else if (g_strcmp0 (key, "dark-accent-color") == 0)
+        priv->dark_accent_color = g_variant_dup_string (value, NULL);
       else if (g_strcmp0 (key, "is-flathub") == 0)
         priv->is_flathub = g_variant_get_boolean (value);
-      else if (g_strcmp0 (key, "verified") == 0)
-        {
-          priv->verified = g_variant_get_boolean (value);
-          if (priv->flathub_prop_queries == NULL)
-            priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
-          g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_VERIFIED), dex_future_new_true ());
-        }
-      else if (g_strcmp0 (key, "download-stats") == 0)
-        {
-          g_autoptr (GListStore) store        = NULL;
-          g_autoptr (GVariantIter) point_iter = NULL;
 
-          store = g_list_store_new (BZ_TYPE_DATA_POINT);
+      /* Disabling these since it updates so often and downloading is cheap */
+      // else if (g_strcmp0 (key, "verified") == 0)
+      //   {
+      //     priv->verified = g_variant_get_boolean (value);
+      //     if (priv->flathub_prop_queries == NULL)
+      //       priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
+      //     g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_VERIFIED), dex_future_new_true ());
+      //   }
+      // else if (g_strcmp0 (key, "download-stats") == 0)
+      //   {
+      //     g_autoptr (GListStore) store        = NULL;
+      //     g_autoptr (GVariantIter) point_iter = NULL;
 
-          point_iter = g_variant_iter_new (value);
-          for (;;)
-            {
-              double           independent  = 0.0;
-              double           dependent    = 0.0;
-              g_autofree char *label        = NULL;
-              g_autoptr (BzDataPoint) point = NULL;
+      //     store = g_list_store_new (BZ_TYPE_DATA_POINT);
 
-              if (!g_variant_iter_next (point_iter, "(ddms)", &independent, &dependent, &label))
-                break;
-              point = bz_data_point_new ();
-              bz_data_point_set_independent (point, independent);
-              bz_data_point_set_dependent (point, dependent);
-              bz_data_point_set_label (point, label);
-              g_list_store_append (store, point);
-            }
+      //     point_iter = g_variant_iter_new (value);
+      //     for (;;)
+      //       {
+      //         double           independent  = 0.0;
+      //         double           dependent    = 0.0;
+      //         g_autofree char *label        = NULL;
+      //         g_autoptr (BzDataPoint) point = NULL;
 
-          priv->download_stats = G_LIST_MODEL (g_steal_pointer (&store));
-          if (priv->flathub_prop_queries == NULL)
-            priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
-          g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_DOWNLOAD_STATS), dex_future_new_true ());
-        }
-      else if (g_strcmp0 (key, "recent-downloads") == 0)
-        {
-          priv->recent_downloads = g_variant_get_int32 (value);
-          if (priv->flathub_prop_queries == NULL)
-            priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
-          g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_RECENT_DOWNLOADS), dex_future_new_true ());
-        }
+      //         if (!g_variant_iter_next (point_iter, "(ddms)", &independent, &dependent, &label))
+      //           break;
+      //         point = bz_data_point_new ();
+      //         bz_data_point_set_independent (point, independent);
+      //         bz_data_point_set_dependent (point, dependent);
+      //         bz_data_point_set_label (point, label);
+      //         g_list_store_append (store, point);
+      //       }
+
+      //     priv->download_stats = G_LIST_MODEL (g_steal_pointer (&store));
+      //     if (priv->flathub_prop_queries == NULL)
+      //       priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
+      //     g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_DOWNLOAD_STATS), dex_future_new_true ());
+      //   }
+      // else if (g_strcmp0 (key, "recent-downloads") == 0)
+      //   {
+      //     priv->recent_downloads = g_variant_get_int32 (value);
+      //     if (priv->flathub_prop_queries == NULL)
+      //       priv->flathub_prop_queries = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, dex_unref);
+      //     g_hash_table_replace (priv->flathub_prop_queries, GINT_TO_POINTER (PROP_RECENT_DOWNLOADS), dex_future_new_true ());
+      //   }
     }
 
   return TRUE;
@@ -1566,6 +1604,28 @@ bz_entry_get_is_foss (BzEntry *self)
   priv = bz_entry_get_instance_private (self);
 
   return priv->is_floss;
+}
+
+const char *
+bz_entry_get_light_accent_color (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
+  priv = bz_entry_get_instance_private (self);
+
+  return priv->light_accent_color;
+}
+
+const char *
+bz_entry_get_dark_accent_color (BzEntry *self)
+{
+  BzEntryPrivate *priv = NULL;
+
+  g_return_val_if_fail (BZ_IS_ENTRY (self), NULL);
+  priv = bz_entry_get_instance_private (self);
+
+  return priv->dark_accent_color;
 }
 
 gboolean
@@ -2054,5 +2114,7 @@ clear_entry (BzEntry *self)
   g_clear_object (&priv->reviews);
   g_clear_pointer (&priv->ratings_summary, g_free);
   g_clear_object (&priv->version_history);
+  g_clear_pointer (&priv->light_accent_color, g_free);
+  g_clear_pointer (&priv->dark_accent_color, g_free);
   g_clear_object (&priv->download_stats);
 }

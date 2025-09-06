@@ -456,7 +456,7 @@ refresh (BzDynamicListView *self)
 
             widget = adw_carousel_new ();
             adw_carousel_set_spacing (ADW_CAROUSEL (widget), 50);
-            adw_carousel_set_allow_long_swipes (ADW_CAROUSEL (widget), TRUE);
+            adw_carousel_set_allow_scroll_wheel (ADW_CAROUSEL (widget), FALSE);
             g_signal_connect (
                 self->model, "items-changed",
                 G_CALLBACK (items_changed), self);

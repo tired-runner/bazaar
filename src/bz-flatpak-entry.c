@@ -21,7 +21,6 @@
 #define G_LOG_DOMAIN  "BAZAAR::FLATPAK-ENTRY"
 #define BAZAAR_MODULE "entry"
 
-#include "config.h"
 #include <xmlb.h>
 
 #include "bz-async-texture.h"
@@ -346,6 +345,8 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
   double           average_rating              = 0.0;
   g_autofree char *ratings_summary             = NULL;
   g_autoptr (GListStore) version_history       = NULL;
+  const char *accent_color_light               = NULL;
+  const char *accent_color_dark                = NULL;
 
   g_return_val_if_fail (BZ_IS_FLATPAK_INSTANCE (instance), NULL);
   g_return_val_if_fail (FLATPAK_IS_REF (ref), NULL);
@@ -432,6 +433,7 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       AsReleaseList *releases             = NULL;
       GPtrArray     *releases_arr         = NULL;
       GPtrArray     *icons                = NULL;
+      AsBranding    *branding             = NULL;
 
       title = as_component_get_name (component);
       if (title == NULL)
@@ -738,6 +740,15 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
                 mini_icon = bz_load_mini_icon_sync (unique_id_checksum, select);
             }
         }
+
+      branding = as_component_get_branding (component);
+      if (branding != NULL)
+        {
+          accent_color_light = as_branding_get_color (
+              branding, AS_COLOR_KIND_PRIMARY, AS_COLOR_SCHEME_KIND_LIGHT);
+          accent_color_dark = as_branding_get_color (
+              branding, AS_COLOR_KIND_PRIMARY, AS_COLOR_SCHEME_KIND_DARK);
+        }
     }
 
   if (icon_paintable == NULL && FLATPAK_IS_BUNDLE_REF (ref))
@@ -823,6 +834,8 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
       "average-rating", average_rating,
       "ratings-summary", ratings_summary,
       "version-history", version_history,
+      "light-accent-color", accent_color_light,
+      "dark-accent-color", accent_color_dark,
       NULL);
 
   return g_steal_pointer (&self);

@@ -20,6 +20,7 @@
 
 #include "bz-search-widget.h"
 #include "bz-async-texture.h"
+#include "bz-group-tile-css-watcher.h"
 #include "bz-screenshot.h"
 #include "bz-search-result.h"
 #include "bz-state-info.h"
@@ -314,6 +315,7 @@ bz_search_widget_class_init (BzSearchWidgetClass *klass)
   widget_class->grab_focus = bz_search_widget_grab_focus;
 
   g_type_ensure (BZ_TYPE_ASYNC_TEXTURE);
+  g_type_ensure (BZ_TYPE_GROUP_TILE_CSS_WATCHER);
   g_type_ensure (BZ_TYPE_SCREENSHOT);
   g_type_ensure (BZ_TYPE_SEARCH_RESULT);
 

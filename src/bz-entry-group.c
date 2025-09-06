@@ -37,6 +37,8 @@ struct _BzEntryGroup
   char       *description;
   GIcon      *mini_icon;
   gboolean    is_floss;
+  char       *light_accent_color;
+  char       *dark_accent_color;
   gboolean    is_flathub;
   GPtrArray  *search_tokens;
   char       *remote_repos_string;
@@ -67,6 +69,8 @@ enum
   PROP_DESCRIPTION,
   PROP_MINI_ICON,
   PROP_IS_FLOSS,
+  PROP_LIGHT_ACCENT_COLOR,
+  PROP_DARK_ACCENT_COLOR,
   PROP_IS_FLATHUB,
   PROP_SEARCH_TOKENS,
   PROP_UI_ENTRY,
@@ -126,6 +130,8 @@ bz_entry_group_dispose (GObject *object)
   g_clear_pointer (&self->title, g_free);
   g_clear_pointer (&self->developer, g_free);
   g_clear_pointer (&self->description, g_free);
+  g_clear_pointer (&self->light_accent_color, g_free);
+  g_clear_pointer (&self->dark_accent_color, g_free);
   g_clear_object (&self->mini_icon);
   g_clear_pointer (&self->search_tokens, g_ptr_array_unref);
   g_clear_pointer (&self->remote_repos_string, g_free);
@@ -165,6 +171,12 @@ bz_entry_group_get_property (GObject    *object,
       break;
     case PROP_IS_FLOSS:
       g_value_set_boolean (value, bz_entry_group_get_is_floss (self));
+      break;
+    case PROP_LIGHT_ACCENT_COLOR:
+      g_value_set_string (value, bz_entry_group_get_light_accent_color (self));
+      break;
+    case PROP_DARK_ACCENT_COLOR:
+      g_value_set_string (value, bz_entry_group_get_dark_accent_color (self));
       break;
     case PROP_IS_FLATHUB:
       g_value_set_boolean (value, bz_entry_group_get_is_flathub (self));
@@ -218,6 +230,8 @@ bz_entry_group_set_property (GObject      *object,
     case PROP_DESCRIPTION:
     case PROP_MINI_ICON:
     case PROP_IS_FLOSS:
+    case PROP_LIGHT_ACCENT_COLOR:
+    case PROP_DARK_ACCENT_COLOR:
     case PROP_IS_FLATHUB:
     case PROP_SEARCH_TOKENS:
     case PROP_UI_ENTRY:
@@ -284,6 +298,18 @@ bz_entry_group_class_init (BzEntryGroupClass *klass)
       g_param_spec_boolean (
           "is-floss",
           NULL, NULL, FALSE,
+          G_PARAM_READABLE);
+
+  props[PROP_LIGHT_ACCENT_COLOR] =
+      g_param_spec_string (
+          "light-accent-color",
+          NULL, NULL, NULL,
+          G_PARAM_READABLE);
+
+  props[PROP_DARK_ACCENT_COLOR] =
+      g_param_spec_string (
+          "dark-accent-color",
+          NULL, NULL, NULL,
           G_PARAM_READABLE);
 
   props[PROP_IS_FLATHUB] =
@@ -427,6 +453,20 @@ bz_entry_group_get_is_floss (BzEntryGroup *self)
   return self->is_floss;
 }
 
+const char *
+bz_entry_group_get_light_accent_color (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), NULL);
+  return self->light_accent_color;
+}
+
+const char *
+bz_entry_group_get_dark_accent_color (BzEntryGroup *self)
+{
+  g_return_val_if_fail (BZ_IS_ENTRY_GROUP (self), NULL);
+  return self->dark_accent_color;
+}
+
 gboolean
 bz_entry_group_get_is_flathub (BzEntryGroup *self)
 {
@@ -568,19 +608,23 @@ bz_entry_group_add (BzEntryGroup *self,
     }
   else
     {
-      const char *title         = NULL;
-      const char *developer     = NULL;
-      const char *description   = NULL;
-      GIcon      *mini_icon     = NULL;
-      GPtrArray  *search_tokens = NULL;
+      const char *title              = NULL;
+      const char *developer          = NULL;
+      const char *description        = NULL;
+      GIcon      *mini_icon          = NULL;
+      GPtrArray  *search_tokens      = NULL;
+      const char *light_accent_color = NULL;
+      const char *dark_accent_color  = NULL;
 
       g_list_store_append (self->store, unique_id_string);
 
-      title         = bz_entry_get_title (entry);
-      developer     = bz_entry_get_developer (entry);
-      description   = bz_entry_get_description (entry);
-      mini_icon     = bz_entry_get_mini_icon (entry);
-      search_tokens = bz_entry_get_search_tokens (entry);
+      title              = bz_entry_get_title (entry);
+      developer          = bz_entry_get_developer (entry);
+      description        = bz_entry_get_description (entry);
+      mini_icon          = bz_entry_get_mini_icon (entry);
+      search_tokens      = bz_entry_get_search_tokens (entry);
+      light_accent_color = bz_entry_get_light_accent_color (entry);
+      dark_accent_color  = bz_entry_get_dark_accent_color (entry);
 
       if (title != NULL && self->title == NULL)
         {
@@ -606,6 +650,16 @@ bz_entry_group_add (BzEntryGroup *self,
         {
           self->search_tokens = g_ptr_array_ref (search_tokens);
           g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SEARCH_TOKENS]);
+        }
+      if (light_accent_color != NULL && self->light_accent_color == NULL)
+        {
+          self->light_accent_color = g_strdup (light_accent_color);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LIGHT_ACCENT_COLOR]);
+        }
+      if (dark_accent_color != NULL && self->dark_accent_color == NULL)
+        {
+          self->dark_accent_color = g_strdup (dark_accent_color);
+          g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DARK_ACCENT_COLOR]);
         }
     }
 
@@ -784,21 +838,25 @@ static void
 sync_props (BzEntryGroup *self,
             BzEntry      *entry)
 {
-  const char *title         = NULL;
-  const char *developer     = NULL;
-  const char *description   = NULL;
-  GIcon      *mini_icon     = NULL;
-  GPtrArray  *search_tokens = NULL;
-  gboolean    is_floss      = FALSE;
-  gboolean    is_flathub    = FALSE;
+  const char *title              = NULL;
+  const char *developer          = NULL;
+  const char *description        = NULL;
+  GIcon      *mini_icon          = NULL;
+  GPtrArray  *search_tokens      = NULL;
+  gboolean    is_floss           = FALSE;
+  const char *light_accent_color = NULL;
+  const char *dark_accent_color  = NULL;
+  gboolean    is_flathub         = FALSE;
 
-  title         = bz_entry_get_title (entry);
-  developer     = bz_entry_get_developer (entry);
-  description   = bz_entry_get_description (entry);
-  mini_icon     = bz_entry_get_mini_icon (entry);
-  search_tokens = bz_entry_get_search_tokens (entry);
-  is_floss      = bz_entry_get_is_foss (entry);
-  is_flathub    = bz_entry_get_is_flathub (entry);
+  title              = bz_entry_get_title (entry);
+  developer          = bz_entry_get_developer (entry);
+  description        = bz_entry_get_description (entry);
+  mini_icon          = bz_entry_get_mini_icon (entry);
+  search_tokens      = bz_entry_get_search_tokens (entry);
+  is_floss           = bz_entry_get_is_foss (entry);
+  light_accent_color = bz_entry_get_light_accent_color (entry);
+  dark_accent_color  = bz_entry_get_dark_accent_color (entry);
+  is_flathub         = bz_entry_get_is_flathub (entry);
 
   if (title != NULL)
     {
@@ -834,6 +892,18 @@ sync_props (BzEntryGroup *self,
     {
       self->is_floss = is_floss;
       g_object_notify_by_pspec (G_OBJECT (self), props[PROP_IS_FLOSS]);
+    }
+  if (light_accent_color != NULL)
+    {
+      g_clear_pointer (&self->light_accent_color, g_free);
+      self->light_accent_color = g_strdup (light_accent_color);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LIGHT_ACCENT_COLOR]);
+    }
+  if (dark_accent_color != NULL)
+    {
+      g_clear_pointer (&self->dark_accent_color, g_free);
+      self->dark_accent_color = g_strdup (dark_accent_color);
+      g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DARK_ACCENT_COLOR]);
     }
   if (is_flathub != self->is_flathub)
     {

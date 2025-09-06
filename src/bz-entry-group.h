@@ -56,6 +56,12 @@ bz_entry_group_get_mini_icon (BzEntryGroup *self);
 gboolean
 bz_entry_group_get_is_floss (BzEntryGroup *self);
 
+const char *
+bz_entry_group_get_light_accent_color (BzEntryGroup *self);
+
+const char *
+bz_entry_group_get_dark_accent_color (BzEntryGroup *self);
+
 gboolean
 bz_entry_group_get_is_flathub (BzEntryGroup *self);
 

@@ -127,6 +127,12 @@ bz_entry_get_forge_url (BzEntry *self);
 gboolean
 bz_entry_get_is_foss (BzEntry *self);
 
+const char *
+bz_entry_get_light_accent_color (BzEntry *self);
+
+const char *
+bz_entry_get_dark_accent_color (BzEntry *self);
+
 gboolean
 bz_entry_get_is_flathub (BzEntry *self);
 
