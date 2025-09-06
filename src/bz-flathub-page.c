@@ -26,6 +26,7 @@
 #include "bz-entry-group.h"
 #include "bz-flathub-category.h"
 #include "bz-inhibited-scrollable.h"
+#include "bz-patterned-background.h"
 #include "bz-section-view.h"
 
 struct _BzFlathubPage
@@ -195,6 +196,7 @@ bz_flathub_page_class_init (BzFlathubPageClass *klass)
       g_cclosure_marshal_VOID__OBJECTv);
 
   g_type_ensure (BZ_TYPE_SECTION_VIEW);
+  g_type_ensure (BZ_TYPE_PATTERNED_BACKGROUND);
   g_type_ensure (BZ_TYPE_DETAILED_APP_TILE);
   g_type_ensure (BZ_TYPE_INHIBITED_SCROLLABLE);
   g_type_ensure (BZ_TYPE_DYNAMIC_LIST_VIEW);

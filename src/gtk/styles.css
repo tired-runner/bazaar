@@ -54,7 +54,10 @@
 
 .flathub-page-section {
     padding: 10px;
-    background-color: alpha(var(--accent-color), 0.15);
+    background-color: alpha(var(--accent-bg-color), 0.55);
     border-radius: 10px;
 }
 
+.flathub-background {
+    background-color: #251f32;
+}

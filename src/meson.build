@@ -90,6 +90,7 @@ bz_sources = [
   'bz-io.c',
   'bz-issue.c',
   'bz-lazy-async-texture-model.c',
+  'bz-patterned-background.c',
   'bz-preferences-dialog.c',
   'bz-progress-bar.c',
   'bz-release.c',
