@@ -39,7 +39,7 @@ template $BzFlathubPage: Adw.Bin {
               margin-top: 20;
               margin-bottom: 20;
               orientation: vertical;
-              spacing: 80;
+              spacing: 50;
 
               Box {
                 orientation: vertical;
@@ -117,6 +117,38 @@ template $BzFlathubPage: Adw.Bin {
                   
                   bind-widget => $bind_widget_cb(template);      
                   unbind-widget => $unbind_widget_cb(template);      
+                }
+              }
+
+              Box {
+                orientation: vertical;
+                spacing: 10;
+
+                Label {
+                  styles [
+                    "title-1",
+                  ]
+                  label: _("Categories");
+                  xalign: 0.0;
+                  hexpand: true;
+                }
+                
+                $BzDynamicListView {
+                  styles [
+                    "flathub-page-section",
+                  ]
+                  
+                  hexpand: true;
+                  
+                  scroll: false;
+                  noscroll-kind: flow-box;
+                  child-type: "GtkButton";
+                  child-prop: "label";
+                  object-prop: "name";
+                  model: bind template.state as <$BzFlathubState>.categories;
+                  
+                  bind-widget => $bind_category_btn_cb(template);
+                  unbind-widget => $unbind_category_btn_cb(template);
                 }
               }
 

@@ -18,8 +18,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
 #include "bz-addons-dialog.h"
 #include "bz-entry.h"
 #include "bz-result.h"
@@ -54,11 +52,6 @@ enum
   LAST_SIGNAL,
 };
 static guint signals[LAST_SIGNAL];
-
-static gint
-cmp_item (BzEntry        *a,
-          BzEntry        *b,
-          BzAddonsDialog *self);
 
 static void
 bz_addons_dialog_dispose (GObject *object)

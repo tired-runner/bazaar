@@ -615,7 +615,7 @@ initialize_fiber (BzFlathubState *self)
 
               element = json_array_get_object_element (category_array, i);
               gtk_string_list_append (
-                  self->apps_of_the_week,
+                  store,
                   json_object_get_string_member (element, "app_id"));
             }
 

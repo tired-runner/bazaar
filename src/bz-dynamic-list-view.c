@@ -37,6 +37,7 @@ struct _BzDynamicListView
   BzDynamicListViewKind noscroll_kind;
   GType                 child_type;
   char                 *child_prop;
+  char                 *object_prop;
 
   char *child_type_string;
 };
@@ -52,6 +53,7 @@ enum
   PROP_NOSCROLL_KIND,
   PROP_CHILD_TYPE,
   PROP_CHILD_PROP,
+  PROP_OBJECT_PROP,
 
   LAST_PROP
 };
@@ -110,6 +112,7 @@ bz_dynamic_list_view_dispose (GObject *object)
   g_clear_object (&self->model);
 
   g_clear_pointer (&self->child_prop, g_free);
+  g_clear_pointer (&self->object_prop, g_free);
   g_clear_pointer (&self->child_type_string, g_free);
 
   G_OBJECT_CLASS (bz_dynamic_list_view_parent_class)->dispose (object);
@@ -140,6 +143,9 @@ bz_dynamic_list_view_get_property (GObject    *object,
     case PROP_CHILD_PROP:
       g_value_set_string (value, bz_dynamic_list_view_get_child_prop (self));
       break;
+    case PROP_OBJECT_PROP:
+      g_value_set_string (value, bz_dynamic_list_view_get_object_prop (self));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -169,6 +175,9 @@ bz_dynamic_list_view_set_property (GObject      *object,
       break;
     case PROP_CHILD_PROP:
       bz_dynamic_list_view_set_child_prop (self, g_value_get_string (value));
+      break;
+    case PROP_OBJECT_PROP:
+      bz_dynamic_list_view_set_object_prop (self, g_value_get_string (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -213,6 +222,12 @@ bz_dynamic_list_view_class_init (BzDynamicListViewClass *klass)
   props[PROP_CHILD_PROP] =
       g_param_spec_string (
           "child-prop",
+          NULL, NULL, NULL,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_OBJECT_PROP] =
+      g_param_spec_string (
+          "object-prop",
           NULL, NULL, NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
@@ -299,6 +314,13 @@ bz_dynamic_list_view_get_child_prop (BzDynamicListView *self)
   return self->child_prop;
 }
 
+const char *
+bz_dynamic_list_view_get_object_prop (BzDynamicListView *self)
+{
+  g_return_val_if_fail (BZ_IS_DYNAMIC_LIST_VIEW (self), NULL);
+  return self->object_prop;
+}
+
 void
 bz_dynamic_list_view_set_model (BzDynamicListView *self,
                                 GListModel        *model)
@@ -380,6 +402,20 @@ bz_dynamic_list_view_set_child_prop (BzDynamicListView *self,
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CHILD_PROP]);
 }
 
+void
+bz_dynamic_list_view_set_object_prop (BzDynamicListView *self,
+                                      const char        *object_prop)
+{
+  g_return_if_fail (BZ_IS_DYNAMIC_LIST_VIEW (self));
+
+  g_clear_pointer (&self->object_prop, g_free);
+  if (object_prop != NULL)
+    self->object_prop = g_strdup (object_prop);
+  refresh (self);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_OBJECT_PROP]);
+}
+
 static void
 refresh (BzDynamicListView *self)
 {
@@ -439,8 +475,6 @@ refresh (BzDynamicListView *self)
 
             widget = gtk_flow_box_new ();
             gtk_flow_box_set_homogeneous (GTK_FLOW_BOX (widget), TRUE);
-            gtk_flow_box_set_column_spacing (GTK_FLOW_BOX (widget), 10);
-            gtk_flow_box_set_row_spacing (GTK_FLOW_BOX (widget), 10);
             gtk_flow_box_set_selection_mode (GTK_FLOW_BOX (widget), GTK_SELECTION_NONE);
             gtk_flow_box_bind_model (
                 GTK_FLOW_BOX (widget), self->model,
@@ -455,7 +489,6 @@ refresh (BzDynamicListView *self)
             GtkWidget *widget = NULL;
 
             widget = adw_carousel_new ();
-            adw_carousel_set_spacing (ADW_CAROUSEL (widget), 50);
             adw_carousel_set_allow_scroll_wheel (ADW_CAROUSEL (widget), FALSE);
             g_signal_connect (
                 self->model, "items-changed",
@@ -505,7 +538,27 @@ list_item_factory_bind (BzDynamicListView        *self,
 
   object = gtk_list_item_get_item (item);
   child  = gtk_list_item_get_child (item);
-  g_object_set (child, self->child_prop, object, NULL);
+
+  gtk_list_item_set_focusable (item, FALSE);
+  gtk_list_item_set_selectable (item, FALSE);
+  gtk_list_item_set_activatable (item, FALSE);
+
+  if (self->object_prop != NULL)
+    {
+      GBinding *binding = NULL;
+
+      binding = g_object_bind_property (
+          object, self->object_prop,
+          child, self->child_prop,
+          G_BINDING_SYNC_CREATE);
+      g_object_set_data_full (
+          G_OBJECT (item),
+          "binding", binding,
+          g_object_unref);
+    }
+  else
+    g_object_set (child, self->child_prop, object, NULL);
+
   g_signal_emit (self, signals[SIGNAL_BIND_WIDGET], 0, child, object);
 }
 
@@ -515,13 +568,26 @@ list_item_factory_unbind (BzDynamicListView        *self,
                           GtkSignalListItemFactory *factory)
 {
   GtkWidget *child           = NULL;
+  GBinding  *binding         = NULL;
   g_autoptr (GObject) object = NULL;
 
   g_return_if_fail (self->child_type != G_TYPE_INVALID && self->child_prop != NULL);
 
-  child = gtk_list_item_get_child (item);
-  g_object_get (child, self->child_prop, &object, NULL);
-  g_object_set (child, self->child_prop, NULL, NULL);
+  child   = gtk_list_item_get_child (item);
+  binding = g_object_steal_data (G_OBJECT (item), "binding");
+
+  if (binding != NULL)
+    {
+      object = g_binding_dup_source (binding);
+      g_binding_unbind (binding);
+      g_object_unref (binding);
+    }
+  else
+    {
+      g_object_get (child, self->child_prop, &object, NULL);
+      g_object_set (child, self->child_prop, NULL, NULL);
+    }
+
   g_signal_emit (self, signals[SIGNAL_UNBIND_WIDGET], 0, child, object);
 }
 
@@ -533,7 +599,15 @@ create_child_widget (GObject           *object,
 
   g_return_val_if_fail (self->child_type != G_TYPE_INVALID && self->child_prop != NULL, NULL);
 
-  widget = g_object_new (self->child_type, self->child_prop, object, NULL);
+  widget = g_object_new (self->child_type, NULL);
+  if (self->object_prop != NULL)
+    g_object_bind_property (
+        object, self->object_prop,
+        widget, self->child_prop,
+        G_BINDING_SYNC_CREATE);
+  else
+    g_object_set (widget, self->child_prop, object, NULL);
+
   gtk_widget_set_receives_default (widget, TRUE);
   g_signal_emit (self, signals[SIGNAL_BIND_WIDGET], 0, widget, object);
 

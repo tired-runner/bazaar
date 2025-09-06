@@ -58,6 +58,9 @@ bz_dynamic_list_view_get_child_type (BzDynamicListView *self);
 const char *
 bz_dynamic_list_view_get_child_prop (BzDynamicListView *self);
 
+const char *
+bz_dynamic_list_view_get_object_prop (BzDynamicListView *self);
+
 void
 bz_dynamic_list_view_set_model (BzDynamicListView *self,
                                 GListModel        *model);
@@ -77,6 +80,10 @@ bz_dynamic_list_view_set_child_type (BzDynamicListView *self,
 void
 bz_dynamic_list_view_set_child_prop (BzDynamicListView *self,
                                      const char        *child_prop);
+
+void
+bz_dynamic_list_view_set_object_prop (BzDynamicListView *self,
+                                      const char        *object_prop);
 
 G_END_DECLS
 
