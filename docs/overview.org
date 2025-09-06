@@ -105,9 +105,14 @@ Here is a basic curated config:
   # Some css names at your disposal:
   # - banner
   # - banner-text
+  # - banners
   # - description
   # - subtitle
   # - title
+  # - app-tile
+  # - app-tile-title
+  # - app-tile-verified-check
+  # - app-tile-description
   css: |
     .main-section {
       margin: 15px;
@@ -119,8 +124,20 @@ Here is a basic curated config:
     .background-1 {
       background: linear-gradient(45deg, #170a49, #52136c);
     }
+    .background-1 app-tile {
+      background-color: alpha(white, 0.1);
+    }
+    .background-1 app-tile:hover {
+      background-color: alpha(var(--accent-bg-color), 0.5);
+    }
     .background-2 {
       background: linear-gradient(75deg, #51263c, #7104a9);
+    }
+    .background-2 app-tile:focus {
+      background-color: alpha(var(--accent-bg-color), 0.5);
+    }
+    .background-2 app-tile-verified-check {
+      color: var(--fg-color);
     }
 
   sections:
