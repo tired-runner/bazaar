@@ -37,6 +37,7 @@ template $BzAppTile: Button {
         spacing: 10;
 
         Label {
+          css-name: "app-tile-title";
           styles [
             "title-2",
           ]
@@ -52,6 +53,7 @@ template $BzAppTile: Button {
           visible: bind template.group as <$BzEntryGroup>.ui-entry as <$BzResult>.object as <$BzEntry>.verified;
 
           child: Image {
+            css-name: "app-tile-verified-check";
             styles [
               "accent",
             ]
@@ -65,6 +67,7 @@ template $BzAppTile: Button {
       }
 
       Label {
+        css-name: "app-tile-description";
         styles [
           "heading",
           "dimmed",
