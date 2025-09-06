@@ -18,13 +18,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
+#include "bz-section-view.h"
 #include "bz-app-tile.h"
 #include "bz-async-texture.h"
 #include "bz-dynamic-list-view.h"
 #include "bz-entry-group.h"
-#include "bz-section-view.h"
 
 struct _BzSectionView
 {
