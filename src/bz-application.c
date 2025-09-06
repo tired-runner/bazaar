@@ -300,31 +300,6 @@ bz_application_command_line (GApplication            *app,
 
           init_service_struct (self);
 
-          if (self->settings == NULL)
-            {
-              const char *app_id = NULL;
-
-              app_id = g_application_get_application_id (G_APPLICATION (self));
-              g_assert (app_id != NULL);
-              g_debug ("Constructing gsettings for %s ...", app_id);
-
-              self->settings = g_settings_new (app_id);
-            }
-
-          if (self->css == NULL)
-            {
-              g_debug ("Loading css provider from resource path %s",
-                       "/io/github/kolunmi/Bazaar/gtk/styles.css");
-
-              self->css = gtk_css_provider_new ();
-              gtk_css_provider_load_from_resource (
-                  self->css, "/io/github/kolunmi/Bazaar/gtk/styles.css");
-              gtk_style_context_add_provider_for_display (
-                  gdk_display_get_default (),
-                  GTK_STYLE_PROVIDER (self->css),
-                  GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-            }
-
           blocklists = gtk_string_list_new (NULL);
 #ifdef HARDCODED_BLOCKLIST
           g_debug ("Bazaar was configured with a hardcoded blocklist at %s, adding that now...",
@@ -982,6 +957,7 @@ bz_application_init (BzApplication *self)
 static void
 init_service_struct (BzApplication *self)
 {
+  const char *app_id = NULL;
 #ifdef HARDCODED_MAIN_CONFIG
   g_autoptr (GError) local_error  = NULL;
   g_autoptr (GFile) config_file   = NULL;
@@ -1020,6 +996,21 @@ init_service_struct (BzApplication *self)
   self->init_timer = g_timer_new ();
 
   (void) bz_download_worker_get_default ();
+
+  app_id = g_application_get_application_id (G_APPLICATION (self));
+  g_assert (app_id != NULL);
+  g_debug ("Constructing gsettings for %s ...", app_id);
+  self->settings = g_settings_new (app_id);
+
+  g_debug ("Loading css provider from resource path %s",
+           "/io/github/kolunmi/Bazaar/gtk/styles.css");
+  self->css = gtk_css_provider_new ();
+  gtk_css_provider_load_from_resource (
+      self->css, "/io/github/kolunmi/Bazaar/gtk/styles.css");
+  gtk_style_context_add_provider_for_display (
+      gdk_display_get_default (),
+      GTK_STYLE_PROVIDER (self->css),
+      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
   self->groups         = g_list_store_new (BZ_TYPE_ENTRY_GROUP);
   self->installed_apps = g_list_store_new (BZ_TYPE_ENTRY);

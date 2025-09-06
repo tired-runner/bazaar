@@ -25,6 +25,7 @@
 
 #include "bz-decorated-screenshot.h"
 #include "bz-dynamic-list-view.h"
+#include "bz-env.h"
 #include "bz-error.h"
 #include "bz-flatpak-entry.h"
 #include "bz-full-view.h"
@@ -52,6 +53,7 @@ struct _BzFullView
 
   /* Template widgets */
   AdwViewStack *stack;
+  GtkWidget    *forge_stars;
   GtkLabel     *forge_stars_label;
 };
 
@@ -471,6 +473,7 @@ bz_full_view_class_init (BzFullViewClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-full-view.ui");
   gtk_widget_class_bind_template_child (widget_class, BzFullView, stack);
+  gtk_widget_class_bind_template_child (widget_class, BzFullView, forge_stars);
   gtk_widget_class_bind_template_child (widget_class, BzFullView, forge_stars_label);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_zero);
@@ -540,6 +543,7 @@ bz_full_view_set_entry_group (BzFullView   *self,
   g_clear_object (&self->debounced_ui_entry);
   g_clear_object (&self->group_model);
 
+  gtk_widget_set_visible (self->forge_stars, FALSE);
   gtk_label_set_label (self->forge_stars_label, "...");
 
   if (group != NULL)
@@ -582,14 +586,20 @@ debounce_timeout (BzFullView *self)
   self->debounced_ui_entry = g_object_ref (self->ui_entry);
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_DEBOUNCED_UI_ENTRY]);
 
-  /* Disabled for now since we don't want to users to be rate limited
-     by github */
-  // dex_clear (&self->loading_forge_stars);
-  // self->loading_forge_stars = dex_scheduler_spawn (
-  //     dex_scheduler_get_default (),
-  //     bz_get_dex_stack_size (),
-  //     (DexFiberFunc) retrieve_star_string_fiber,
-  //     self, NULL);
+  /* Disabled by default in gsettings schema since we don't want to
+     users to be rate limited by github */
+  if (self->state != NULL &&
+      g_settings_get_boolean (
+          bz_state_info_get_settings (self->state),
+          "show-git-forge-star-counts"))
+    {
+      dex_clear (&self->loading_forge_stars);
+      self->loading_forge_stars = dex_scheduler_spawn (
+          dex_scheduler_get_default (),
+          bz_get_dex_stack_size (),
+          (DexFiberFunc) retrieve_star_string_fiber,
+          self, NULL);
+    }
 }
 
 static DexFuture *
@@ -634,6 +644,8 @@ retrieve_star_string_fiber (BzFullView *self)
   object     = json_node_get_object (node);
   star_count = json_object_get_int_member_with_default (object, "stargazers_count", 0);
   fmt        = g_strdup_printf ("%'zu", star_count);
+
+  gtk_widget_set_visible (self->forge_stars, TRUE);
 
 done:
   gtk_label_set_label (self->forge_stars_label, fmt != NULL ? fmt : "?");

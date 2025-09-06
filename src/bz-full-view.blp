@@ -242,9 +242,7 @@ template $BzFullView: Adw.Bin {
                       };
                     }
 
-                    FlowBoxChild {
-                      // disabled for now
-                      visible: false;
+                    FlowBoxChild forge_stars {
                       focusable: false;
                       halign: start;
                       hexpand: false;
@@ -261,7 +259,6 @@ template $BzFullView: Adw.Bin {
                             "pill",
                           ]
 
-                          // visible: bind $invert_boolean($is_null(template.ui-entry as <$BzResult>.object as <$BzEntry>.forge-url as <string>) as <bool>) as <bool>;
                           valign: start;
                           has-tooltip: true;
                           tooltip-text: _("VCS Forge Star Count");

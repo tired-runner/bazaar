@@ -18,8 +18,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
 #include "bz-preferences-dialog.h"
 
 struct _BzPreferencesDialog
@@ -38,7 +36,7 @@ enum
   PROP_0,
 
   PROP_SETTINGS,
-  PROP_SHOW_ANIMATED_BACKGROUND,
+  PROP_SHOW_GIT_FORGE_STAR_COUNTS,
 
   LAST_PROP
 };
@@ -75,12 +73,12 @@ bz_preferences_dialog_get_property (GObject    *object,
     case PROP_SETTINGS:
       g_value_set_object (value, self->settings);
       break;
-    case PROP_SHOW_ANIMATED_BACKGROUND:
+    case PROP_SHOW_GIT_FORGE_STAR_COUNTS:
       g_value_set_boolean (
           value,
           self->settings != NULL
               ? g_settings_get_boolean (
-                    self->settings, "show-animated-background")
+                    self->settings, "show-git-forge-star-counts")
               : TRUE);
       break;
     default:
@@ -108,13 +106,13 @@ bz_preferences_dialog_set_property (GObject      *object,
         g_signal_connect (
             self->settings, "changed",
             G_CALLBACK (setting_changed), self);
-      g_object_notify_by_pspec (object, props[PROP_SHOW_ANIMATED_BACKGROUND]);
+      g_object_notify_by_pspec (object, props[PROP_SHOW_GIT_FORGE_STAR_COUNTS]);
       break;
-    case PROP_SHOW_ANIMATED_BACKGROUND:
+    case PROP_SHOW_GIT_FORGE_STAR_COUNTS:
       if (self->settings != NULL)
         g_settings_set_boolean (
             self->settings,
-            "show-animated-background",
+            "show-git-forge-star-counts",
             g_value_get_boolean (value));
       break;
     default:
@@ -139,9 +137,9 @@ bz_preferences_dialog_class_init (BzPreferencesDialogClass *klass)
           G_TYPE_SETTINGS,
           G_PARAM_READWRITE);
 
-  props[PROP_SHOW_ANIMATED_BACKGROUND] =
+  props[PROP_SHOW_GIT_FORGE_STAR_COUNTS] =
       g_param_spec_boolean (
-          "show-animated-background",
+          "show-git-forge-star-counts",
           NULL, NULL,
           TRUE,
           G_PARAM_READWRITE);
@@ -164,8 +162,8 @@ setting_changed (GSettings           *settings,
 {
   int prop = 0;
 
-  if (g_strcmp0 (key, "show-animated-background") == 0)
-    prop = PROP_SHOW_ANIMATED_BACKGROUND;
+  if (g_strcmp0 (key, "show-git-forge-star-counts") == 0)
+    prop = PROP_SHOW_GIT_FORGE_STAR_COUNTS;
 
   if (prop > PROP_0 && prop < LAST_PROP)
     g_object_notify_by_pspec (G_OBJECT (self), props[prop]);

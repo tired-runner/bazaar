@@ -10,12 +10,13 @@ template $BzPreferencesDialog: Adw.PreferencesDialog {
     use-underline: true;
 
     Adw.PreferencesGroup {
-      description: _("How the application looks");
-      title: _("Appearance");
+      title: _("Full Application View");
+      description: _("Change what content is shown when viewing applications");
 
       Adw.SwitchRow {
-        title: _("Show animated background");
-        active: bind template.show-animated-background bidirectional;
+        title: _("Git Forge Star Counts");
+        subtitle: _("If you do not have an access token, turning this setting on may cause GitHub to eventually rate limit you.");
+        active: bind template.show-git-forge-star-counts bidirectional;
       }
     }
   }

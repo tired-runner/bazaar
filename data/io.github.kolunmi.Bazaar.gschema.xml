@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="bazaar">
   <schema id="io.github.kolunmi.Bazaar" path="/io/github/kolunmi/Bazaar/">
-    <key name="show-animated-background" type="b">
-      <default>true</default>
-      <summary>Show Animated Background</summary>
-      <description>Whether to show the animated icon background on the home page</description>
+    <key name="show-git-forge-star-counts" type="b">
+      <default>false</default>
+      <summary>Show Git Forge Star Counts</summary>
+      <description>Whether to attempt to detect and show "star counts" for projects in the full view</description>
     </key>
   </schema>
 </schemalist>
