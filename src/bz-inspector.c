@@ -208,9 +208,9 @@ filter_func (BzEntryGroup *group,
   if (text == NULL || *text == '\0')
     return TRUE;
 
-  if (g_strstr_len (id, -1, text) != NULL)
+  if (strcasestr (id, text) != NULL)
     return TRUE;
-  if (g_strstr_len (title, -1, text) != NULL)
+  if (strcasestr (title, text) != NULL)
     return TRUE;
 
   return FALSE;
