@@ -25,6 +25,8 @@ typedef struct
 {
   char         *error;
   GListModel   *classes;
+  GListModel   *light_classes;
+  GListModel   *dark_classes;
   char         *title;
   char         *subtitle;
   char         *description;
@@ -46,6 +48,8 @@ enum
 
   PROP_ERROR,
   PROP_CLASSES,
+  PROP_LIGHT_CLASSES,
+  PROP_DARK_CLASSES,
   PROP_TITLE,
   PROP_SUBTITLE,
   PROP_DESCRIPTION,
@@ -70,6 +74,8 @@ bz_content_section_dispose (GObject *object)
 
   g_clear_pointer (&priv->error, g_free);
   g_clear_object (&priv->classes);
+  g_clear_object (&priv->light_classes);
+  g_clear_object (&priv->dark_classes);
   g_clear_pointer (&priv->title, g_free);
   g_clear_pointer (&priv->subtitle, g_free);
   g_clear_pointer (&priv->description, g_free);
@@ -95,6 +101,12 @@ bz_content_section_get_property (GObject    *object,
       break;
     case PROP_CLASSES:
       g_value_set_object (value, priv->classes);
+      break;
+    case PROP_LIGHT_CLASSES:
+      g_value_set_object (value, priv->light_classes);
+      break;
+    case PROP_DARK_CLASSES:
+      g_value_set_object (value, priv->dark_classes);
       break;
     case PROP_TITLE:
       g_value_set_string (value, priv->title);
@@ -152,6 +164,14 @@ bz_content_section_set_property (GObject      *object,
     case PROP_CLASSES:
       g_clear_object (&priv->classes);
       priv->classes = g_value_dup_object (value);
+      break;
+    case PROP_LIGHT_CLASSES:
+      g_clear_object (&priv->light_classes);
+      priv->light_classes = g_value_dup_object (value);
+      break;
+    case PROP_DARK_CLASSES:
+      g_clear_object (&priv->dark_classes);
+      priv->dark_classes = g_value_dup_object (value);
       break;
     case PROP_TITLE:
       g_clear_pointer (&priv->title, g_free);
@@ -214,6 +234,20 @@ bz_content_section_class_init (BzContentSectionClass *klass)
   props[PROP_CLASSES] =
       g_param_spec_object (
           "classes",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_LIGHT_CLASSES] =
+      g_param_spec_object (
+          "light-classes",
+          NULL, NULL,
+          G_TYPE_LIST_MODEL,
+          G_PARAM_READWRITE);
+
+  props[PROP_DARK_CLASSES] =
+      g_param_spec_object (
+          "dark-classes",
           NULL, NULL,
           G_TYPE_LIST_MODEL,
           G_PARAM_READWRITE);

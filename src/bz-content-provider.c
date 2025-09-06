@@ -687,29 +687,36 @@ input_load_fiber (InputLoadData *data)
               g_object_set (section, "appids", strlist, NULL);
             }
 
-          if (g_hash_table_contains (section_props, "classes"))
-            {
-              GPtrArray *classes                = NULL;
-              g_autoptr (GtkStringList) strlist = NULL;
+#define GRAB_CLASSES(key)                              \
+  if (g_hash_table_contains (section_props, (key)))    \
+    {                                                  \
+      GPtrArray *classes                = NULL;        \
+      g_autoptr (GtkStringList) strlist = NULL;        \
+                                                       \
+      classes = g_value_get_boxed (                    \
+          g_hash_table_lookup (section_props, (key))); \
+      strlist = gtk_string_list_new (NULL);            \
+                                                       \
+      for (guint j = 0; j < classes->len; j++)         \
+        {                                              \
+          const char *class = NULL;                    \
+                                                       \
+          class = g_variant_get_string (               \
+              g_value_get_variant (                    \
+                  g_ptr_array_index (classes, j)),     \
+              NULL);                                   \
+                                                       \
+          gtk_string_list_append (strlist, class);     \
+        }                                              \
+                                                       \
+      g_object_set (section, (key), strlist, NULL);    \
+    }
 
-              classes = g_value_get_boxed (
-                  g_hash_table_lookup (section_props, "classes"));
-              strlist = gtk_string_list_new (NULL);
+          GRAB_CLASSES ("classes")
+          GRAB_CLASSES ("dark-classes")
+          GRAB_CLASSES ("light-classes")
 
-              for (guint j = 0; j < classes->len; j++)
-                {
-                  const char *class = NULL;
-
-                  class = g_variant_get_string (
-                      g_value_get_variant (
-                          g_ptr_array_index (classes, j)),
-                      NULL);
-
-                  gtk_string_list_append (strlist, class);
-                }
-
-              g_object_set (section, "classes", strlist, NULL);
-            }
+#undef GRAB_CLASSES
 
           g_ptr_array_add (sections, g_steal_pointer (&section));
         }
