@@ -21,6 +21,8 @@
 #define G_LOG_DOMAIN  "BAZAAR::FLATPAK-ENTRY"
 #define BAZAAR_MODULE "entry"
 
+#include "config.h"
+
 #include <xmlb.h>
 
 #include "bz-async-texture.h"
