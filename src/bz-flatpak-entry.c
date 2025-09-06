@@ -406,12 +406,12 @@ bz_flatpak_entry_new_for_ref (BzFlatpakInstance *instance,
 
 #undef GET_STRING
 
-  if (kinds == 0)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_UNKNOWN,
-                   "Key file presented no useful information");
-      return NULL;
-    }
+  // if (kinds == 0)
+  //   {
+  //     g_set_error (error, G_IO_ERROR, G_IO_ERROR_UNKNOWN,
+  //                  "Key file presented no useful information");
+  //     return NULL;
+  //   }
   module_dir = bz_dup_module_dir ();
 
   self->flatpak_id = flatpak_ref_format_ref (ref);
