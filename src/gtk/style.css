@@ -45,16 +45,21 @@
     font-weight: normal;
 }
 
-.support-button {
-    background-color: alpha(#f06292, 0.25);
-    color: #f06292;
-    padding: 2px 12px;
+.support {
+    --accent-fg-color : #f06292;
+    --accent-bg-color : alpha(#f06292, 0.25);
+    --accent-color : #f06292;
 }
 
-.star-button {
-    background-color: alpha(@warning_bg_color, 0.25);
-    color: @warning_color;
+.star {
+    --accent-fg-color: @warning_bg_color;
+    --accent-bg-color : alpha(@warning_bg_color, 0.25);
+    --accent-color: @warning_color;
+}
+
+.small-pill {
     padding: 2px 12px;
+    border-radius: 99999px;
 }
 
 .flathub-page-section {
