@@ -6,3 +6,10 @@ configure_file(
   configuration: service_conf,
   install_dir: get_option('datadir') / 'dbus-1' / 'services'
 )
+
+configure_file(
+  input: 'io.github.kolunmi.bazaar.searchprovider.service.in',
+  output: 'io.github.kolunmi.Bazaar.Searchprovider.service',
+  configuration: service_conf,
+  install_dir: get_option('datadir') / 'dbus-1' / 'services'
+)
