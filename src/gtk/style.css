@@ -80,3 +80,6 @@ window.flathub {
   background-color: oklch(from var(--headerbar-bg-color) l calc(c * 4) var(--flathub-bg-hue));
 }
 
+.flathub .sidebar-pane {
+  background-color: oklch(from var(--sidebar-bg-color) l calc(c * 4) var(--flathub-bg-hue));
+}
