@@ -168,6 +168,14 @@ Here is a basic curated config:
         - main-section
         - background-1
 
+      # The `classes` key (above) is for styling which we want to apply
+      # all the time. If you want a style class to only be active in
+      # light or dark mode, use `light-classes` or `dark-classes`:
+      light-classes:
+        - light-section
+      dark-classes:
+        - dark-section
+
       # appid list
       appids:
         - com.usebottles.bottles
