@@ -57,6 +57,7 @@ bz_sources = [
   'bz-async-texture.c',
   'bz-backend-transaction-op-payload.c',
   'bz-backend-transaction-op-progress-payload.c',
+  'bz-transaction-task.c',
   'bz-backend.c',
   'bz-browse-widget.c',
   'bz-category-dialog.c',

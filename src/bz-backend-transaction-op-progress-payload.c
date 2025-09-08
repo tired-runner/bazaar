@@ -28,6 +28,7 @@ struct _BzBackendTransactionOpProgressPayload
   char                          *status;
   gboolean                       is_estimating;
   double                         progress;
+  double                         total_progress;
   guint64                        bytes_transferred;
   guint64                        start_time;
 };
@@ -42,6 +43,7 @@ enum
   PROP_STATUS,
   PROP_IS_ESTIMATING,
   PROP_PROGRESS,
+  PROP_TOTAL_PROGRESS,
   PROP_BYTES_TRANSFERRED,
   PROP_START_TIME,
 
@@ -82,6 +84,9 @@ bz_backend_transaction_op_progress_payload_get_property (GObject    *object,
     case PROP_PROGRESS:
       g_value_set_double (value, bz_backend_transaction_op_progress_payload_get_progress (self));
       break;
+    case PROP_TOTAL_PROGRESS:
+      g_value_set_double (value, bz_backend_transaction_op_progress_payload_get_total_progress (self));
+      break;
     case PROP_BYTES_TRANSFERRED:
       g_value_set_uint64 (value, bz_backend_transaction_op_progress_payload_get_bytes_transferred (self));
       break;
@@ -114,6 +119,9 @@ bz_backend_transaction_op_progress_payload_set_property (GObject      *object,
       break;
     case PROP_PROGRESS:
       bz_backend_transaction_op_progress_payload_set_progress (self, g_value_get_double (value));
+      break;
+    case PROP_TOTAL_PROGRESS:
+      bz_backend_transaction_op_progress_payload_set_total_progress (self, g_value_get_double (value));
       break;
     case PROP_BYTES_TRANSFERRED:
       bz_backend_transaction_op_progress_payload_set_bytes_transferred (self, g_value_get_uint64 (value));
@@ -157,6 +165,13 @@ bz_backend_transaction_op_progress_payload_class_init (BzBackendTransactionOpPro
   props[PROP_PROGRESS] =
       g_param_spec_double (
           "progress",
+          NULL, NULL,
+          0.0, 1.0, 0.0,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+  props[PROP_TOTAL_PROGRESS] =
+      g_param_spec_double (
+          "total-progress",
           NULL, NULL,
           0.0, 1.0, 0.0,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
@@ -215,6 +230,13 @@ bz_backend_transaction_op_progress_payload_get_progress (BzBackendTransactionOpP
 {
   g_return_val_if_fail (BZ_IS_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (self), 0.0);
   return self->progress;
+}
+
+double
+bz_backend_transaction_op_progress_payload_get_total_progress (BzBackendTransactionOpProgressPayload *self)
+{
+  g_return_val_if_fail (BZ_IS_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (self), 0.0);
+  return self->total_progress;
 }
 
 guint64
@@ -277,6 +299,17 @@ bz_backend_transaction_op_progress_payload_set_progress (BzBackendTransactionOpP
   self->progress = progress;
 
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_PROGRESS]);
+}
+
+void
+bz_backend_transaction_op_progress_payload_set_total_progress (BzBackendTransactionOpProgressPayload *self,
+                                                               double                                 total_progress)
+{
+  g_return_if_fail (BZ_IS_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (self));
+
+  self->total_progress = total_progress;
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_TOTAL_PROGRESS]);
 }
 
 void

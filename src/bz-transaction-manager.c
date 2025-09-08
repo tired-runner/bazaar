@@ -499,6 +499,7 @@ transaction_fiber (QueuedScheduleData *data)
   guint    n_removals            = 0;
   g_autoptr (GListStore) store   = NULL;
   g_autoptr (DexFuture) future   = NULL;
+  g_autoptr (GHashTable) op_set  = NULL;
 
   g_object_set (
       transaction,
@@ -592,6 +593,8 @@ transaction_fiber (QueuedScheduleData *data)
       G_LIST_MODEL (store),
       channel,
       cancellable);
+
+  op_set = g_hash_table_new_full (g_direct_hash, g_direct_equal, g_object_unref, NULL);
   for (;;)
     {
       g_autoptr (GObject) object = NULL;
@@ -602,28 +605,43 @@ transaction_fiber (QueuedScheduleData *data)
 
       if (BZ_IS_BACKEND_TRANSACTION_OP_PAYLOAD (object))
         {
+          if (g_hash_table_contains (op_set, object))
+            {
+              bz_transaction_finish_task (
+                  transaction, BZ_BACKEND_TRANSACTION_OP_PAYLOAD (object));
+              g_hash_table_remove (op_set, object);
+            }
+          else
+            {
+              bz_transaction_add_task (
+                  transaction, BZ_BACKEND_TRANSACTION_OP_PAYLOAD (object));
+              g_hash_table_add (op_set, g_object_ref (object));
+            }
         }
       else if (BZ_IS_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (object))
         {
-          const char *status        = NULL;
-          gboolean    is_estimating = FALSE;
-          double      progress      = 0.0;
+          const char *status         = NULL;
+          gboolean    is_estimating  = FALSE;
+          double      total_progress = 0.0;
+
+          bz_transaction_update_task (
+              transaction, BZ_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (object));
 
           status = bz_backend_transaction_op_progress_payload_get_status (
               BZ_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (object));
           is_estimating = bz_backend_transaction_op_progress_payload_get_is_estimating (
               BZ_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (object));
-          progress = bz_backend_transaction_op_progress_payload_get_progress (
+          total_progress = bz_backend_transaction_op_progress_payload_get_total_progress (
               BZ_BACKEND_TRANSACTION_OP_PROGRESS_PAYLOAD (object));
 
           g_object_set (
               transaction,
               "pending", is_estimating,
               "status", status,
-              "progress", progress,
+              "progress", total_progress,
               NULL);
 
-          self->current_progress = progress;
+          self->current_progress = total_progress;
           g_object_notify_by_pspec (G_OBJECT (self), props[PROP_CURRENT_PROGRESS]);
         }
     }

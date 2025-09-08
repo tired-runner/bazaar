@@ -20,8 +20,6 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
-
 #include "bz-backend-transaction-op-payload.h"
 
 G_BEGIN_DECLS
@@ -44,6 +42,9 @@ bz_backend_transaction_op_progress_payload_get_is_estimating (BzBackendTransacti
 double
 bz_backend_transaction_op_progress_payload_get_progress (BzBackendTransactionOpProgressPayload *self);
 
+double
+bz_backend_transaction_op_progress_payload_get_total_progress (BzBackendTransactionOpProgressPayload *self);
+
 guint64
 bz_backend_transaction_op_progress_payload_get_bytes_transferred (BzBackendTransactionOpProgressPayload *self);
 
@@ -65,6 +66,10 @@ bz_backend_transaction_op_progress_payload_set_is_estimating (BzBackendTransacti
 void
 bz_backend_transaction_op_progress_payload_set_progress (BzBackendTransactionOpProgressPayload *self,
                                                          double                                 progress);
+
+void
+bz_backend_transaction_op_progress_payload_set_total_progress (BzBackendTransactionOpProgressPayload *self,
+                                                               double                                 total_progress);
 
 void
 bz_backend_transaction_op_progress_payload_set_bytes_transferred (BzBackendTransactionOpProgressPayload *self,

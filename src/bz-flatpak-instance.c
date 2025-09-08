@@ -1683,12 +1683,12 @@ transaction_new_operation (FlatpakTransaction          *transaction,
   if (data->channel == NULL)
     return;
 
-  flatpak_transaction_progress_set_update_frequency (progress, 150);
+  flatpak_transaction_progress_set_update_frequency (progress, 100);
   entry = find_entry_from_operation (data, operation, &data->n_operations);
 
   payload = bz_backend_transaction_op_payload_new ();
   bz_backend_transaction_op_payload_set_name (
-      payload, bz_entry_get_id (BZ_ENTRY (entry)));
+      payload, flatpak_transaction_operation_get_ref (operation));
   bz_backend_transaction_op_payload_set_download_size (
       payload, flatpak_transaction_operation_get_download_size (operation));
   bz_backend_transaction_op_payload_set_installed_size (
@@ -1699,6 +1699,11 @@ transaction_new_operation (FlatpakTransaction          *transaction,
       dex_channel_send (
           data->channel,
           dex_future_new_for_object (payload)));
+
+  g_object_set_data_full (
+      G_OBJECT (operation),
+      "payload", g_object_ref (payload),
+      g_object_unref);
 
   operation_data         = transaction_operation_data_new ();
   operation_data->parent = transaction_data_ref (data);
@@ -1720,7 +1725,17 @@ transaction_operation_done (FlatpakTransaction          *object,
                             gint                         result,
                             TransactionData             *data)
 {
+  g_autoptr (BzBackendTransactionOpPayload) payload = NULL;
+
   data->n_finished_operations++;
+
+  payload = g_object_steal_data (G_OBJECT (operation), "payload");
+  if (payload != NULL)
+    g_ptr_array_add (
+        data->send_futures,
+        dex_channel_send (
+            data->channel,
+            dex_future_new_for_object (payload)));
 }
 
 static gboolean
@@ -1813,6 +1828,8 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
   bz_backend_transaction_op_progress_payload_set_is_estimating (
       payload, flatpak_transaction_progress_get_is_estimating (progress));
   bz_backend_transaction_op_progress_payload_set_progress (
+      payload, (double) flatpak_transaction_progress_get_progress (progress) / 100.0);
+  bz_backend_transaction_op_progress_payload_set_total_progress (
       payload, (double) (flatpak_transaction_progress_get_progress (progress) +
                          (100 * data->parent->n_finished_operations)) /
                    (100.0 * MAX (1.0, (double) (data->parent->n_operations))));
