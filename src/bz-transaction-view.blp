@@ -31,26 +31,25 @@ template $BzTransactionView: Adw.Bin {
             activatable: false;
 
             child: Box {
+              margin-start: 5;
+              margin-end: 5;
+              margin-top: 5;
+              margin-bottom: 5;
+                
               orientation: vertical;
-              spacing: 10;
+              spacing: 7;
 
               Label {
                 styles [
-                  "heading",
+                  "title-4",
                 ]
 
                 hexpand: true;
-                xalign: 0.0;
-                ellipsize: end;
-                single-line-mode: true;
-                label: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.name; 
+                ellipsize: middle;
+                xalign: 1.0;
+                label: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.name;
               }
-
-              $BzProgressBar {
-                hexpand: "true";
-                fraction: bind template.item as <$BzTransactionTask>.last-progress as <$BzBackendTransactionOpProgressPayload>.progress;
-              }
-              
+                
               Label {
                 styles [
                   "accent",
@@ -61,6 +60,57 @@ template $BzTransactionView: Adw.Bin {
                 ellipsize: end;
                 single-line-mode: true;
                 label: bind template.item as <$BzTransactionTask>.last-progress as <$BzBackendTransactionOpProgressPayload>.status;
+              }
+              
+              $BzProgressBar {
+                hexpand: "true";
+                fraction: bind template.item as <$BzTransactionTask>.last-progress as <$BzBackendTransactionOpProgressPayload>.progress;
+              }
+              
+              // Label {
+              //   styles [
+              //     "dimmed",
+              //   ]
+
+              //   hexpand: true;
+              //   xalign: 0.0;
+              //   ellipsize: end;
+              //   single-line-mode: true;
+              //   label: bind $format_bytes_transferred(template.item as <$BzTransactionTask>.last-progress as <$BzBackendTransactionOpProgressPayload>.bytes-transferred) as <string>;
+              // }
+
+              Box {
+                orientation: horizontal;
+                spacing: 5;
+                  
+                Image {
+                  icon-name: "folder-download-symbolic";
+                }
+                  
+                Label {
+                  hexpand: true;
+                  xalign: 0.0;
+                  ellipsize: end;
+                  single-line-mode: true;
+                  label: bind $format_download_size(template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.download-size) as <string>;
+                }
+              }
+
+              Box {
+                orientation: horizontal;
+                spacing: 5;
+                  
+                Image {
+                  icon-name: "drive-harddisk-symbolic";
+                }
+                  
+                Label {
+                  hexpand: true;
+                  xalign: 0.0;
+                  ellipsize: end;
+                  single-line-mode: true;
+                  label: bind $format_installed_size(template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.installed-size) as <string>;
+                }
               }
             };
           }
@@ -107,12 +157,19 @@ template $BzTransactionView: Adw.Bin {
               activatable: false;
 
               child: Box {
-                orientation: vertical;
-                spacing: 10;
+                orientation: horizontal;
+                spacing: 5;
 
+                Image {
+                  styles [
+                    "success",
+                  ]
+                  icon-name: "check-plain-symbolic";
+                }
+                
                 Label {
                   styles [
-                    "heading",
+                    "dimmed",
                   ]
 
                   hexpand: true;

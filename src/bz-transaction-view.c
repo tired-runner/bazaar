@@ -18,6 +18,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <glib/gi18n.h>
+
 #include "bz-transaction-view.h"
 
 struct _BzTransactionView
@@ -99,6 +101,36 @@ is_null (gpointer object,
   return value == NULL;
 }
 
+static char *
+format_download_size (gpointer object,
+                      guint64  value)
+{
+  g_autofree char *size = NULL;
+
+  size = g_format_size (value);
+  return g_strdup_printf (_ ("%s to download"), size);
+}
+
+static char *
+format_installed_size (gpointer object,
+                       guint64  value)
+{
+  g_autofree char *size = NULL;
+
+  size = g_format_size (value);
+  return g_strdup_printf (_ ("%s to install"), size);
+}
+
+static char *
+format_bytes_transferred (gpointer object,
+                          guint64  value)
+{
+  g_autofree char *size = NULL;
+
+  size = g_format_size (value);
+  return g_strdup_printf (_ ("Transferred %s so far"), size);
+}
+
 static void
 bz_transaction_view_class_init (BzTransactionViewClass *klass)
 {
@@ -121,6 +153,9 @@ bz_transaction_view_class_init (BzTransactionViewClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/io/github/kolunmi/Bazaar/bz-transaction-view.ui");
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, format_download_size);
+  gtk_widget_class_bind_template_callback (widget_class, format_installed_size);
+  gtk_widget_class_bind_template_callback (widget_class, format_bytes_transferred);
 }
 
 static void
