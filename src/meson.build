@@ -55,6 +55,8 @@ bz_sources = [
   'bz-application-map-factory.c',
   'bz-application.c',
   'bz-async-texture.c',
+  'bz-backend-transaction-op-payload.c',
+  'bz-backend-transaction-op-progress-payload.c',
   'bz-backend.c',
   'bz-browse-widget.c',
   'bz-category-dialog.c',
