@@ -1914,7 +1914,7 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
       progress_sum += GPOINTER_TO_INT (val);
       n_ops++;
     }
-  total_progress = (double) progress_sum / (double) (n_ops * 100);
+  total_progress = MIN ((double) progress_sum / (double) (n_ops * 100), 1.0);
 
   payload = bz_backend_transaction_op_progress_payload_new ();
   bz_backend_transaction_op_progress_payload_set_op (
