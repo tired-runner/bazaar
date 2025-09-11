@@ -157,6 +157,7 @@ BZ_DEFINE_DATA (
       GPtrArray         *send_futures;
       GHashTable        *ref_to_entry_hash;
       GHashTable        *op_to_progress_hash;
+      guint              unidentified_op_cnt;
     },
     g_mutex_clear (&self->mutex);
     BZ_RELEASE_DATA (cancellable, g_object_unref);
@@ -1748,6 +1749,7 @@ transaction_new_operation (FlatpakTransaction          *transaction,
       dex_channel_send (
           data->channel,
           dex_future_new_for_object (payload)));
+  data->unidentified_op_cnt--;
   g_mutex_unlock (&data->mutex);
 
   g_object_set_data_full (
@@ -1816,13 +1818,7 @@ transaction_ready (FlatpakTransaction *object,
   operations = flatpak_transaction_get_operations (object);
 
   g_mutex_lock (&data->mutex);
-  for (GList *l = operations; l != NULL; l = l->next)
-    {
-      g_hash_table_replace (
-          data->op_to_progress_hash,
-          g_object_ref (l->data),
-          GINT_TO_POINTER (0));
-    }
+  data->unidentified_op_cnt += g_list_length (operations);
   g_mutex_unlock (&data->mutex);
 
   return TRUE;
@@ -1914,7 +1910,9 @@ transaction_progress_changed (FlatpakTransactionProgress *progress,
       progress_sum += GPOINTER_TO_INT (val);
       n_ops++;
     }
-  total_progress = MIN ((double) progress_sum / (double) (n_ops * 100), 1.0);
+  total_progress = MIN ((double) progress_sum /
+                            (double) ((n_ops + parent->unidentified_op_cnt) * 100),
+                        1.0);
 
   payload = bz_backend_transaction_op_progress_payload_new ();
   bz_backend_transaction_op_progress_payload_set_op (
