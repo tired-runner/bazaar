@@ -3,24 +3,166 @@ using Adw 1;
 
 template $BzTransactionView: Adw.Bin {
   child: Frame {
-    styles [
-      "card",
-    ]
-
     child: Box {
       margin-top: 10;
       margin-bottom: 10;
       margin-start: 10;
       margin-end: 10;
       orientation: vertical;
-      spacing: 5;
+      spacing: 0;
 
+      Box {
+        orientation: vertical;
+        spacing: 0;
+        margin-bottom: 10;
+
+        ListView {
+          styles [
+            "navigation-sidebar",
+            "transaction-sidebar-entry-list",
+          ]
+                
+          model: NoSelection {
+            model: bind template.transaction as <$BzTransaction>.installs;
+          };
+
+          factory: BuilderListItemFactory {
+            template ListItem {
+              activatable: false;
+
+              child: Box {
+                margin-top: 2;
+                margin-bottom: 2;
+                
+                orientation: horizontal;
+                spacing: 10;
+
+                Image {
+                  styles [
+                    "success",
+                  ]
+
+                  valign: center;
+                  icon-name: "folder-download-symbolic";
+                }
+
+                Label {
+                  valign: center;
+                  hexpand: true;
+                  ellipsize: end;
+                  xalign: 0.0;
+                  label: bind template.item as <$BzEntry>.title as <string>;
+                }
+                
+                Image {
+                  paintable: bind template.item as <$BzEntry>.icon-paintable;
+                  pixel-size: 32;
+                }
+              };
+            }
+          };
+        }
+        
+        ListView {
+          styles [
+            "navigation-sidebar",
+            "transaction-sidebar-entry-list",
+          ]
+                
+          model: NoSelection {
+            model: bind template.transaction as <$BzTransaction>.updates;
+          };
+
+          factory: BuilderListItemFactory {
+            template ListItem {
+              activatable: false;
+
+              child: Box {
+                margin-start: 2;
+                margin-end: 2;
+                
+                orientation: horizontal;
+                spacing: 10;
+
+                Image {
+                  styles [
+                    "accent",
+                  ]
+                  
+                  valign: center;
+                  icon-name: "software-update-available-symbolic";
+                }
+
+                Label {
+                  valign: center;
+                  hexpand: true;
+                  ellipsize: end;
+                  xalign: 0.0;
+                  label: bind template.item as <$BzEntry>.title as <string>;
+                }
+                
+                Image {
+                  paintable: bind template.item as <$BzEntry>.icon-paintable;
+                  pixel-size: 32;
+                }
+              };
+            }
+          };
+        }
+
+        ListView {
+          styles [
+            "navigation-sidebar",
+            "transaction-sidebar-entry-list",
+          ]
+                
+          model: NoSelection {
+            model: bind template.transaction as <$BzTransaction>.removals;
+          };
+
+          factory: BuilderListItemFactory {
+            template ListItem {
+              activatable: false;
+
+              child: Box {
+                margin-start: 2;
+                margin-end: 2;
+                
+                orientation: horizontal;
+                spacing: 10;
+
+                Image {
+                  styles [
+                    "error",
+                  ]
+                  
+                  valign: center;
+                  icon-name: "user-trash-symbolic";
+                }
+
+                Label {
+                  valign: center;
+                  hexpand: true;
+                  ellipsize: end;
+                  xalign: 0.0;
+                  label: bind template.item as <$BzEntry>.title as <string>;
+                }
+                
+                Image {
+                  paintable: bind template.item as <$BzEntry>.icon-paintable;
+                  pixel-size: 32;
+                }
+              };
+            }
+          };
+        }
+      }
+      
       ListView {
         styles [
           "navigation-sidebar",
+          "transaction-sidebar-entry-list",
         ]
-
-        visible: bind $invert_boolean(template.transaction as <$BzTransaction>.finished) as <bool>;
         
         model: NoSelection {
           model: bind template.transaction as <$BzTransaction>.current-ops;
@@ -34,7 +176,7 @@ template $BzTransactionView: Adw.Bin {
               margin-start: 5;
               margin-end: 5;
               margin-top: 5;
-              margin-bottom: 5;
+              margin-bottom: 15;
                 
               orientation: vertical;
               spacing: 7;
@@ -146,6 +288,7 @@ template $BzTransactionView: Adw.Bin {
         child: ListView {
           styles [
             "navigation-sidebar",
+            "transaction-sidebar-entry-list",
           ]
 
           model: NoSelection {
