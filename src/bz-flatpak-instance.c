@@ -1453,9 +1453,12 @@ transaction_fiber (TransactionData *data)
   g_autoptr (GError) local_error     = NULL;
   gboolean result                    = FALSE;
   g_autoptr (GPtrArray) transactions = NULL;
+  g_autoptr (GPtrArray) entries      = NULL;
   g_autoptr (GPtrArray) jobs         = NULL;
+  g_autoptr (GHashTable) errored     = NULL;
 
   transactions = g_ptr_array_new_with_free_func (g_object_unref);
+  entries      = g_ptr_array_new_with_free_func (g_object_unref);
 
   if (installations != NULL)
     {
@@ -1517,6 +1520,7 @@ transaction_fiber (TransactionData *data)
             }
 
           g_ptr_array_add (transactions, g_steal_pointer (&transaction));
+          g_ptr_array_add (entries, g_object_ref (entry));
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
                                 g_object_ref (entry));
@@ -1583,6 +1587,7 @@ transaction_fiber (TransactionData *data)
             }
 
           g_ptr_array_add (transactions, g_steal_pointer (&transaction));
+          g_ptr_array_add (entries, g_object_ref (entry));
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
                                 g_object_ref (entry));
@@ -1647,6 +1652,7 @@ transaction_fiber (TransactionData *data)
             }
 
           g_ptr_array_add (transactions, g_steal_pointer (&transaction));
+          g_ptr_array_add (entries, g_object_ref (entry));
           g_hash_table_replace (data->ref_to_entry_hash,
                                 g_steal_pointer (&ref_fmt),
                                 g_object_ref (entry));
@@ -1675,23 +1681,36 @@ transaction_fiber (TransactionData *data)
               transaction_job_data_unref));
     }
 
-  result = dex_await (dex_future_all_racev (
-                          (DexFuture *const *) jobs->pdata,
-                          jobs->len),
-                      &local_error);
-  if (!result)
-    {
-      dex_channel_close_send (channel);
-      return dex_future_new_for_error (g_steal_pointer (&local_error));
-    }
-
+  dex_await (dex_future_all_racev (
+                 (DexFuture *const *) jobs->pdata,
+                 jobs->len),
+             NULL);
   dex_await (dex_future_allv (
                  (DexFuture *const *) data->send_futures->pdata,
                  data->send_futures->len),
              NULL);
 
+  errored = g_hash_table_new_full (
+      g_direct_hash, g_direct_equal,
+      g_object_unref, (GDestroyNotify) g_error_free);
+  for (guint i = 0; i < jobs->len; i++)
+    {
+      DexFuture *job   = NULL;
+      BzEntry   *entry = NULL;
+
+      job   = g_ptr_array_index (jobs, i);
+      entry = g_ptr_array_index (entries, i);
+
+      dex_future_get_value (job, &local_error);
+      if (local_error != NULL)
+        g_hash_table_replace (
+            errored,
+            g_object_ref (entry),
+            g_steal_pointer (&local_error));
+    }
+
   dex_channel_close_send (channel);
-  return dex_future_new_true ();
+  return dex_future_new_take_boxed (G_TYPE_HASH_TABLE, g_steal_pointer (&errored));
 }
 
 static DexFuture *
