@@ -157,6 +157,13 @@ is_null (gpointer object,
   return value == NULL;
 }
 
+static gboolean
+is_zero (gpointer object,
+         int      value)
+{
+  return value == 0;
+}
+
 static void
 addon_transact_cb (BzInstalledPage *self,
                    BzEntry         *entry,
@@ -525,6 +532,7 @@ bz_installed_page_class_init (BzInstalledPageClass *klass)
   gtk_widget_class_bind_template_child (widget_class, BzInstalledPage, stack);
   gtk_widget_class_bind_template_callback (widget_class, invert_boolean);
   gtk_widget_class_bind_template_callback (widget_class, is_null);
+  gtk_widget_class_bind_template_callback (widget_class, is_zero);
   gtk_widget_class_bind_template_callback (widget_class, run_cb);
   gtk_widget_class_bind_template_callback (widget_class, support_cb);
   gtk_widget_class_bind_template_callback (widget_class, view_store_page_cb);
