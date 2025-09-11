@@ -1840,7 +1840,9 @@ transaction_operation_error (FlatpakTransaction          *object,
   payload = g_object_steal_data (G_OBJECT (operation), "payload");
   if (payload != NULL)
     {
-      g_object_set_data (G_OBJECT (payload), "error", g_strdup (error->message));
+      g_object_set_data_full (
+          G_OBJECT (payload), "error",
+          g_strdup (error->message), g_free);
       g_ptr_array_add (
           data->send_futures,
           dex_channel_send (
