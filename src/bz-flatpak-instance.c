@@ -1736,6 +1736,8 @@ transaction_new_operation (FlatpakTransaction          *transaction,
   entry = find_entry_from_operation (data, operation, NULL);
 
   payload = bz_backend_transaction_op_payload_new ();
+  bz_backend_transaction_op_payload_set_entry (
+      payload, BZ_ENTRY (entry));
   bz_backend_transaction_op_payload_set_name (
       payload, flatpak_transaction_operation_get_ref (operation));
   bz_backend_transaction_op_payload_set_download_size (
@@ -1803,10 +1805,34 @@ transaction_operation_error (FlatpakTransaction          *object,
                              gint                         details,
                              TransactionData             *data)
 {
+  g_autoptr (BzBackendTransactionOpPayload) payload = NULL;
+
   /* `FLATPAK_TRANSACTION_ERROR_DETAILS_NON_FATAL` is the only
      possible value of `details` */
 
-  return TRUE;
+  g_critical ("Transaction failed to complete: %s", error->message);
+
+  g_mutex_lock (&data->mutex);
+  g_hash_table_replace (
+      data->op_to_progress_hash,
+      g_object_ref (operation),
+      GINT_TO_POINTER (100));
+
+  payload = g_object_steal_data (G_OBJECT (operation), "payload");
+  if (payload != NULL)
+    {
+      g_object_set_data (G_OBJECT (payload), "error", g_strdup (error->message));
+      g_ptr_array_add (
+          data->send_futures,
+          dex_channel_send (
+              data->channel,
+              dex_future_new_for_object (payload)));
+    }
+
+  g_mutex_unlock (&data->mutex);
+
+  /* Don't recover for now */
+  return FALSE;
 }
 
 gboolean

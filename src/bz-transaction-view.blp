@@ -157,6 +157,10 @@ template $BzTransactionView: Adw.Bin {
           };
         }
       }
+
+      Separator {
+        margin-bottom: 10;
+      }
       
       ListView {
         styles [
@@ -181,15 +185,25 @@ template $BzTransactionView: Adw.Bin {
               orientation: vertical;
               spacing: 7;
 
-              Label {
-                styles [
-                  "title-4",
-                ]
+              Box {
+                orientation: horizontal;
+                spacing: 5;
+                
+                Image {
+                  paintable: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.entry as <$BzEntry>.icon-paintable;
+                  pixel-size: 32;
+                }
+ 
+                Label {
+                  styles [
+                    "heading",
+                  ]
 
-                hexpand: true;
-                ellipsize: middle;
-                xalign: 1.0;
-                label: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.name;
+                  hexpand: true;
+                  ellipsize: end;
+                  xalign: 1.0;
+                  label: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.name;
+                }
               }
                 
               Label {
@@ -301,25 +315,77 @@ template $BzTransactionView: Adw.Bin {
 
               child: Box {
                 orientation: horizontal;
-                spacing: 5;
+                spacing: 10;
 
                 Image {
                   styles [
                     "success",
                   ]
+                  valign: center;
                   icon-name: "check-plain-symbolic";
+
+                  visible: bind $is_null(template.item as <$BzTransactionTask>.error) as <bool>;
                 }
                 
-                Label {
+                Image {
                   styles [
-                    "dimmed",
+                    "error",
                   ]
+                  valign: center;
+                  icon-name: "cross-large-circle-filled-symbolic";
 
-                  hexpand: true;
-                  xalign: 0.0;
-                  ellipsize: end;
-                  single-line-mode: true;
-                  label: bind template.item as <$BzBackendTransactionOpPayload>.name; 
+                  visible: bind $invert_boolean($is_null(template.item as <$BzTransactionTask>.error) as <bool>) as <bool>;
+                }
+
+                Box {
+                  valign: center;
+                  orientation: vertical;
+                  spacing: 5;
+                  
+                  Label {
+                    styles [
+                      "dimmed",
+                    ]
+
+                    valign: center;
+                    hexpand: true;
+                    xalign: 0.0;
+                    ellipsize: end;
+                    single-line-mode: true;
+                    label: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.name;
+                  }
+
+                  MenuButton {
+                    styles [
+                      "error",
+                      "flat",
+                    ]
+                    label: _("An Error Occurred");
+                    visible: bind $invert_boolean($is_null(template.item as <$BzTransactionTask>.error) as <bool>) as <bool>;
+                    
+                    popover: Popover {
+                      child: Label {
+                        margin-start: 2;
+                        margin-end: 2;
+                        margin-top: 2;
+                        margin-bottom: 2;
+                      
+                        xalign: 0.0;
+                        max-width-chars: 35;
+                        wrap: true;
+                        wrap-mode: word_char;
+                        selectable: true;
+                    
+                        label: bind template.item as <$BzTransactionTask>.error;
+                      };
+                    };
+                  }
+                }
+
+                Image {
+                  valign: start;
+                  paintable: bind template.item as <$BzTransactionTask>.op as <$BzBackendTransactionOpPayload>.entry as <$BzEntry>.icon-paintable;
+                  pixel-size: 32;
                 }
               };
             }

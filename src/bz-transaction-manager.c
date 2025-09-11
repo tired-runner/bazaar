@@ -607,8 +607,15 @@ transaction_fiber (QueuedScheduleData *data)
         {
           if (g_hash_table_contains (op_set, object))
             {
-              bz_transaction_finish_task (
-                  transaction, BZ_BACKEND_TRANSACTION_OP_PAYLOAD (object));
+              g_autofree char *error = NULL;
+
+              error = g_object_steal_data (object, "error");
+              if (error != NULL)
+                bz_transaction_error_out_task (
+                    transaction, BZ_BACKEND_TRANSACTION_OP_PAYLOAD (object), error);
+              else
+                bz_transaction_finish_task (
+                    transaction, BZ_BACKEND_TRANSACTION_OP_PAYLOAD (object));
               g_hash_table_remove (op_set, object);
             }
           else
