@@ -176,16 +176,11 @@ static DexFuture *
 run_fiber (GtkListItem *list_item)
 {
   g_autoptr (GError) local_error = NULL;
-  GtkWidget       *menu_btn      = NULL;
   BzInstalledPage *self          = NULL;
   GtkWidget       *window        = NULL;
   BzEntryGroup    *group         = NULL;
   g_autoptr (BzEntry) entry      = NULL;
   gboolean result                = FALSE;
-
-  menu_btn = gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), GTK_TYPE_MENU_BUTTON);
-  if (menu_btn != NULL)
-    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
 
   self = BZ_INSTALLED_PAGE (gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), BZ_TYPE_INSTALLED_PAGE));
   g_assert (self != NULL);
@@ -217,6 +212,12 @@ static void
 run_cb (GtkListItem *list_item,
         GtkButton   *button)
 {
+  GtkWidget *menu_btn = NULL;
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
   dex_future_disown (dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
@@ -229,16 +230,11 @@ static DexFuture *
 support_fiber (GtkListItem *list_item)
 {
   g_autoptr (GError) local_error = NULL;
-  GtkWidget       *menu_btn      = NULL;
   BzInstalledPage *self          = NULL;
   GtkWidget       *window        = NULL;
   BzEntryGroup    *group         = NULL;
   g_autoptr (BzEntry) entry      = NULL;
   const char *url                = NULL;
-
-  menu_btn = gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), GTK_TYPE_MENU_BUTTON);
-  if (menu_btn != NULL)
-    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
 
   self = BZ_INSTALLED_PAGE (gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), BZ_TYPE_INSTALLED_PAGE));
   g_assert (self != NULL);
@@ -266,6 +262,12 @@ static void
 support_cb (GtkListItem *list_item,
             GtkButton   *button)
 {
+  GtkWidget *menu_btn = NULL;
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
   dex_future_disown (dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
@@ -278,17 +280,12 @@ static DexFuture *
 install_addons_fiber (GtkListItem *list_item)
 {
   g_autoptr (GError) local_error = NULL;
-  GtkWidget       *menu_btn      = NULL;
   BzInstalledPage *self          = NULL;
   GtkWidget       *window        = NULL;
   BzEntryGroup    *group         = NULL;
   g_autoptr (BzEntry) entry      = NULL;
   g_autoptr (GListModel) model   = NULL;
   AdwDialog *addons_dialog       = NULL;
-
-  menu_btn = gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), GTK_TYPE_MENU_BUTTON);
-  if (menu_btn != NULL)
-    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
 
   self = BZ_INSTALLED_PAGE (gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), BZ_TYPE_INSTALLED_PAGE));
   g_assert (self != NULL);
@@ -324,6 +321,12 @@ static void
 install_addons_cb (GtkListItem *list_item,
                    GtkButton   *button)
 {
+  GtkWidget *menu_btn = NULL;
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
   dex_future_disown (dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
@@ -336,15 +339,10 @@ static DexFuture *
 view_store_page_fiber (GtkListItem *list_item)
 {
   g_autoptr (GError) local_error = NULL;
-  GtkWidget       *menu_btn      = NULL;
   BzInstalledPage *self          = NULL;
   GtkWidget       *window        = NULL;
   BzEntryGroup    *group         = NULL;
   g_autoptr (BzEntry) entry      = NULL;
-
-  menu_btn = gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), GTK_TYPE_MENU_BUTTON);
-  if (menu_btn != NULL)
-    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
 
   self = BZ_INSTALLED_PAGE (gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), BZ_TYPE_INSTALLED_PAGE));
   g_assert (self != NULL);
@@ -371,6 +369,12 @@ static void
 view_store_page_cb (GtkListItem *list_item,
                     GtkButton   *button)
 {
+  GtkWidget *menu_btn = NULL;
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
   dex_future_disown (dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
@@ -383,15 +387,10 @@ static DexFuture *
 remove_fiber (GtkListItem *list_item)
 {
   g_autoptr (GError) local_error = NULL;
-  GtkWidget       *menu_btn      = NULL;
   BzInstalledPage *self          = NULL;
   GtkWidget       *window        = NULL;
   BzEntryGroup    *group         = NULL;
   g_autoptr (BzEntry) entry      = NULL;
-
-  menu_btn = gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), GTK_TYPE_MENU_BUTTON);
-  if (menu_btn != NULL)
-    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
 
   self = BZ_INSTALLED_PAGE (gtk_widget_get_ancestor (gtk_list_item_get_child (list_item), BZ_TYPE_INSTALLED_PAGE));
   g_assert (self != NULL);
@@ -418,6 +417,12 @@ static void
 remove_cb (GtkListItem *list_item,
            GtkButton   *button)
 {
+  GtkWidget *menu_btn = NULL;
+
+  menu_btn = gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_MENU_BUTTON);
+  if (menu_btn != NULL)
+    gtk_menu_button_set_active (GTK_MENU_BUTTON (menu_btn), FALSE);
+
   dex_future_disown (dex_scheduler_spawn (
       dex_scheduler_get_default (),
       bz_get_dex_stack_size (),
