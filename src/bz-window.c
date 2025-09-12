@@ -512,6 +512,11 @@ key_pressed (BzWindow              *self,
   guint32 unichar = 0;
   char    buf[32] = { 0 };
 
+  /* Ignore if this is a modifier-shortcut of some sort */
+  if (state & ~(GDK_NO_MODIFIER_MASK | GDK_SHIFT_MASK))
+    return FALSE;
+
+  /* Ignore if we are already inside search  */
   if (adw_overlay_split_view_get_show_sidebar (self->search_split))
     return FALSE;
 
