@@ -326,6 +326,7 @@ template $BzWindow: Adw.ApplicationWindow {
               Adw.Toggle curated_toggle {
                 tooltip: _("View curated applications");
                 name: "curated";
+                enabled: bind template.state as <$BzStateInfo>.curated-provider as <$BzContentProvider>.has-inputs as <bool>;
 
                 child: Box {
                   halign: center;
