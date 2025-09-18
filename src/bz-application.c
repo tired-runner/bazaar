@@ -197,10 +197,10 @@ bz_application_command_line (GApplication            *app,
   // the window.
   if (argv == NULL || argc < 2)
     {
-      command = "window";
+      command          = "window";
       window_autostart = TRUE;
-      argv = NULL;
-      argc = 0;
+      argv             = NULL;
+      argc             = 0;
     }
   else
     {
@@ -210,28 +210,28 @@ bz_application_command_line (GApplication            *app,
     }
 
   if (g_strcmp0 (command, "--help") == 0)
-  {
-    if (self->running)
-      {
-        g_application_command_line_printerr (
-            cmdline,
-            "The Bazaar service is running. The available commands are:\n\n"
-            "  window|refresh|open|status|query|transact|quit\n\n"
-            "Add \"--help\" to a command to get information specific to that command.\n");
-      }
-    else
-      {
-        g_application_command_line_printerr (
-            cmdline,
-            "The Bazaar service is not running.\n"
-            "The following commands will start the daemon:\n"
-            "  bazaar service\n"
-            "  bazaar window --auto-service\n"
-            "Exiting...\n");
-      }
+    {
+      if (self->running)
+        {
+          g_application_command_line_printerr (
+              cmdline,
+              "The Bazaar service is running. The available commands are:\n\n"
+              "  window|refresh|open|status|query|transact|quit\n\n"
+              "Add \"--help\" to a command to get information specific to that command.\n");
+        }
+      else
+        {
+          g_application_command_line_printerr (
+              cmdline,
+              "The Bazaar service is not running.\n"
+              "The following commands will start the daemon:\n"
+              "  bazaar service\n"
+              "  bazaar window --auto-service\n"
+              "Exiting...\n");
+        }
 
-    return EXIT_SUCCESS;
-  }
+      return EXIT_SUCCESS;
+    }
 
   if (g_strcmp0 (command, "window") == 0)
     {
