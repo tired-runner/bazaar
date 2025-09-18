@@ -1043,7 +1043,6 @@ init_service_struct (BzApplication *self)
   self->state = bz_state_info_new ();
   bz_state_info_set_application_factory (self->state, self->application_factory);
   bz_state_info_set_blocklists (self->state, self->blocklists);
-  bz_state_info_set_curated_configs (self->state, self->blocklists);
   bz_state_info_set_curated_provider (self->state, self->content_provider);
   bz_state_info_set_entry_factory (self->state, self->entry_factory);
   bz_state_info_set_flathub (self->state, self->flathub);
