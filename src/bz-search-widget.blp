@@ -118,17 +118,32 @@ template $BzSearchWidget: Adw.Bin {
                     orientation: vertical;
                     spacing: 3;
 
-                    Label {
-                      styles [
-                        "heading",
-                      ]
+                    Box {
+                      orientation: horizontal;
+                      spacing: 10;
+                    
+                      Label {
+                        styles [
+                          "heading",
+                        ]
 
-                      hexpand: true;
-                      xalign: 0.0;
-                      width-chars: 13;
-                      ellipsize: end;
-                      single-line-mode: true;
-                      label: bind template.item as <$BzSearchResult>.group as <$BzEntryGroup>.title;
+                        hexpand: true;
+                        xalign: 0.0;
+                        width-chars: 13;
+                        ellipsize: end;
+                        single-line-mode: true;
+                        label: bind template.item as <$BzSearchResult>.group as <$BzEntryGroup>.title;
+                      }
+
+                      Image {
+                        styles [
+                          "success",
+                        ]
+
+                        icon-name: "check-plain-symbolic";
+                        icon-size: normal;
+                        visible: bind $invert_boolean($is_zero(template.item as <$BzSearchResult>.group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
+                      }
                     }
 
                     Label {
