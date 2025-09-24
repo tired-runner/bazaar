@@ -63,8 +63,8 @@ struct _BzAsyncTexture
   DexFuture    *task;
   GCancellable *cancellable;
 
-  int   retries;
-  guint current_source;
+  int        retries;
+  DexFuture *retry_future;
 
   GdkPaintable *paintable;
   GMutex        texture_mutex;
@@ -100,22 +100,23 @@ load_finally (DexFuture      *future,
 static void
 maybe_load (BzAsyncTexture *self);
 
-static gboolean
-idle_notify (BzAsyncTexture *self);
+static DexFuture *
+retry_cb (DexFuture      *future,
+          BzAsyncTexture *self);
 
 static gboolean
-idle_reload (BzAsyncTexture *self);
+idle_notify (BzAsyncTexture *self);
 
 static void
 bz_async_texture_dispose (GObject *object)
 {
   BzAsyncTexture *self = BZ_ASYNC_TEXTURE (object);
 
-  g_clear_handle_id (&self->current_source, g_source_remove);
   if (self->cancellable != NULL)
     g_cancellable_cancel (self->cancellable);
   dex_clear (&self->task);
   g_clear_object (&self->cancellable);
+  dex_clear (&self->retry_future);
 
   g_clear_object (&self->source);
   g_clear_pointer (&self->source_uri, g_free);
@@ -690,11 +691,10 @@ load_finally (DexFuture      *future,
       g_clear_object (&self->paintable);
       self->paintable = g_value_dup_object (dex_future_get_value (future, NULL));
 
-      g_clear_handle_id (&self->current_source, g_source_remove);
-      self->current_source = g_idle_add_full (
+      g_idle_add_full (
           G_PRIORITY_DEFAULT_IDLE,
           (GSourceFunc) idle_notify,
-          self, NULL);
+          g_object_ref (self), g_object_unref);
 
       return dex_future_new_for_object (self->paintable);
     }
@@ -717,39 +717,34 @@ load_finally (DexFuture      *future,
                        MAX_LOAD_RETRIES - self->retries);
           self->retries++;
 
-          g_clear_handle_id (&self->current_source, g_source_remove);
-          self->current_source = g_timeout_add_seconds_full (
-              G_PRIORITY_DEFAULT_IDLE,
-              RETRY_INTERVAL_SECONDS,
-              (GSourceFunc) idle_reload,
-              self, NULL);
+          self->retry_future = dex_future_then (
+              dex_timeout_new_seconds (RETRY_INTERVAL_SECONDS),
+              (DexFutureCallback) retry_cb,
+              g_object_ref (self), g_object_unref);
         }
 
       return dex_ref (future);
     }
 }
 
-static gboolean
-idle_notify (BzAsyncTexture *self)
-{
-  self->current_source = 0;
-
-  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LOADED]);
-  gdk_paintable_invalidate_contents (GDK_PAINTABLE (self));
-  gdk_paintable_invalidate_size (GDK_PAINTABLE (self));
-
-  return G_SOURCE_REMOVE;
-}
-
-static gboolean
-idle_reload (BzAsyncTexture *self)
+static DexFuture *
+retry_cb (DexFuture      *future,
+          BzAsyncTexture *self)
 {
   g_autoptr (GMutexLocker) locker = NULL;
 
-  self->current_source = 0;
-
   locker = g_mutex_locker_new (&self->texture_mutex);
   maybe_load (self);
+
+  return NULL;
+}
+
+static gboolean
+idle_notify (BzAsyncTexture *self)
+{
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_LOADED]);
+  gdk_paintable_invalidate_contents (GDK_PAINTABLE (self));
+  gdk_paintable_invalidate_size (GDK_PAINTABLE (self));
 
   return G_SOURCE_REMOVE;
 }
