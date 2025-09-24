@@ -20,7 +20,7 @@
 
 #define G_LOG_DOMAIN "BAZAAR::ASYNC-TEXTURE"
 
-#define MAX_CONCURRENT_LOADS   4
+#define MAX_CONCURRENT_LOADS   32
 #define MAX_LOAD_RETRIES       3
 #define RETRY_INTERVAL_SECONDS 5
 
@@ -485,9 +485,6 @@ load_fiber_work (LoadData *data)
   static BzGuard *gates[MAX_CONCURRENT_LOADS]          = { 0 };
   static GMutex   mutexes[MAX_CONCURRENT_LOADS]        = { 0 };
 
-  static GMutex texload_mutex = { 0 };
-  static gint64 last_texload  = 0;
-
   GFile        *source            = data->source;
   char         *source_uri        = data->source_uri;
   GFile        *cache_into        = data->cache_into;
@@ -668,33 +665,6 @@ load_fiber_work (LoadData *data)
     }
 
   bz_clear_guard (&slot_guard);
-
-  /* This dance is to prevent overloading gtk with texture load
-     requests */
-  g_mutex_lock (&texload_mutex);
-  if (last_texload == 0)
-    {
-      last_texload = g_get_monotonic_time ();
-      g_mutex_unlock (&texload_mutex);
-    }
-  else
-    {
-      gint64 now                  = 0;
-      g_autoptr (DexFuture) await = NULL;
-
-      now = g_get_monotonic_time ();
-      if (now < last_texload + 1000)
-        {
-          last_texload += 1000;
-          await = dex_timeout_new_deadline (last_texload);
-        }
-      else
-        last_texload = now;
-      g_mutex_unlock (&texload_mutex);
-
-      if (await != NULL)
-        dex_await (g_steal_pointer (&await), NULL);
-    }
 
   texture = gly_gtk_frame_get_texture (frame);
   if (texture == NULL)
