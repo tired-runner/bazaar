@@ -474,7 +474,7 @@ maybe_load (BzAsyncTexture *self)
   future = dex_future_finally (
       future,
       (DexFutureCallback) load_finally,
-      g_object_ref (self), g_object_unref);
+      self, NULL);
   self->task = g_steal_pointer (&future);
 }
 
@@ -685,6 +685,7 @@ load_finally (DexFuture      *future,
   g_autoptr (GMutexLocker) locker = NULL;
 
   locker = g_mutex_locker_new (&self->texture_mutex);
+  dex_clear (&self->task);
 
   if (dex_future_is_resolved (future))
     {
@@ -717,10 +718,11 @@ load_finally (DexFuture      *future,
                        MAX_LOAD_RETRIES - self->retries);
           self->retries++;
 
+          dex_clear (&self->retry_future);
           self->retry_future = dex_future_then (
               dex_timeout_new_seconds (RETRY_INTERVAL_SECONDS),
               (DexFutureCallback) retry_cb,
-              g_object_ref (self), g_object_unref);
+              self, NULL);
         }
 
       return dex_ref (future);
@@ -734,8 +736,9 @@ retry_cb (DexFuture      *future,
   g_autoptr (GMutexLocker) locker = NULL;
 
   locker = g_mutex_locker_new (&self->texture_mutex);
-  maybe_load (self);
+  dex_clear (self->retry_future);
 
+  maybe_load (self);
   return NULL;
 }
 
