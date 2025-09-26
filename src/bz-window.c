@@ -824,6 +824,13 @@ bz_window_add_toast (BzWindow *self,
   adw_toast_overlay_add_toast (self->toasts, toast);
 }
 
+BzStateInfo *
+bz_window_get_state_info (BzWindow *self)
+{
+  g_return_val_if_fail (BZ_IS_WINDOW (self), NULL);
+  return self->state;
+}
+
 static void
 transact (BzWindow  *self,
           BzEntry   *entry,
