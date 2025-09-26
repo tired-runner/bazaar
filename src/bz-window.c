@@ -820,7 +820,7 @@ bz_window_add_toast (BzWindow *self,
 {
   g_return_if_fail (BZ_IS_WINDOW (self));
   g_return_if_fail (ADW_IS_TOAST (toast));
-  
+
   adw_toast_overlay_add_toast (self->toasts, toast);
 }
 

@@ -803,6 +803,18 @@ bz_application_preferences_action (GSimpleAction *action,
 }
 
 static void
+bz_application_refresh_action (GSimpleAction *action,
+                               GVariant      *parameter,
+                               gpointer       user_data)
+{
+  BzApplication *self = user_data;
+
+  g_assert (BZ_IS_APPLICATION (self));
+
+  refresh (self);
+}
+
+static void
 bz_application_quit_action (GSimpleAction *action,
                             GVariant      *parameter,
                             gpointer       user_data)
@@ -816,6 +828,7 @@ bz_application_quit_action (GSimpleAction *action,
 
 static const GActionEntry app_actions[] = {
   {                "quit",                bz_application_quit_action, NULL },
+  {             "refresh",             bz_application_refresh_action, NULL },
   {         "preferences",         bz_application_preferences_action, NULL },
   {               "about",               bz_application_about_action, NULL },
   {              "search",              bz_application_search_action,  "s" },
@@ -908,6 +921,10 @@ bz_application_init (BzApplication *self)
       GTK_APPLICATION (self),
       "app.quit",
       (const char *[]) { "<primary>q", NULL });
+  gtk_application_set_accels_for_action (
+      GTK_APPLICATION (self),
+      "app.refresh",
+      (const char *[]) { "<primary>r", NULL });
   gtk_application_set_accels_for_action (
       GTK_APPLICATION (self),
       "app.search('')",
