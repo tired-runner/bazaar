@@ -412,6 +412,11 @@ template $BzWindow: Adw.ApplicationWindow {
 menu primary_menu {
   section {
     item {
+      label: _("_Quit Service");
+      action: "app.quit";
+    }
+
+    item {
       label: _("_Preferences");
       action: "app.preferences";
     }
