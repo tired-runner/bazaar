@@ -7,11 +7,11 @@ Bazaar
 <p align="center">Discover and install applications</p>
 
 <div align="center">
-<img height="512" alt="Image" src="https://github.com/user-attachments/assets/0a149911-7edb-48c4-84e7-d4e64be80c0d" />
+<img height="512" alt="Image" src="https://github.com/user-attachments/assets/6e2a3f5b-1a92-47ce-89b4-61864a452fd5" />
 </div>
 
 <div align="center">
-<img height="512" alt="Image" src="https://github.com/user-attachments/assets/c63c8256-aae4-48a7-a4b0-68f60af3f980" />
+<img height="512" alt="Image" src="https://github.com/user-attachments/assets/0a149911-7edb-48c4-84e7-d4e64be80c0d" />
 </div>
 
 Bazaar is a new app store for GNOME with a focus on discovering and
