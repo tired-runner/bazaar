@@ -865,11 +865,9 @@ map_generic_ids_to_groups (GtkStringObject *string,
   group = g_hash_table_lookup (
       self->ids_to_groups,
       gtk_string_object_get_string (string));
-  /* We previously validated in filter */
-  g_assert (group != NULL);
 
   g_object_unref (string);
-  return g_object_ref (group);
+  return group != NULL ? g_object_ref (group) : NULL;
 }
 
 static gpointer
