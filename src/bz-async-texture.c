@@ -24,6 +24,8 @@
 #define MAX_LOAD_RETRIES       3
 #define RETRY_INTERVAL_SECONDS 5
 
+#include "config.h"
+
 #include <glycin-gtk4-2/glycin-gtk4.h>
 #include <libdex.h>
 
@@ -653,7 +655,11 @@ load_fiber_work (LoadData *data)
         }
 
       loader = gly_loader_new (load_file);
-      image  = gly_loader_load (loader, &local_error);
+#ifdef SANDBOXED_LIBFLATPAK
+      gly_loader_set_sandbox_selector (loader, GLY_SANDBOX_SELECTOR_NOT_SANDBOXED);
+#endif
+
+      image = gly_loader_load (loader, &local_error);
       if (is_http && cache_into == NULL)
         /* delete tmp file */
         g_file_delete (load_file, NULL, NULL);
