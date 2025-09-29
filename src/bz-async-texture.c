@@ -691,6 +691,8 @@ load_finally (DexFuture      *future,
   g_autoptr (GError) local_error  = NULL;
   g_autoptr (GMutexLocker) locker = NULL;
 
+  /* Apparently a race condition here? */
+
   locker = g_mutex_locker_new (&self->texture_mutex);
   dex_clear (&self->task);
 
