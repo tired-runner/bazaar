@@ -388,15 +388,8 @@ static void
 go_back_cb (BzWindow  *self,
             GtkButton *button)
 {
-  set_page (self);
+  gtk_widget_activate_action (GTK_WIDGET (self), "escape", NULL);
 }
-
-// static void
-// refresh_cb (BzWindow  *self,
-//             GtkButton *button)
-// {
-//   gtk_widget_activate_action (GTK_WIDGET (self), "app.refresh", NULL);
-// }
 
 static void
 update_cb (BzWindow  *self,
@@ -420,6 +413,9 @@ action_escape (GtkWidget  *widget,
                GVariant   *parameter)
 {
   BzWindow *self = BZ_WINDOW (widget);
+
+  if (adw_navigation_view_pop (self->main_stack))
+    return;
 
   adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
   gtk_toggle_button_set_active (self->toggle_transactions, FALSE);
@@ -797,7 +793,7 @@ bz_window_show_group (BzWindow     *self,
   g_return_if_fail (BZ_IS_ENTRY_GROUP (group));
 
   bz_full_view_set_entry_group (self->full_view, group);
-  adw_navigation_view_replace_with_tags (self->main_stack, (const char *[]) { "view" }, 1);
+  adw_navigation_view_push_by_tag (self->main_stack, "view");
   gtk_widget_set_visible (GTK_WIDGET (self->go_back), TRUE);
   gtk_widget_set_visible (GTK_WIDGET (self->search), FALSE);
   gtk_revealer_set_reveal_child (self->title_revealer, FALSE);
