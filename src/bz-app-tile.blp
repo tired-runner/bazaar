@@ -13,11 +13,13 @@ template $BzAppTile: Button {
   child: Overlay {
     [overlay]
     Image {
-      halign: end;
-      valign: start;
+      css-name: "app-tile-installed-indicator";
       styles [
         "success",
       ]
+
+      halign: end;
+      valign: start;
       icon-name: "app-installed-symbolic";
       icon-size: normal;
       visible: bind $invert_boolean($is_zero(template.group as <$BzEntryGroup>.removable) as <bool>) as <bool>;
