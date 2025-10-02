@@ -412,14 +412,20 @@ action_escape (GtkWidget  *widget,
                const char *action_name,
                GVariant   *parameter)
 {
-  BzWindow *self = BZ_WINDOW (widget);
+  BzWindow   *self    = BZ_WINDOW (widget);
+  GListModel *stack   = NULL;
+  guint       n_pages = 0;
 
-  if (adw_navigation_view_pop (self->main_stack))
-    return;
+  stack   = adw_navigation_view_get_navigation_stack (self->main_stack);
+  n_pages = g_list_model_get_n_items (stack);
 
-  adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
-  gtk_toggle_button_set_active (self->toggle_transactions, FALSE);
-  set_page (self);
+  adw_navigation_view_pop (self->main_stack);
+  if (n_pages <= 2)
+    {
+      adw_overlay_split_view_set_show_sidebar (self->search_split, FALSE);
+      gtk_toggle_button_set_active (self->toggle_transactions, FALSE);
+      set_page (self);
+    }
 }
 
 static void
