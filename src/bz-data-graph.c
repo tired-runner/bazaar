@@ -26,7 +26,7 @@
 #include "bz-data-point.h"
 #include <math.h>
 
-#define LABEL_MARGIN 75.0
+#define LABEL_MARGIN        75.0
 #define CARD_EDGE_THRESHOLD 160
 
 struct _BzDataGraph
@@ -271,28 +271,28 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       g_autoptr (PangoLayout) layout2        = NULL;
       g_autofree char *line1_text            = NULL;
       g_autofree char *line2_text            = NULL;
-      double graph_height                    = 0.0;
-      double graph_width                     = 0.0;
-      double fraction                        = 0.0;
-      double point_x                         = 0.0;
-      double point_y                         = 0.0;
-      GskRoundedRect rounded_rect            = { { { 0 } } };
-      GdkRGBA line_color                     = { 0 };
-      PangoRectangle text1_extents           = { 0 };
-      PangoRectangle text2_extents           = { 0 };
-      GskRoundedRect text_bg_rect            = { { { 0 } } };
-      GdkRGBA text_bg_color                  = { 0 };
-      GdkRGBA shadow_color                   = { 0 };
-      double card_width                      = 0.0;
-      double card_height                     = 0.0;
-      double card_x                          = 0.0;
-      double card_y                          = 0.0;
-      double rounded_axis_max                        = 0.0;
-      const char *prefix                     = NULL;
+      double           graph_height          = 0.0;
+      double           graph_width           = 0.0;
+      double           fraction              = 0.0;
+      double           point_x               = 0.0;
+      double           point_y               = 0.0;
+      GskRoundedRect   rounded_rect          = { { { 0 } } };
+      GdkRGBA          line_color            = { 0 };
+      PangoRectangle   text1_extents         = { 0 };
+      PangoRectangle   text2_extents         = { 0 };
+      GskRoundedRect   text_bg_rect          = { { { 0 } } };
+      GdkRGBA          text_bg_color         = { 0 };
+      GdkRGBA          shadow_color          = { 0 };
+      double           card_width            = 0.0;
+      double           card_height           = 0.0;
+      double           card_x                = 0.0;
+      double           card_y                = 0.0;
+      double           rounded_axis_max      = 0.0;
+      const char      *prefix                = NULL;
 
       n_items     = g_list_model_get_n_items (self->model);
       graph_width = widget_width - LABEL_MARGIN * 2.0;
-      fraction = (self->motion_x - LABEL_MARGIN) / graph_width;
+      fraction    = (self->motion_x - LABEL_MARGIN) / graph_width;
       hovered_idx = floor ((double) n_items * fraction);
       if (hovered_idx >= n_items)
         hovered_idx = n_items - 1;
@@ -309,7 +309,7 @@ bz_data_graph_snapshot (GtkWidget   *widget,
           for (guint i = 0; i < n_items; i++)
             {
               g_autoptr (BzDataPoint) p = g_list_model_get_item (self->model, i);
-              double dep = bz_data_point_get_dependent (p);
+              double dep                = bz_data_point_get_dependent (p);
               if (i == 0 || dep > max_dependent)
                 max_dependent = dep;
             }
@@ -321,24 +321,24 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       point_x = ((double) hovered_idx / (double) (n_items - 1)) * graph_width + LABEL_MARGIN;
       point_y = (1.0 - bz_data_point_get_dependent (point) / rounded_axis_max) * graph_height;
 
-      line_color = widget_color;
+      line_color       = widget_color;
       line_color.alpha = 0.5;
 
       crosshair_stroke = gsk_stroke_new (1.0);
 
-#define APPEND_LINE(x0, y0, x1, y1, color)                                   \
-  G_STMT_START                                                               \
-  {                                                                          \
-    g_autoptr (GskPathBuilder) builder = NULL;                               \
-    g_autoptr (GskPath) path           = NULL;                               \
-                                                                             \
-    builder = gsk_path_builder_new ();                                       \
-    gsk_path_builder_move_to (builder, (x0), (y0));                          \
-    gsk_path_builder_line_to (builder, (x1), (y1));                          \
-                                                                             \
-    path = gsk_path_builder_to_path (builder);                               \
-    gtk_snapshot_append_stroke (snapshot, path, crosshair_stroke, (color));  \
-  }                                                                          \
+#define APPEND_LINE(x0, y0, x1, y1, color)                                  \
+  G_STMT_START                                                              \
+  {                                                                         \
+    g_autoptr (GskPathBuilder) builder = NULL;                              \
+    g_autoptr (GskPath) path           = NULL;                              \
+                                                                            \
+    builder = gsk_path_builder_new ();                                      \
+    gsk_path_builder_move_to (builder, (x0), (y0));                         \
+    gsk_path_builder_line_to (builder, (x1), (y1));                         \
+                                                                            \
+    path = gsk_path_builder_to_path (builder);                              \
+    gtk_snapshot_append_stroke (snapshot, path, crosshair_stroke, (color)); \
+  }                                                                         \
   G_STMT_END
 
       APPEND_LINE (self->motion_x, 0.0, self->motion_x, widget_height - LABEL_MARGIN, &line_color);
@@ -353,18 +353,18 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       gtk_snapshot_append_color (snapshot, accent_color, &rounded_rect.bounds);
       gtk_snapshot_pop (snapshot);
 
-      layout1   = pango_layout_new (gtk_widget_get_pango_context (widget));
+      layout1    = pango_layout_new (gtk_widget_get_pango_context (widget));
       line1_text = g_strdup (bz_data_point_get_label (point));
       pango_layout_set_text (layout1, line1_text, -1);
       pango_layout_get_pixel_extents (layout1, NULL, &text1_extents);
 
-      prefix = self->tooltip_prefix != NULL ? self->tooltip_prefix : ("");
-      layout2   = pango_layout_new (gtk_widget_get_pango_context (widget));
+      prefix     = self->tooltip_prefix != NULL ? self->tooltip_prefix : ("");
+      layout2    = pango_layout_new (gtk_widget_get_pango_context (widget));
       line2_text = g_strdup_printf ("%s %.0f", prefix, bz_data_point_get_dependent (point));
       pango_layout_set_text (layout2, line2_text, -1);
       pango_layout_get_pixel_extents (layout2, NULL, &text2_extents);
 
-      card_width = MAX (text1_extents.width, text2_extents.width) + 16.0;
+      card_width  = MAX (text1_extents.width, text2_extents.width) + 16.0;
       card_height = text1_extents.height + text2_extents.height + 20.0;
 
       if (widget_width - self->motion_x < CARD_EDGE_THRESHOLD)
@@ -377,15 +377,18 @@ bz_data_graph_snapshot (GtkWidget   *widget,
         }
       card_y = self->motion_y + 10.0;
 
-      // The proper way is to make each actual element it's own widget or Gizmo
-      // but that's alot of work
-      if (adw_style_manager_get_dark(style_manager)) {
-          text_bg_color = (GdkRGBA){ 0.18, 0.18, 0.2, 1.0 };
-          shadow_color = (GdkRGBA){ 0.0, 0.0, 0.06, 0.20 };
-      } else {
-          text_bg_color = (GdkRGBA){ 1.0, 1.0, 1.0, 1.0 };
-          shadow_color = (GdkRGBA){ 0.0, 0.0, 0.0, 0.20 };
-      }
+      /* The proper way is to make each actual element it's own widget or Gizmo
+       but that's a lot of work */
+      if (adw_style_manager_get_dark (style_manager))
+        {
+          text_bg_color = (GdkRGBA) { 0.18, 0.18, 0.2, 1.0 };
+          shadow_color  = (GdkRGBA) { 0.0, 0.0, 0.06, 0.20 };
+        }
+      else
+        {
+          text_bg_color = (GdkRGBA) { 1.0, 1.0, 1.0, 1.0 };
+          shadow_color  = (GdkRGBA) { 0.0, 0.0, 0.0, 0.20 };
+        }
 
       gsk_rounded_rect_init_from_rect (
           &text_bg_rect,
@@ -562,8 +565,8 @@ bz_data_graph_init (BzDataGraph *self)
   g_signal_connect_swapped (self->motion, "leave", G_CALLBACK (motion_leave), self);
   gtk_widget_add_controller (GTK_WIDGET (self), self->motion);
 
-  self->motion_x = -1.0;
-  self->motion_y = -1.0;
+  self->motion_x         = -1.0;
+  self->motion_y         = -1.0;
   self->rounded_axis_max = 0.0;
 }
 
@@ -671,7 +674,7 @@ bz_data_graph_set_dependent_axis_label (BzDataGraph *self,
 
 void
 bz_data_graph_set_tooltip_prefix (BzDataGraph *self,
-                                   const char  *tooltip_prefix)
+                                  const char  *tooltip_prefix)
 {
   g_return_if_fail (BZ_IS_DATA_GRAPH (self));
 
@@ -788,9 +791,9 @@ refresh_path (BzDataGraph *self,
   g_autoptr (GskPathBuilder) grid_builder  = NULL;
   g_autoptr (GskPath) grid                 = NULL;
   g_autoptr (GskStroke) grid_stroke        = NULL;
-  double            rounded_axis_max       = 0.0;
-  double            tick_spacing           = 0.0;
-  int               num_ticks              = 0;
+  double rounded_axis_max                  = 0.0;
+  double tick_spacing                      = 0.0;
+  int    num_ticks                         = 0;
 
   g_clear_pointer (&self->path, gsk_path_unref);
   g_clear_pointer (&self->path_measure, gsk_path_measure_unref);
@@ -844,7 +847,7 @@ refresh_path (BzDataGraph *self,
   if (tick_spacing == 0.0)
     tick_spacing = 1.0;
 
-  rounded_axis_max = ceil (max_dependent / tick_spacing) * tick_spacing;
+  rounded_axis_max       = ceil (max_dependent / tick_spacing) * tick_spacing;
   self->rounded_axis_max = rounded_axis_max;
 
   independent_label_step = MAX (1, n_items / MAX (1, floor (width / MAX (font_height + 10.0, LABEL_MARGIN))));
@@ -924,7 +927,7 @@ refresh_path (BzDataGraph *self,
 
   for (double value = 0.0; value <= rounded_axis_max; value += tick_spacing)
     {
-      char   buf[32]                 = { 0 };
+      char buf[32]                   = { 0 };
       g_autoptr (PangoLayout) layout = NULL;
       double y_pos                   = (1.0 - value / rounded_axis_max) * height;
 
