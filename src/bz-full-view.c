@@ -222,9 +222,11 @@ format_timestamp (gpointer object,
                   guint64  value)
 {
   g_autoptr (GDateTime) date = NULL;
-  g_autoptr (GDateTime) now = NULL;
+  g_autoptr (GDateTime) now  = NULL;
+
   date = g_date_time_new_from_unix_utc (value);
-  now = g_date_time_new_now_local ();
+  now  = g_date_time_new_now_local ();
+
   if (g_date_time_get_year (date) < g_date_time_get_year (now))
     /* Translators: This is a date format for timestamps from previous years. Used in the app releases section.
      * %B is the full month name, %e is the day, %Y is the year.
