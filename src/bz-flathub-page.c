@@ -168,7 +168,7 @@ unbind_category_tile_cb (BzFlathubPage     *self,
 
 static void
 show_more_trending_clicked_cb (BzFlathubPage *self,
-                                GtkButton     *button)
+                               GtkButton     *button)
 {
   g_autoptr (GListModel) model = NULL;
 
@@ -178,7 +178,7 @@ show_more_trending_clicked_cb (BzFlathubPage *self,
 
 static void
 show_more_recently_updated_clicked_cb (BzFlathubPage *self,
-                                        GtkButton     *button)
+                                       GtkButton     *button)
 {
   g_autoptr (GListModel) model = NULL;
 
@@ -188,7 +188,7 @@ show_more_recently_updated_clicked_cb (BzFlathubPage *self,
 
 static void
 show_more_recently_added_clicked_cb (BzFlathubPage *self,
-                                      GtkButton     *button)
+                                     GtkButton     *button)
 {
   g_autoptr (GListModel) model = NULL;
 
@@ -198,7 +198,7 @@ show_more_recently_added_clicked_cb (BzFlathubPage *self,
 
 static void
 show_more_popular_clicked_cb (BzFlathubPage *self,
-                               GtkButton     *button)
+                              GtkButton     *button)
 {
   g_autoptr (GListModel) model = NULL;
 
@@ -312,12 +312,12 @@ static void
 category_clicked (BzFlathubCategory *category,
                   GtkButton         *button)
 {
-  GtkWidget               *self       = NULL;
-  GtkWidget               *window     = NULL;
-  GtkWidget               *nav_view   = NULL;
-  AdwNavigationPage       *apps_page  = NULL;
-  g_autoptr (GListModel)   model      = NULL;
-  const char              *title      = NULL;
+  GtkWidget         *self      = NULL;
+  GtkWidget         *window    = NULL;
+  GtkWidget         *nav_view  = NULL;
+  AdwNavigationPage *apps_page = NULL;
+  g_autoptr (GListModel) model = NULL;
+  const char *title            = NULL;
 
   self = gtk_widget_get_ancestor (GTK_WIDGET (button), BZ_TYPE_FLATHUB_PAGE);
   g_assert (self != NULL);
