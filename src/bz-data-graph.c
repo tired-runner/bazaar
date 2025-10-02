@@ -368,13 +368,9 @@ bz_data_graph_snapshot (GtkWidget   *widget,
       card_height = text1_extents.height + text2_extents.height + 20.0;
 
       if (widget_width - self->motion_x < CARD_EDGE_THRESHOLD)
-        {
-          card_x = self->motion_x - card_width - 10.0;
-        }
+        card_x = self->motion_x - card_width - 10.0;
       else
-        {
-          card_x = self->motion_x + 10.0;
-        }
+        card_x = self->motion_x + 10.0;
       card_y = self->motion_y + 10.0;
 
       /* The proper way is to make each actual element it's own widget or Gizmo
@@ -513,13 +509,9 @@ update_cursor (BzDataGraph *self,
       y >= 0.0 &&
       x < widget_width - LABEL_MARGIN &&
       y < widget_height - LABEL_MARGIN)
-    {
-      gtk_widget_set_cursor_from_name (GTK_WIDGET (self), "crosshair");
-    }
+    gtk_widget_set_cursor_from_name (GTK_WIDGET (self), "crosshair");
   else
-    {
-      gtk_widget_set_cursor (GTK_WIDGET (self), NULL);
-    }
+    gtk_widget_set_cursor (GTK_WIDGET (self), NULL);
 }
 
 static void
@@ -744,9 +736,13 @@ items_changed (GListModel  *model,
 static double
 calculate_axis_tick_value (double value, gboolean round_up)
 {
-  double exponent = floor (log10 (value));
-  double fraction = value / pow (10, exponent);
-  double rounded_axis_fraction;
+  double exponent              = 0.0;
+  double fraction              = 0.0;
+  double rounded_axis_fraction = 0.0;
+
+  exponent = floor (log10 (value));
+  fraction = value / pow (10, exponent);
+
   if (round_up)
     {
       if (fraction <= 1.0)
@@ -758,17 +754,14 @@ calculate_axis_tick_value (double value, gboolean round_up)
       else
         rounded_axis_fraction = 10.0;
     }
+  else if (fraction < 1.5)
+    rounded_axis_fraction = 1.0;
+  else if (fraction < 3.0)
+    rounded_axis_fraction = 2.0;
+  else if (fraction < 7.0)
+    rounded_axis_fraction = 5.0;
   else
-    {
-      if (fraction < 1.5)
-        rounded_axis_fraction = 1.0;
-      else if (fraction < 3.0)
-        rounded_axis_fraction = 2.0;
-      else if (fraction < 7.0)
-        rounded_axis_fraction = 5.0;
-      else
-        rounded_axis_fraction = 10.0;
-    }
+    rounded_axis_fraction = 10.0;
 
   return rounded_axis_fraction * pow (10, exponent);
 }
