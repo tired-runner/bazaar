@@ -19,17 +19,13 @@
  */
 
 #include "bz-preferences-dialog.h"
-#include "adwaita.h"
-#include "gio/gio.h"
-#include "glib-object.h"
-#include "glibconfig.h"
-#include "gtk/gtk.h"
 
 static const char *bar_themes_ordered[] = {
   "accent-color",
   "pride-rainbow-flag",
   "lesbian-pride-flag",
   "transgender-flag",
+  "nonbinary-flag",
   "bisexual-flag",
   "asexual-flag",
   "pansexual-flag",
