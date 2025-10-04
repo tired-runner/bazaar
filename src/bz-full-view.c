@@ -777,6 +777,9 @@ bz_full_view_set_entry_group (BzFullView   *self,
   g_return_if_fail (group == NULL ||
                     BZ_IS_ENTRY_GROUP (group));
 
+  if (group == self->group)
+    return;
+
   g_clear_handle_id (&self->debounce_timeout, g_source_remove);
   g_clear_object (&self->group);
   g_clear_object (&self->ui_entry);
