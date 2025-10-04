@@ -520,7 +520,7 @@ bz_world_map_snapshot (GtkWidget   *widget,
       const char      *iso_code        = bz_country_get_iso_code (country);
       guint            download_number = get_downloads_for_country (self, iso_code);
       const char      *country_name    = bz_country_get_name (country);
-      g_autofree char *card_text       = g_strdup_printf (_ ("%s: %u downloads"), country_name, download_number);
+      g_autofree char *card_text       = g_strdup_printf (_ ("%s: %'u downloads"), country_name, download_number);
       g_autoptr (PangoLayout) layout   = pango_layout_new (gtk_widget_get_pango_context (widget));
       PangoRectangle text_extents      = { 0 };
       double         card_width        = 0.0;
