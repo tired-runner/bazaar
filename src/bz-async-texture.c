@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include <glycin-gtk4-2/glycin-gtk4.h>
+#include <glycin-gtk4-1/glycin-gtk4.h>
 #include <libdex.h>
 
 #include "bz-async-texture.h"
