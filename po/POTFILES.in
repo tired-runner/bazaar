@@ -85,5 +85,5 @@ src/bz-window.c
 src/bz-world-map.c
 src/bz-yaml-parser.c
 src/dl-worker.c
-src/gtk/shortcuts-dialog.blp
+src/gtk/help-overlay.blp
 src/main.c

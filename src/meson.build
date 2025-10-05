@@ -165,7 +165,7 @@ blueprints = custom_target('blueprints',
     'bz-transaction-view.blp',
     'bz-update-dialog.blp',
     'bz-window.blp',
-    'gtk/shortcuts-dialog.blp',
+    'gtk/help-overlay.blp',
   ),
   output: '.',
   command: [
